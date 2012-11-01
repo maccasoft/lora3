@@ -59,11 +59,8 @@ USHORT FIDOSDM::Add (class TMsgBase *MsgBase)
    strcpy (From, MsgBase->From);
    strcpy (To, MsgBase->To);
    strcpy (Subject, MsgBase->Subject);
-
-   if (MsgBase->FromAddress[0] != '\0')
-      strcpy (FromAddress, MsgBase->FromAddress);
-   if (MsgBase->ToAddress[0] != '\0')
-      strcpy (ToAddress, MsgBase->ToAddress);
+   strcpy (FromAddress, MsgBase->FromAddress);
+   strcpy (ToAddress, MsgBase->ToAddress);
 
    Written.Day = MsgBase->Written.Day;
    Written.Month = MsgBase->Written.Month;

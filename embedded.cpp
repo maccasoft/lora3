@@ -136,6 +136,7 @@ TEmbedded::TEmbedded (void)
    StartCall = 0L;
    last_time = 0L;
    IsDown = FALSE;
+   CarrierSpeed = 57600L;
 
    fp = NULL;
    AnswerFile = NULL;
@@ -166,7 +167,10 @@ USHORT TEmbedded::AbortSession (VOID)
          RetVal = TRUE;
 
       if (RetVal == TRUE && IsDown == FALSE) {
-         Timeout = TimerSet (Cfg->CarrierDropTimeout * 100L);
+         Timeout = TimerSet (200);
+         if (Cfg->CarrierDropTimeout != 0)
+            Timeout = TimerSet (Cfg->CarrierDropTimeout * 100L);
+
          do {
             if (Com != NULL) {
                if (Com->Carrier () == TRUE)
@@ -476,19 +480,21 @@ VOID TEmbedded::Idle (VOID)
 //    flAttrib  = Attributi di input. Puo' essere uno dei seguenti
 //                valori:
 //
-//                INP_FIELD   = Traccia uno sfondo pari alla dimensione
-//                              massima della stringa.
-//                INP_FANCY   = Forza le maiuscole (per i nomi).
-//                INP_NOCRLF  = Non visualizza il CR/LF alla fine della
-//                              stringa di input.
-//                INP_PWD     = Visualizza un asterisco al posto delle
-//                              lettere digitate (per l'inserimento di password).
-//                INP_NOCOLOR = Non effettua il reset del colore alla fine
-//                              dell'inserimento.
-//                INP_HOTKEY  = Attiva gli hotkey se richiesto anche
-//                              dall'utente.
-//                INP_NUMERIC = Indica un input numerico, tutto il resto
-//                              viene ignorato.
+//                INP_FIELD    = Traccia uno sfondo pari alla dimensione
+//                               massima della stringa.
+//                INP_FANCY    = Forza le maiuscole (per i nomi).
+//                INP_NOCRLF   = Non visualizza il CR/LF alla fine della
+//                               stringa di input.
+//                INP_PWD      = Visualizza un asterisco al posto delle
+//                               lettere digitate (per l'inserimento di password).
+//                INP_NOCOLOR  = Non effettua il reset del colore alla fine
+//                               dell'inserimento.
+//                INP_HOTKEY   = Attiva gli hotkey se richiesto anche
+//                               dall'utente.
+//                INP_NUMERIC  = Indica un input numerico, tutto il resto
+//                               viene ignorato.
+//                INP_NONUMHOT = Impedisce che venga attivato il modo hot-key
+//                               se il carattere digitato e' un numero.
 //
 // Valori di ritorno:
 //    pszBuffer = Stringa digitata dall'utente.
@@ -497,6 +503,7 @@ VOID TEmbedded::Idle (VOID)
 PSZ TEmbedded::Input (PSZ pszBuffer, USHORT usMaxlen, USHORT flAttrib)
 {
    USHORT i, c, Len, DoFancy, Enter;
+   USHORT Warn = FALSE;
    PSZ p;
 
    p = pszBuffer;
@@ -532,6 +539,7 @@ PSZ TEmbedded::Input (PSZ pszBuffer, USHORT usMaxlen, USHORT flAttrib)
 
    while (Enter == FALSE && AbortSession () == FALSE) {
       if (KBHit ()) {
+         Warn = FALSE;
          LastActivity = time (NULL);
          if ((c = Getch ()) == 0)
             c = (short)(Getch () << 8);
@@ -558,7 +566,7 @@ PSZ TEmbedded::Input (PSZ pszBuffer, USHORT usMaxlen, USHORT flAttrib)
                   Putch ((UCHAR)c);
 
                if (!(flAttrib & INP_NUMERIC) || !isdigit (c)) {
-                  if (Len == 1 && flAttrib & INP_HOTKEY && !isdigit (c)) {
+                  if (Len == 1 && flAttrib & INP_HOTKEY && (!isdigit (c) || !(flAttrib & INP_NONUMHOT))) {
                      if (HotKey == TRUE)
                         Enter = TRUE;
                   }
@@ -566,8 +574,17 @@ PSZ TEmbedded::Input (PSZ pszBuffer, USHORT usMaxlen, USHORT flAttrib)
             }
          }
       }
-      else
+      else {
+         if ((time (NULL) - LastActivity) > 180 && Warn == FALSE) {
+            Printf ("\n\026\001\014Warning : only 20 seconds to hangup (inactivity) !\026\001\007\n");
+            Warn = TRUE;
+         }
+         if ((time (NULL) - LastActivity) > 200) {
+            Printf ("\n\026\001\014User inactive, hanging up...\026\001\007\n");
+            StartCall = 0L;
+         }
          Idle ();
+      }
    }
 
    *p = '\0';
@@ -1149,318 +1166,10 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
          Line = 1;
          break;
       case CTRLF:
-         if ((c = GetNextChar ()) != EOF) {
-            switch (c) {
-               case CTRLA: {  // ^F^A = Show next quote
-                  FILE *fp;
-                  int fd;
-                  CHAR Temp[128], *p;
-                  ULONG Position = 0L;
-
-                  sprintf (Temp, "%squotes.dat", Cfg->SystemPath);
-                  if ((fd = sopen (Temp, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
-                     read (fd, &Position, sizeof (Position));
-                     close (fd);
-                  }
-
-                  if ((fp = OpenFile ("quotes", "rt")) != NULL) {
-                     if (Position >= filelength (fileno (fp)))
-                        Position = 0L;
-                     fseek (fp, Position, SEEK_SET);
-                     while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-                        if ((p = strchr (Temp, '\r')) != NULL)
-                           *p = '\0';
-                        if ((p = strchr (Temp, '\n')) != NULL)
-                           *p = '\0';
-                        if (Temp[0] == '\0')
-                           break;
-                        if (Temp[strlen (Temp) - 1] == '\n')
-                           Temp[strlen (Temp) - 1] = '\0';
-                        OutString ("%s\r\n", Temp);
-                     }
-                     Position = ftell (fp);
-                     fclose (fp);
-                  }
-
-                  sprintf (Temp, "%squotes.dat", Cfg->SystemPath);
-                  if ((fd = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
-                     write (fd, &Position, sizeof (Position));
-                     close (fd);
-                  }
-                  break;
-               }
-               case 'A':      // ^FA
-               case CTRLB:    // ^F^B = Nome e cognome dell'utente
-                  if (User != NULL)
-                     OutString ("%s", User->Name);
-                  break;
-               case 'B':      // ^FB = New files check
-                  OutString ("%s", (User->NewFileCheck == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case CTRLC:    // ^F^C = City
-                  if (User != NULL)
-                     OutString ("%s", User->City);
-                  break;
-               case CTRLD: {  // ^F^D = Today's date (dd mmm yy)
-                  time_t t;
-                  struct tm *ltm;
-
-                  t = time (NULL);
-                  ltm = localtime (&t);
-                  OutString ("%d %3.3s %d", ltm->tm_mday, Language->Months[ltm->tm_mon], ltm->tm_year + 1900);
-                  break;
-               }
-               case 'P':      // ^FP
-               case CTRLE:    // ^F^E = Numero di chiamate fatte dall'utente
-                  if (User != NULL)
-                     OutString ("%ld", User->TotalCalls);
-                  break;
-               case CTRLP: {  // ^F^P = Time off (hh:mm:ss)
-                  time_t t;
-                  struct tm *ltm;
-
-                  t = time (NULL) + TimeRemain (TRUE);
-                  ltm = localtime (&t);
-                  OutString ("%2d:%02d:%02d", ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-                  break;
-               }
-               case CTRLT: {  // ^F^T = Current time (hh:mm:ss)
-                  time_t t;
-                  struct tm *ltm;
-
-                  t = time (NULL);
-                  ltm = localtime (&t);
-                  OutString ("%2d:%02d:%02d", ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-                  break;
-               }
-               case 'W':      // ^FW
-               case CTRLF: {  // ^F^F = Solo il nome dell'utente
-                  PSZ Temp, p;
-
-                  if (User != NULL) {
-                     if ((Temp = (PSZ)malloc (sizeof (User->Name))) != NULL) {
-                        strcpy (Temp, User->Name);
-                        if ((p = strtok (Temp, " ")) != NULL)
-                           OutString ("%s", p);
-                     }
-                  }
-                  break;
-               }
-               case '?':      // ^F? = Video mode
-                  if (Rip == TRUE)
-                     OutString ("%s", "RIP   ");
-                  else if (Avatar == TRUE)
-                     OutString ("%s", "AVATAR");
-                  else if (Ansi == TRUE)
-                     OutString ("%s", "ANSI  ");
-                  else
-                     OutString ("%s", "TTY   ");
-                  break;
-               case CTRLG:    // ^F^G = Pausa di 1 secondo
-                  if (Com != NULL)
-                     Com->UnbufferBytes ();
-                  if (Snoop != NULL)
-                     Snoop->UnbufferBytes ();
-                  Pause (100);
-                  break;
-               case CTRLK:    // ^F^K = Time of previous calls today
-                  if (User != NULL)
-                     OutString ("%lu", User->TodayTime);
-                  break;
-               case 'U':
-               case CTRLL:    // Time online, this call
-                  OutString ("%lu", (time (NULL) - StartCall) / 60L);
-                  break;
-               case CTRLO:    // ^F^O = Tempo rimasto
-                  OutString ("%lu", TimeRemain ());
-                  break;
-               case CTRLQ: {  // ^F^Q = Total calls
-                  class TStatistics *Stats;
-
-                  if ((Stats = new TStatistics) != NULL) {
-                     Stats->Read (Task);
-                     OutString ("%lu", Stats->TotalCalls);
-                     delete Stats;
-                  }
-                  break;
-               }
-               case CTRLU:    // ^F^U = Answers are required
-                  Required = TRUE;
-                  break;
-               case CTRLV:    // ^F^V = Answers are not required
-                  Required = FALSE;
-                  break;
-               case CTRLW:    // ^F^W = Upload KBytes
-                  if (User != NULL)
-                     OutString ("%lu", (User->UploadBytes + 1023L) / 1024L);
-                  break;
-               case CTRLX:    // ^F^X = Download KBytes
-                  if (User != NULL)
-                     OutString ("%lu", (User->DownloadBytes + 1023L) / 1024L);
-                  break;
-               case ':':    // ^F:  = Fullscreen enhancements
-                  OutString ("%s", (User->FullScreen == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case CTRLY:    // ^F^Y = DL/UL Bytes Ratio
-                  if (User != NULL) {
-                     if (User->UploadBytes != 0)
-                        OutString ("%lu:1", User->DownloadBytes / User->UploadBytes);
-                     else
-                        OutString ("%lu:0", (User->DownloadBytes + 1023L) / 1024L);
-                  }
-                  break;
-               case '0':    // ^F0 = Full Screen Editor YES/NO
-                  OutString ("%s", (User->FullEd == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case '2':    // ^F2 = User's age
-                  if (User != NULL)
-                     OutString ("%u", User->Age ());
-                  break;
-               case '3':    // ^F3 = Hotkey YES/NO
-                  OutString ("%s", (HotKey == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case '5':    // ^F5 = Birthdate
-                  OutString ("%d-%02d-%04d", User->BirthDay, User->BirthMonth, User->BirthYear);
-                  break;
-               case '6':    // ^F6 = Mailcheck YES/NO
-                  OutString ("%s", (User->MailCheck == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case '8':    // ^F8 = Avatar YES/NO
-                  OutString ("%s", (Avatar == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case '9':      // ^F9  = DL/UL Files Ratio
-                  if (User != NULL) {
-                     if (User->UploadFiles != 0)
-                        OutString ("%lu:1", User->DownloadFiles / User->UploadFiles);
-                     else
-                        OutString ("%lu:0", User->DownloadFiles);
-                  }
-                  break;
-               case '!':    // ^F! = Color YES/NO
-                  OutString ("%s", (Color == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case '=':    // ^F= = Rip graphics YES/NO
-                  OutString ("%s", (Rip == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case '$':    // ^F$ = In User list YES/NO
-                  OutString ("%s", (User->InUserList == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case 'D':    // ^FD = E-Mail address
-                  if (User != NULL)
-                     OutString ("%s", User->InetAddress);
-                  break;
-               case 'E':    // ^FE = Phone number
-                  if (User != NULL)
-                     OutString ("%s", User->DayPhone);
-                  break;
-               case 'N':    // ^FN = Last message read
-                  if (User != NULL && MsgArea != NULL)
-                     OutString ("%lu", MsgArea->LastReaded);
-                  break;
-               case 'I':    // ^FI = IBM characters YES/NO
-                  OutString ("%s", (User->IBMChars == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case 'K':    // ^F0 = Full Screen Editor YES/NO
-                  OutString ("%s", (User->Kludges == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case 'Q':    // ^FR = Upload Files
-                  if (User != NULL)
-                     OutString ("%u", User->UploadFiles);
-                  break;
-               case 'R':    // ^FR = Upload Bytes
-                  if (User != NULL)
-                     OutString ("%lu", User->UploadBytes);
-                  break;
-               case 'S':    // ^FS = Download Files
-                  if (User != NULL)
-                     OutString ("%lu", User->DownloadFiles);
-                  break;
-               case 'T':    // ^FT = Download Bytes
-                  if (User != NULL)
-                     OutString ("%lu", User->DownloadBytes);
-                  break;
-               case 'V':    // ^FV = Screen Length
-                  if (User != NULL)
-                     OutString ("%u", User->ScreenHeight);
-                  break;
-               case 'X':    // ^FX = Ansi YES/NO
-                  OutString ("%s", (Ansi == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case 'Y':    // ^FY = More? YES/NO
-                  OutString ("%s", (User->MorePrompt == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case 'Z':    // ^FZ = Screen Clear YES/NO
-                  OutString ("%s", (User->ScreenClear == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               case '\\':  // ^F\ = Language Name
-                  if (Language != NULL)
-                     OutString ("%s", Language->Comment);
-                  break;
-               case ';':    // ^F; = Full Screen Reader YES/NO
-                  OutString ("%s", (User->FullReader == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
-                  break;
-               default:
-                  ProcessControlF ((UCHAR)c);
-                  break;
-            }
-         }
+         ProcessControlF ();
          break;
       case CTRLK:
-         if ((c = GetNextChar ()) != EOF) {
-            switch (c) {
-               case '1':    // ^K1 = Name of current message area
-                  if (MsgArea != NULL)
-                     OutString ("%s", MsgArea->Key);
-                  break;
-               case '2':    // ^K2 = Name of current file area
-                  if (FileArea != NULL)
-                     OutString ("%s", FileArea->Key);
-                  break;
-               case '7':    // ^K7 = Number of tagged files
-                  if (User != NULL) {
-                     if (User->FileTag != NULL)
-                        OutString ("%u", User->FileTag->TotalFiles);
-                  }
-                  break;
-               case '8':    // ^K8 = Number of files in current area
-                  if (FileArea != NULL)
-                     OutString ("%lu", FileArea->ActiveFiles);
-                  break;
-               case '9':    // ^K9 = Number of messages in current area
-                  if (MsgArea != NULL)
-                     OutString ("%lu", MsgArea->ActiveMsgs);
-                  break;
-               case 'A': {  // ^KA = Total calls
-                  class TStatistics *Stats;
-
-                  if ((Stats = new TStatistics) != NULL) {
-                     Stats->Read (Task);
-                     OutString ("%lu", Stats->TotalCalls);
-                     delete Stats;
-                  }
-                  break;
-               }
-               case 'D':    // ^KD = First message in area
-                  if (MsgArea != NULL)
-                     OutString ("%lu", MsgArea->FirstMessage);
-                  break;
-               case 'E':    // ^KE = Last message in area
-                  if (MsgArea != NULL)
-                     OutString ("%lu", MsgArea->LastMessage);
-                  break;
-               case 'W':    // ^KW = Numero di linea
-                  OutString ("%u", Task);
-                  break;
-               case 'Y':    // ^KY = Title of current message area
-                  if (MsgArea != NULL)
-                     OutString ("%s", MsgArea->Display);
-                  break;
-               case 'Z':    // ^KZ = Title of current file area
-                  if (FileArea != NULL)
-                     OutString ("%s", FileArea->Display);
-                  break;
-            }
-         }
+         ProcessControlK ();
          break;
       case CTRLL:             // ^L = Cancella lo schermo
          if (Ansi == TRUE || Avatar == TRUE) {
@@ -1474,249 +1183,10 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
          Line = 1;
          break;
       case CTRLO:
-         if ((c = GetNextChar ()) != EOF) {
-            switch (c) {
-               case 'C': {    // ^OC[cmd] = Run external program
-                  CHAR File[64], *p;
-
-                  p = File;
-                  while ((c = GetNextChar ()) != EOF) {
-                     if (c <= ' ')
-                        break;
-                     *p++ = (CHAR)c;
-                  }
-                  *p = '\0';
-
-                  if (c == '\r' && PeekNextChar () == '\n')
-                     GetNextChar ();
-
-                  RunExternal (File);
-                  break;
-               }
-               case 'E':      // ^OE = Display only if ANSI/Avatar enabled
-                  if (Ansi == FALSE && Avatar == FALSE) {
-                     while ((c = GetNextChar ()) != EOF) {
-                        if (c == CTRLO) {
-                           if ((c = GetNextChar ()) == 'e')
-                              break;
-                        }
-                     }
-                  }
-                  break;
-               case 'e':      // ^Oe = End of ANSI/Avatar only text
-                  break;
-               case 'F':      // ^OF = Set On Exit filename
-                  p = OnExit;
-                  while ((c = GetNextChar ()) != EOF) {
-                     if (c <= ' ')
-                        break;
-                     *p++ = (CHAR)c;
-                  }
-                  *p = '\0';
-                  if (c == '\r' && PeekNextChar () == '\n')
-                     GetNextChar ();
-                  break;
-               case 'G':      // ^OG = Display only if RIPscript enabled
-                  if (Rip == FALSE) {
-                     while ((c = GetNextChar ()) != EOF) {
-                        if (c == CTRLO) {
-                           if ((c = GetNextChar ()) == 'I')
-                              break;
-                        }
-                     }
-                  }
-                  break;
-               case 'I':      // ^OI = End of Rip only text
-                  break;
-               case 'L': {    // ^OL[file] = Change language
-                  CHAR File[64], *p;
-
-                  p = File;
-                  while ((c = GetNextChar ()) != EOF) {
-                     if (c <= ' ')
-                        break;
-                     *p++ = (CHAR)c;
-                  }
-                  *p = '\0';
-
-                  if (c == '\r' && PeekNextChar () == '\n')
-                     GetNextChar ();
-
-                  Language->Load (File);
-                  strcpy (AltPath, Language->TextFiles);
-                  break;
-               }
-               case 'M': {    // ^OM[comment] = Memorizza l'ultima risposta al ^OR
-                  CHAR Comment[64], *p;
-
-                  p = Comment;
-                  do {
-                     if ((c = GetNextChar ()) > ' ')
-                        *p++ = (CHAR)c;
-                  } while (c != EOF && c > ' ');
-                  *p = '\0';
-                  if (c == 0x0D && PeekNextChar () == 0x0A)
-                     GetNextChar ();
-
-                  if (AnswerFile != NULL)
-                     fprintf (AnswerFile, "  %s: %c\n", Comment, Response);
-                  break;
-               }
-               case 'N': {    // ^ON[comment] = Attende una stringa dall'utente e la memorizza
-                  CHAR Comment[64], Answer[64], *p;
-
-                  p = Comment;
-                  do {
-                     if ((c = GetNextChar ()) > ' ')
-                        *p++ = (CHAR)c;
-                  } while (c != EOF && c > ' ');
-                  *p = '\0';
-                  if (c == 0x0D && PeekNextChar () == 0x0A)
-                     GetNextChar ();
-
-                  do {
-                     GetString (Answer, (USHORT)(sizeof (Answer) - 1), 0);
-                  } while (AbortSession () == FALSE && Answer[0] == '\0' && Required == TRUE);
-                  if (AnswerFile != NULL)
-                     fprintf (AnswerFile, "  %s: %s\n", Comment, Answer);
-                  break;
-               }
-               case 'O': {    // ^OO[file] = Open answer file
-                  CHAR File[64], *p;
-
-                  p = File;
-                  while ((c = GetNextChar ()) != EOF) {
-                     if (c <= ' ')
-                        break;
-                     *p++ = (CHAR)c;
-                  }
-                  *p = '\0';
-                  if (c == '\r' && PeekNextChar () == '\n')
-                     GetNextChar ();
-
-                  if (AnswerFile != NULL)
-                     fclose (AnswerFile);
-                  if ((AnswerFile = fopen (File, "at")) != NULL) {
-                     if (Log != NULL)
-                        Log->Write ("+Answer file %s opened", File);
-                  }
-                  else {
-                     if (Log != NULL)
-                        Log->Write ("!Failed to open answer file %s", File);
-                  }
-                  break;
-               }
-               case 'P':      // ^OP = Write user's data to answer file
-                  if (AnswerFile != NULL)
-                     fprintf (AnswerFile, "* %s\t%s\t%s\t\n", User->Name, User->City, "");
-                  break;
-               case 'Q':      // ^OQ = Fine immediata del file
-                  Stop = TRUE;
-                  break;
-               case 'R': {    // ^OR = Attende un comando dall'utente
-                  USHORT Good = FALSE;
-                  CHAR Valid[128], *p;
-
-                  p = Valid;
-                  do {
-                     if ((c = GetNextChar ()) > ' ')
-                        *p++ = (CHAR)c;
-                  } while (c != EOF && c > ' ');
-                  if (c == 0x0D && PeekNextChar () == 0x0A)
-                     GetNextChar ();
-                  *p = '\0';
-                  strupr (Valid);
-
-                  while (AbortSession () == FALSE && Good == FALSE) {
-                     GetString (Temp, 1, INP_HOTKEY|INP_NOCRLF);
-                     if ((Response = (CHAR)toupper (Temp[0])) == '\0')
-                        Response = '|';
-                     if (strchr (Valid, Response) != NULL)
-                        Good = TRUE;
-                     else if (Response != '|')
-                        OutString ("\x08 \x08");
-                  }
-
-                  OutString ("\n");
-                  break;
-               }
-               case 'S': {    // ^OS = Passa il controllo ad un'altro file
-                  p = Temp;
-                  do {
-                     if ((c = GetNextChar ()) > ' ')
-                        *p++ = (CHAR)c;
-                  } while (c != EOF && c > ' ');
-                  if (c == 0x0D && PeekNextChar () == 0x0A)
-                     GetNextChar ();
-                  *p = '\0';
-
-                  if (Temp[0] != '\0') {
-                     if (fp != NULL)
-                        fclose (fp);
-                     fp = OpenFile (Temp);
-                     Line = 1;
-                  }
-                  break;
-               }
-               case 'T':      // ^OT = Salta all'inizio del file
-                  if (fp != NULL)
-                     fseek (fp, 0L, SEEK_SET);
-                  break;
-               case 'U':      // ^OU[char] = La riga prosegue se l'utente ha risposto [char]
-                  if ((c = GetNextChar ()) != EOF) {
-                     if (toupper (c) != toupper (Response))
-                        do {
-                           if ((c = GetNextChar ()) == 0x0D) {
-                              if (PeekNextChar () == 0x0A)
-                                 GetNextChar ();
-                              else
-                                 c = 0;
-                           }
-                        } while (c != EOF && c != 0x0D);
-                  }
-                  break;
-               case 'V': {    // ^OV[pos] = Si posiziona a [pos] nel file
-                  ULONG Pos = 0L;
-
-                  while (isdigit (PeekNextChar ())) {
-                     c = GetNextChar ();
-                     Pos *= 10L;
-                     Pos += c - 0x30;
-                  }
-
-                  if (PeekNextChar () == 0x0D) {
-                     GetNextChar ();
-                     if (PeekNextChar () == 0x0A)
-                        GetNextChar ();
-                  }
-
-                  if (fp != NULL)
-                     fseek (fp, Pos, SEEK_SET);
-                  break;
-               }
-            }
-         }
+         ProcessControlO ();
          break;
       case CTRLP:
-         switch (PeekNextChar ()) {
-            case 'L':
-               GetNextChar ();
-               do {
-                  if ((c = GetNextChar ()) == 0x0D) {
-                     if (PeekNextChar () == 0x0A)
-                        GetNextChar ();
-                     else
-                        c = 0;
-                  }
-               } while (c != EOF && c != 0x0D);
-               break;
-            default:
-               if (Com != NULL)
-                  Com->BufferByte (ucControl);
-               if (Snoop != NULL)
-                  Snoop->BufferByte (ucControl);
-               break;
-         }
+         ProcessControlP ();
          break;
       case CTRLR:
          if ((c = GetNextChar ()) != EOF) {
@@ -1784,162 +1254,7 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
          }
          break;
       case CTRLW:
-         if ((c = GetNextChar ()) != EOF) {
-            switch (c) {
-               case 'b': {    // ^Wb[n] = If Task == [n]
-                  CHAR Temp[64], *p;
-
-                  p = Temp;
-                  while ((c = GetNextChar ()) != EOF) {
-                     if (c <= ' ')
-                        break;
-                     *p++ = (CHAR)c;
-                  }
-                  *p = '\0';
-
-                  if (c == '\r' && PeekNextChar () == '\n')
-                     GetNextChar ();
-
-                  if (Task != atoi (Temp))
-                     do {
-                        if ((c = GetNextChar ()) == 0x0D) {
-                           if (PeekNextChar () == 0x0A)
-                              GetNextChar ();
-                           else
-                              c = 0;
-                        }
-                     } while (c != EOF && c != 0x0D);
-                  break;
-               }
-               case CTRLA: {  // ^W^A = User's last call date (dd mmm yy)
-                  struct tm *ltm;
-
-                  if (User != NULL) {
-                     ltm = localtime ((time_t *)&User->LastCall);
-                     OutString ("%d %3.3s %d", ltm->tm_mday, Language->Months[ltm->tm_mon], ltm->tm_year + 1900);
-                  }
-                  break;
-               }
-               case CTRLC:    // ^W^C = System Name
-                  if (Cfg != NULL)
-                     OutString ("%s", Cfg->SystemName);
-                  break;
-               case CTRLD:    // ^W^D = Sysop Name
-                  if (Cfg != NULL)
-                     OutString ("%s", Cfg->SysopName);
-                  break;
-               case 'E':
-                  StopNested = TRUE;
-                  break;
-               case CTRLF:
-               case 'G':
-                  switch (c = GetNextChar ()) {
-                     case 'A':      // ^W^FA = Name of current file area
-                        if (FileArea != NULL)
-                           OutString ("%s", FileArea->Key);
-                        break;
-                     case 'N':      // ^W^FN = Description of current file area
-                        if (FileArea != NULL)
-                           OutString ("%s", FileArea->Display);
-                        break;
-                  }
-                  break;
-               case 'j':
-                  switch (c = GetNextChar ()) {
-                     case 'N':      // ^WjN = Node number
-                        OutString ("%d", Task);
-                        break;
-                  }
-                  break;
-               case 'L': {    // ^WL = Link con un'altro file
-                  FILE *SaveFP;
-                  CHAR SaveResponse;
-
-                  p = Temp;
-                  do {
-                     if ((c = GetNextChar ()) > ' ')
-                        *p++ = (CHAR)c;
-                  } while (c != EOF && c > ' ');
-                  if (c == 0x0D && PeekNextChar () == 0x0A)
-                     GetNextChar ();
-                  *p = '\0';
-
-                  if (Temp[0] != '\0') {
-                     strlwr (Temp);
-
-                     SaveFP = fp;
-                     SaveResponse = Response;
-                     if (strstr (Temp, ".cmd") == NULL) {
-                        Nested++;
-                        DisplayFile (Temp);
-                        if (--Nested == 0) {
-                           if (StopNested == TRUE)
-                              Stop = TRUE;
-                           StopNested = FALSE;
-                        }
-                     }
-#if defined(__OS2__)
-                     else {
-                        fp = NULL;
-                        CallRexx (this, Temp);
-                     }
-#endif
-
-                     Response = SaveResponse;
-                     fp = SaveFP;
-                  }
-                  break;
-               }
-               case CTRLM: {
-                  switch (c = GetNextChar ()) {
-                     case '#':      // ^W^M# = Number of messages in current area
-                        if (MsgArea != NULL)
-                           OutString ("%lu", MsgArea->ActiveMsgs);
-                        break;
-                     case 'A':      // ^W^MA = Name of current message area
-                        if (MsgArea != NULL)
-                           OutString ("%s", MsgArea->Key);
-                        break;
-                     case 'L':      // ^W^MH = Highest message in area
-                        if (MsgArea != NULL)
-                           OutString ("%lu", MsgArea->LastMessage);
-                        break;
-                     case 'N':      // ^W^MN = Description of current message area
-                        if (MsgArea != NULL)
-                           OutString ("%s", MsgArea->Display);
-                        break;
-                  }
-                  break;
-               }
-               case 'P':
-                  if (User != NULL)
-                     OutString ("%s", User->DayPhone);
-                  break;
-               case 'R':
-                  if (User != NULL)
-                     OutString ("%s", User->RealName);
-                  break;
-               case 'W': {    // ^WW[comment] = Scrive la stringa nell'answer file
-                  CHAR Comment[64], *p;
-
-                  p = Comment;
-                  do {
-                     if ((c = GetNextChar ()) > ' ')
-                        *p++ = (CHAR)c;
-                  } while (c != EOF && c > ' ');
-                  *p = '\0';
-                  if (c == 0x0D && PeekNextChar () == 0x0A)
-                     GetNextChar ();
-
-                  if (AnswerFile != NULL)
-                     fprintf (AnswerFile, "  %s\n", Comment);
-                  break;
-               }
-               default:
-                  ProcessControlW ((UCHAR)c);
-                  break;
-            }
-         }
+         ProcessControlW ();
          break;
       case CTRLY:             // ^Y[char][rep] = Ripete il carattere [char] per [rep] volte
          if ((c = GetNextChar ()) != EOF) {
@@ -1979,14 +1294,886 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
    }
 }
 
-VOID TEmbedded::ProcessControlF (UCHAR ucControl)
+VOID TEmbedded::ProcessControlF (VOID)
 {
-   ucControl = ucControl;
+   SHORT c;
+
+   if ((c = GetNextChar ()) != EOF) {
+      switch (c) {
+         case 'A':      // ^FA = Nome e cognome dell'utente
+            if (User != NULL)
+               OutString ("%s", User->Name);
+            break;
+         case 'B':      // ^FB = New files check
+            OutString ("%s", (User->NewFileCheck == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case 'D':    // ^FD = E-Mail address
+            if (User != NULL)
+               OutString ("%s", User->InetAddress);
+            break;
+         case 'E':    // ^FE = Phone number
+            if (User != NULL)
+               OutString ("%s", User->DayPhone);
+            break;
+         case 'I':    // ^FI = IBM characters YES/NO
+            OutString ("%s", (User->IBMChars == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case 'K':    // ^F0 = Full Screen Editor YES/NO
+            OutString ("%s", (User->Kludges == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case 'N':    // ^FN = Last message read
+            if (User != NULL && MsgArea != NULL)
+               OutString ("%lu", MsgArea->LastReaded);
+            break;
+         case 'O':    // ^FO = New messages
+            if (User != NULL && MsgArea != NULL)
+               OutString ("%lu", MsgArea->ActiveMsgs - MsgArea->LastReaded);
+            break;
+         case 'P':      // ^FP = Numero di chiamate fatte dall'utente
+            if (User != NULL)
+               OutString ("%ld", User->TotalCalls);
+            break;
+         case 'Q':    // ^FR = Upload Files
+            if (User != NULL)
+               OutString ("%u", User->UploadFiles);
+            break;
+         case 'R':    // ^FR = Upload Bytes
+            if (User != NULL)
+               OutString ("%lu", User->UploadBytes);
+            break;
+         case 'S':    // ^FS = Download Files
+            if (User != NULL)
+               OutString ("%lu", User->DownloadFiles);
+            break;
+         case 'T':    // ^FT = Download Bytes
+            if (User != NULL)
+               OutString ("%lu", User->DownloadBytes);
+            break;
+         case 'U':      // ^FU = Time online, this call
+            OutString ("%lu", (time (NULL) - StartCall) / 60L);
+            break;
+         case 'V':    // ^FV = Screen Length
+            if (User != NULL)
+               OutString ("%u", User->ScreenHeight);
+            break;
+         case 'W': {  // ^FW = Solo il nome dell'utente
+            PSZ Temp, p;
+
+            if (User != NULL) {
+               if ((Temp = (PSZ)malloc (sizeof (User->Name))) != NULL) {
+                  strcpy (Temp, User->Name);
+                  if ((p = strtok (Temp, " ")) != NULL)
+                     OutString ("%s", p);
+               }
+            }
+            break;
+         }
+         case 'X':    // ^FX = Ansi YES/NO
+            OutString ("%s", (Ansi == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case 'Y':    // ^FY = More? YES/NO
+            OutString ("%s", (User->MorePrompt == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case 'Z':    // ^FZ = Screen Clear YES/NO
+            OutString ("%s", (User->ScreenClear == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+
+         case CTRLA: {  // ^F^A = Show next quote
+            FILE *fp;
+            int fd;
+            CHAR Temp[128], *p;
+            ULONG Position = 0L;
+
+            sprintf (Temp, "%squotes.dat", Cfg->SystemPath);
+            if ((fd = sopen (Temp, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+               read (fd, &Position, sizeof (Position));
+               close (fd);
+            }
+
+            if ((fp = OpenFile ("quotes", "rt")) != NULL) {
+               if (Position >= filelength (fileno (fp)))
+                  Position = 0L;
+               fseek (fp, Position, SEEK_SET);
+               while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+                  if ((p = strchr (Temp, '\r')) != NULL)
+                     *p = '\0';
+                  if ((p = strchr (Temp, '\n')) != NULL)
+                     *p = '\0';
+                  if (Temp[0] == '\0')
+                     break;
+                  if (Temp[strlen (Temp) - 1] == '\n')
+                     Temp[strlen (Temp) - 1] = '\0';
+                  OutString ("%s\r\n", Temp);
+               }
+               Position = ftell (fp);
+               fclose (fp);
+            }
+
+            sprintf (Temp, "%squotes.dat", Cfg->SystemPath);
+            if ((fd = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+               write (fd, &Position, sizeof (Position));
+               close (fd);
+            }
+            break;
+         }
+         case CTRLB:    // ^F^B = Nome e cognome dell'utente
+            if (User != NULL)
+               OutString ("%s", User->Name);
+            break;
+         case CTRLC:    // ^F^C = City
+            if (User != NULL)
+               OutString ("%s", User->City);
+            break;
+         case CTRLD: {  // ^F^D = Today's date (dd mmm yy)
+            time_t t;
+            struct tm *ltm;
+
+            t = time (NULL);
+            ltm = localtime (&t);
+            OutString ("%d %3.3s %d", ltm->tm_mday, Language->Months[ltm->tm_mon], ltm->tm_year + 1900);
+            break;
+         }
+         case CTRLE:    // ^F^E = Numero di chiamate fatte dall'utente
+            if (User != NULL)
+               OutString ("%ld", User->TotalCalls);
+            break;
+         case CTRLF: {  // ^F^F = Solo il nome dell'utente
+            PSZ Temp, p;
+
+            if (User != NULL) {
+               if ((Temp = (PSZ)malloc (sizeof (User->Name))) != NULL) {
+                  strcpy (Temp, User->Name);
+                  if ((p = strtok (Temp, " ")) != NULL)
+                     OutString ("%s", p);
+               }
+            }
+            break;
+         }
+         case CTRLG:    // ^F^G = Pausa di 1 secondo
+            if (Com != NULL)
+               Com->UnbufferBytes ();
+            if (Snoop != NULL)
+               Snoop->UnbufferBytes ();
+            Pause (100);
+            break;
+         case CTRLK:    // ^F^K = Time of previous calls today
+            if (User != NULL)
+               OutString ("%lu", User->TodayTime);
+            break;
+         case CTRLL:    // ^F^L = Time online, this call
+            OutString ("%lu", (time (NULL) - StartCall) / 60L);
+            break;
+         case CTRLN:    // ^F^N = Hangup now
+            Hangup = TRUE;
+            break;
+         case CTRLO:    // ^F^O = Tempo rimasto
+            OutString ("%lu", TimeRemain ());
+            break;
+         case CTRLP: {  // ^F^P = Time off (hh:mm:ss)
+            time_t t;
+            struct tm *ltm;
+
+            t = time (NULL) + TimeRemain (TRUE);
+            ltm = localtime (&t);
+            OutString ("%2d:%02d:%02d", ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+            break;
+         }
+         case CTRLQ: {  // ^F^Q = Total calls
+            class TStatistics *Stats;
+
+            if ((Stats = new TStatistics) != NULL) {
+               Stats->Read (Task);
+               OutString ("%lu", Stats->TotalCalls);
+               delete Stats;
+            }
+            break;
+         }
+         case CTRLR:    // ^F^R = Net download (download - upload)
+            if (User != NULL)
+               OutString ("%lu", User->DownloadBytes - User->UploadBytes);
+            break;
+         case CTRLS:    // ^F^S = User's signature
+            if (User != NULL)
+               OutString ("%s", User->Signature);
+            break;
+         case CTRLT: {  // ^F^T = Current time (hh:mm:ss)
+            time_t t;
+            struct tm *ltm;
+
+            t = time (NULL);
+            ltm = localtime (&t);
+            OutString ("%2d:%02d:%02d", ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+            break;
+         }
+         case CTRLU:    // ^F^U = Answers are required
+            Required = TRUE;
+            break;
+         case CTRLV:    // ^F^V = Answers are not required
+            Required = FALSE;
+            break;
+         case CTRLW:    // ^F^W = Upload KBytes
+            if (User != NULL)
+               OutString ("%lu", (User->UploadBytes + 1023L) / 1024L);
+            break;
+         case CTRLX:    // ^F^X = Download KBytes
+            if (User != NULL)
+               OutString ("%lu", (User->DownloadBytes + 1023L) / 1024L);
+            break;
+         case CTRLY:    // ^F^Y = DL/UL Bytes Ratio
+            if (User != NULL) {
+               if (User->UploadBytes != 0)
+                  OutString ("%lu:1", User->DownloadBytes / User->UploadBytes);
+               else
+                  OutString ("%lu:0", (User->DownloadBytes + 1023L) / 1024L);
+            }
+            break;
+
+         case '0':    // ^F0 = Full Screen Editor YES/NO
+            OutString ("%s", (User->FullEd == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case '2':    // ^F2 = User's age
+            if (User != NULL)
+               OutString ("%u", User->Age ());
+            break;
+         case '3':    // ^F3 = Hotkey YES/NO
+            OutString ("%s", (HotKey == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case '5':    // ^F5 = Birthdate
+            OutString ("%d-%02d-%04d", User->BirthDay, User->BirthMonth, User->BirthYear);
+            break;
+         case '6':    // ^F6 = Mailcheck YES/NO
+            OutString ("%s", (User->MailCheck == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case '8':    // ^F8 = Avatar YES/NO
+            OutString ("%s", (Avatar == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case '9':      // ^F9  = DL/UL Files Ratio
+            if (User != NULL) {
+               if (User->UploadFiles != 0)
+                  OutString ("%lu:1", User->DownloadFiles / User->UploadFiles);
+               else
+                  OutString ("%lu:0", User->DownloadFiles);
+            }
+            break;
+
+         case '[': {    // ^F[ = Remaining download for today
+            class TLimits *Limits;
+
+            if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
+               Limits->Read (User->LimitClass);
+               if (CarrierSpeed <= 2400 && Limits->DownloadAt2400 != 0)
+                  OutString ("%lu", (Limits->DownloadAt2400 >= User->DownloadBytes) ? Limits->DownloadAt2400 - User->DownloadBytes : 0L);
+               else if (CarrierSpeed > 2400 && CarrierSpeed <= 9600 && Limits->DownloadAt9600 != 0)
+                  OutString ("%lu", (Limits->DownloadAt9600 >= User->DownloadBytes) ? Limits->DownloadAt9600 - User->DownloadBytes : 0L);
+               else if (CarrierSpeed > 9600 && CarrierSpeed <= 14400 && Limits->DownloadAt14400 != 0)
+                  OutString ("%lu", (Limits->DownloadAt14400 >= User->DownloadBytes) ? Limits->DownloadAt14400 - User->DownloadBytes : 0L);
+               else if (CarrierSpeed > 14400 && CarrierSpeed <= 28800 && Limits->DownloadAt28800 != 0)
+                  OutString ("%lu", (Limits->DownloadAt28800 >= User->DownloadBytes) ? Limits->DownloadAt28800 - User->DownloadBytes : 0L);
+               else if (CarrierSpeed > 28800 && CarrierSpeed <= 33600 && Limits->DownloadAt33600 != 0)
+                  OutString ("%lu", (Limits->DownloadAt33600 >= User->DownloadBytes) ? Limits->DownloadAt33600 - User->DownloadBytes : 0L);
+               else
+                  OutString ("%lu", (Limits->DownloadLimit >= User->DownloadBytes) ? Limits->DownloadLimit - User->DownloadBytes : 0L);
+               delete Limits;
+            }
+            break;
+         }
+         case '\\':     // ^F\ = Language Name
+            if (Language != NULL)
+               OutString ("%s", Language->Comment);
+            break;
+         case ';':      // ^F; = Full Screen Reader YES/NO
+            OutString ("%s", (User->FullReader == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case '?':      // ^F? = Video mode
+            if (Rip == TRUE)
+               OutString ("%s", "RIP   ");
+            else if (Avatar == TRUE)
+               OutString ("%s", "AVATAR");
+            else if (Ansi == TRUE)
+               OutString ("%s", "ANSI  ");
+            else
+               OutString ("%s", "TTY   ");
+            break;
+         case ':':      // ^F: = Fullscreen listings
+            OutString ("%s", (User->FullScreen == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case '!':      // ^F! = Color YES/NO
+            OutString ("%s", (Color == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case '=':      // ^F= = Rip graphics YES/NO
+            OutString ("%s", (Rip == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+         case '$':      // ^F$ = In User list YES/NO
+            OutString ("%s", (User->InUserList == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+            break;
+      }
+   }
 }
 
-VOID TEmbedded::ProcessControlW (UCHAR ucControl)
+VOID TEmbedded::ProcessControlK (VOID)
 {
-   ucControl = ucControl;
+   SHORT c;
+
+   if ((c = GetNextChar ()) != EOF) {
+      switch (c) {
+         case 'A': {    // ^KA = Total calls
+            class TStatistics *Stats;
+
+            if ((Stats = new TStatistics) != NULL) {
+               Stats->Read (Task);
+               OutString ("%lu", Stats->TotalCalls);
+               delete Stats;
+            }
+            break;
+         }
+         case 'B': {    // ^KB = Name of the last user on this line
+            class TStatistics *Stats;
+
+            if ((Stats = new TStatistics) != NULL) {
+               Stats->Read (Task);
+               OutString ("%s", Stats->User);
+               delete Stats;
+            }
+            break;
+         }
+         case 'D':      // ^KD = First message in area
+            if (MsgArea != NULL)
+               OutString ("%lu", MsgArea->FirstMessage);
+            break;
+         case 'E':      // ^KE = Last message in area
+            if (MsgArea != NULL)
+               OutString ("%lu", MsgArea->LastMessage);
+            break;
+         case 'I': {    // ^KI = Current time (hh:mm:ss)
+            time_t t;
+            struct tm *ltm;
+
+            t = time (NULL);
+            ltm = localtime (&t);
+            OutString ("%2d:%02d:%02d", ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+            break;
+         }
+         case 'J': {    // ^KJ = Today's date (dd mmm yy)
+            time_t t;
+            struct tm *ltm;
+
+            t = time (NULL);
+            ltm = localtime (&t);
+            OutString ("%d %3.3s %d", ltm->tm_mday, Language->Months[ltm->tm_mon], ltm->tm_year + 1900);
+            break;
+         }
+         case 'K':      // ^KK = Time online, this call
+            OutString ("%lu", (time (NULL) - StartCall) / 60L);
+            break;
+         case 'Q': {    // ^KQ = Timelimit per call
+            class TLimits *Limits;
+
+            if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
+               Limits->Read (User->LimitClass);
+               OutString ("%u", Limits->CallTimeLimit);
+               delete Limits;
+            }
+            break;
+         }
+         case 'T': {    // ^KT = Download limit per day
+            class TLimits *Limits;
+
+            if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
+               Limits->Read (User->LimitClass);
+               if (CarrierSpeed <= 2400 && Limits->DownloadAt2400 != 0)
+                  OutString ("%lu", Limits->DownloadAt2400);
+               else if (CarrierSpeed > 2400 && CarrierSpeed <= 9600 && Limits->DownloadAt9600 != 0)
+                  OutString ("%lu", Limits->DownloadAt9600);
+               else if (CarrierSpeed > 9600 && CarrierSpeed <= 14400 && Limits->DownloadAt14400 != 0)
+                  OutString ("%lu", Limits->DownloadAt14400);
+               else if (CarrierSpeed > 14400 && CarrierSpeed <= 28800 && Limits->DownloadAt28800 != 0)
+                  OutString ("%lu", Limits->DownloadAt28800);
+               else if (CarrierSpeed > 28800 && CarrierSpeed <= 33600 && Limits->DownloadAt33600 != 0)
+                  OutString ("%lu", Limits->DownloadAt33600);
+               else
+                  OutString ("%lu", Limits->DownloadLimit);
+               delete Limits;
+            }
+            break;
+         }
+         case 'W':      // ^KW = Numero di linea
+            OutString ("%u", Task);
+            break;
+         case 'X':      // ^KX = Hangup now
+            Hangup = TRUE;
+            break;
+         case 'Y':      // ^KY = Title of current message area
+            if (MsgArea != NULL)
+               OutString ("%s", MsgArea->Display);
+            break;
+         case 'Z':      // ^KZ = Title of current file area
+            if (FileArea != NULL)
+               OutString ("%s", FileArea->Display);
+            break;
+
+         case '0':      // ^K0 = Time remain
+            OutString ("%u", TimeRemain ());
+            break;
+         case '1':      // ^K1 = Name of current message area
+            if (MsgArea != NULL)
+               OutString ("%s", MsgArea->Key);
+            break;
+         case '2':      // ^K2 = Name of current file area
+            if (FileArea != NULL)
+               OutString ("%s", FileArea->Key);
+            break;
+         case '7':      // ^K7 = Number of tagged files
+            if (User != NULL) {
+               if (User->FileTag != NULL)
+                  OutString ("%u", User->FileTag->TotalFiles);
+            }
+            break;
+         case '8':      // ^K8 = Number of files in current area
+            if (FileArea != NULL)
+               OutString ("%lu", FileArea->ActiveFiles);
+            break;
+         case '9':      // ^K9 = Number of messages in current area
+            if (MsgArea != NULL)
+               OutString ("%lu", MsgArea->ActiveMsgs);
+            break;
+         case '[': {    // ^K[ = Remaining download for today
+            class TLimits *Limits;
+
+            if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
+               Limits->Read (User->LimitClass);
+               if (CarrierSpeed <= 2400 && Limits->DownloadAt2400 != 0)
+                  OutString ("%lu", (Limits->DownloadAt2400 >= User->DownloadBytes) ? Limits->DownloadAt2400 - User->DownloadBytes : 0L);
+               else if (CarrierSpeed > 2400 && CarrierSpeed <= 9600 && Limits->DownloadAt9600 != 0)
+                  OutString ("%lu", (Limits->DownloadAt9600 >= User->DownloadBytes) ? Limits->DownloadAt9600 - User->DownloadBytes : 0L);
+               else if (CarrierSpeed > 9600 && CarrierSpeed <= 14400 && Limits->DownloadAt14400 != 0)
+                  OutString ("%lu", (Limits->DownloadAt14400 >= User->DownloadBytes) ? Limits->DownloadAt14400 - User->DownloadBytes : 0L);
+               else if (CarrierSpeed > 14400 && CarrierSpeed <= 28800 && Limits->DownloadAt28800 != 0)
+                  OutString ("%lu", (Limits->DownloadAt28800 >= User->DownloadBytes) ? Limits->DownloadAt28800 - User->DownloadBytes : 0L);
+               else if (CarrierSpeed > 28800 && CarrierSpeed <= 33600 && Limits->DownloadAt33600 != 0)
+                  OutString ("%lu", (Limits->DownloadAt33600 >= User->DownloadBytes) ? Limits->DownloadAt33600 - User->DownloadBytes : 0L);
+               else
+                  OutString ("%lu", (Limits->DownloadLimit >= User->DownloadBytes) ? Limits->DownloadLimit - User->DownloadBytes : 0L);
+               delete Limits;
+            }
+            break;
+         }
+      }
+   }
+}
+
+VOID TEmbedded::ProcessControlO (VOID)
+{
+   SHORT c;
+   CHAR *p;
+
+   if ((c = GetNextChar ()) != EOF) {
+      switch (c) {
+         case 'C': {    // ^OC[cmd] = Run external program
+            CHAR File[64], *p;
+
+            p = File;
+            while ((c = GetNextChar ()) != EOF) {
+               if (c <= ' ')
+                  break;
+               *p++ = (CHAR)c;
+            }
+            *p = '\0';
+
+            if (c == '\r' && PeekNextChar () == '\n')
+               GetNextChar ();
+
+            RunExternal (File);
+            break;
+         }
+         case 'E':      // ^OE = Display only if ANSI/Avatar enabled
+            if (Ansi == FALSE && Avatar == FALSE) {
+               while ((c = GetNextChar ()) != EOF) {
+                  if (c == CTRLO) {
+                     if ((c = GetNextChar ()) == 'e')
+                        break;
+                  }
+               }
+            }
+            break;
+         case 'e':      // ^Oe = End of ANSI/Avatar only text
+            break;
+         case 'F':      // ^OF = Set On Exit filename
+            p = OnExit;
+            while ((c = GetNextChar ()) != EOF) {
+               if (c <= ' ')
+                  break;
+               *p++ = (CHAR)c;
+            }
+            *p = '\0';
+            if (c == '\r' && PeekNextChar () == '\n')
+               GetNextChar ();
+            break;
+         case 'G':      // ^OG = Display only if RIPscript enabled
+            if (Rip == FALSE) {
+               while ((c = GetNextChar ()) != EOF) {
+                  if (c == CTRLO) {
+                     if ((c = GetNextChar ()) == 'I')
+                        break;
+                  }
+               }
+            }
+            break;
+         case 'I':      // ^OI = End of Rip only text
+            break;
+         case 'L': {    // ^OL[file] = Change language
+            CHAR File[64], *p;
+
+            p = File;
+            while ((c = GetNextChar ()) != EOF) {
+               if (c <= ' ')
+                  break;
+               *p++ = (CHAR)c;
+            }
+            *p = '\0';
+
+            if (c == '\r' && PeekNextChar () == '\n')
+               GetNextChar ();
+
+            Language->Load (File);
+            strcpy (AltPath, Language->TextFiles);
+            break;
+         }
+         case 'M': {    // ^OM[comment] = Memorizza l'ultima risposta al ^OR
+            CHAR Comment[64], *p;
+
+            p = Comment;
+            do {
+               if ((c = GetNextChar ()) > ' ')
+                  *p++ = (CHAR)c;
+            } while (c != EOF && c > ' ');
+            *p = '\0';
+            if (c == 0x0D && PeekNextChar () == 0x0A)
+               GetNextChar ();
+
+            if (AnswerFile != NULL)
+               fprintf (AnswerFile, "  %s: %c\n", Comment, Response);
+            break;
+         }
+         case 'N': {    // ^ON[comment] = Attende una stringa dall'utente e la memorizza
+            CHAR Comment[64], Answer[64], *p;
+
+            p = Comment;
+            do {
+               if ((c = GetNextChar ()) > ' ')
+                  *p++ = (CHAR)c;
+            } while (c != EOF && c > ' ');
+            *p = '\0';
+            if (c == 0x0D && PeekNextChar () == 0x0A)
+               GetNextChar ();
+
+            do {
+               GetString (Answer, (USHORT)(sizeof (Answer) - 1), 0);
+            } while (AbortSession () == FALSE && Answer[0] == '\0' && Required == TRUE);
+            if (AnswerFile != NULL)
+               fprintf (AnswerFile, "  %s: %s\n", Comment, Answer);
+            break;
+         }
+         case 'O': {    // ^OO[file] = Open answer file
+            CHAR File[64], *p;
+
+            p = File;
+            while ((c = GetNextChar ()) != EOF) {
+               if (c <= ' ')
+                  break;
+               *p++ = (CHAR)c;
+            }
+            *p = '\0';
+            if (c == '\r' && PeekNextChar () == '\n')
+               GetNextChar ();
+
+            if (AnswerFile != NULL)
+               fclose (AnswerFile);
+            if ((AnswerFile = fopen (File, "at")) != NULL) {
+               if (Log != NULL)
+                  Log->Write ("+Answer file %s opened", File);
+            }
+            else {
+               if (Log != NULL)
+                  Log->Write ("!Failed to open answer file %s", File);
+            }
+            break;
+         }
+         case 'P':      // ^OP = Write user's data to answer file
+            if (AnswerFile != NULL)
+               fprintf (AnswerFile, "* %s\t%s\t%s\t\n", User->Name, User->City, "");
+            break;
+         case 'Q':      // ^OQ = Fine immediata del file
+            Stop = TRUE;
+            break;
+         case 'R': {    // ^OR = Attende un comando dall'utente
+            USHORT Good = FALSE;
+            CHAR Valid[128], *p;
+
+            p = Valid;
+            do {
+               if ((c = GetNextChar ()) > ' ')
+                  *p++ = (CHAR)c;
+            } while (c != EOF && c > ' ');
+            if (c == 0x0D && PeekNextChar () == 0x0A)
+               GetNextChar ();
+            *p = '\0';
+            strupr (Valid);
+
+            while (AbortSession () == FALSE && Good == FALSE) {
+               GetString (Temp, 1, INP_HOTKEY|INP_NOCRLF);
+               if ((Response = (CHAR)toupper (Temp[0])) == '\0')
+                  Response = '|';
+               if (strchr (Valid, Response) != NULL)
+                  Good = TRUE;
+               else if (Response != '|')
+                  OutString ("\x08 \x08");
+            }
+
+            OutString ("\n");
+            break;
+         }
+         case 'S': {    // ^OS = Passa il controllo ad un'altro file
+            p = Temp;
+            do {
+               if ((c = GetNextChar ()) > ' ')
+                  *p++ = (CHAR)c;
+            } while (c != EOF && c > ' ');
+            if (c == 0x0D && PeekNextChar () == 0x0A)
+               GetNextChar ();
+            *p = '\0';
+
+            if (Temp[0] != '\0') {
+               if (fp != NULL)
+                  fclose (fp);
+               fp = OpenFile (Temp);
+               Line = 1;
+            }
+            break;
+         }
+         case 'T':      // ^OT = Salta all'inizio del file
+            if (fp != NULL)
+               fseek (fp, 0L, SEEK_SET);
+            break;
+         case 'U':      // ^OU[char] = La riga prosegue se l'utente ha risposto [char]
+            if ((c = GetNextChar ()) != EOF) {
+               if (toupper (c) != toupper (Response))
+                  do {
+                     if ((c = GetNextChar ()) == 0x0D) {
+                        if (PeekNextChar () == 0x0A)
+                           GetNextChar ();
+                        else
+                           c = 0;
+                     }
+                  } while (c != EOF && c != 0x0D);
+            }
+            break;
+         case 'V': {    // ^OV[pos] = Si posiziona a [pos] nel file
+            ULONG Pos = 0L;
+
+            while (isdigit (PeekNextChar ())) {
+               c = GetNextChar ();
+               Pos *= 10L;
+               Pos += c - 0x30;
+            }
+
+            if (PeekNextChar () == 0x0D) {
+               GetNextChar ();
+               if (PeekNextChar () == 0x0A)
+                  GetNextChar ();
+            }
+
+            if (fp != NULL)
+               fseek (fp, Pos, SEEK_SET);
+            break;
+         }
+      }
+   }
+}
+
+VOID TEmbedded::ProcessControlP (VOID)
+{
+   SHORT c;
+
+   if ((c = GetNextChar ()) != EOF) {
+      switch (c) {
+         case 'L':
+            do {
+               if ((c = GetNextChar ()) == 0x0D) {
+                  if (PeekNextChar () == 0x0A)
+                     GetNextChar ();
+                  else
+                     c = 0;
+               }
+            } while (c != EOF && c != 0x0D);
+            break;
+      }
+   }
+}
+
+VOID TEmbedded::ProcessControlW (VOID)
+{
+   SHORT c;
+   CHAR Temp[128], *p;
+
+   if ((c = GetNextChar ()) != EOF) {
+      switch (c) {
+         case 'b':      // ^Wb[n] = If Task == [n]
+            p = Temp;
+            while ((c = GetNextChar ()) != EOF) {
+               if (c <= ' ')
+                  break;
+               *p++ = (CHAR)c;
+            }
+            *p = '\0';
+
+            if (c == '\r' && PeekNextChar () == '\n')
+               GetNextChar ();
+
+            if (Task != atoi (Temp))
+               do {
+                  if ((c = GetNextChar ()) == 0x0D) {
+                     if (PeekNextChar () == 0x0A)
+                        GetNextChar ();
+                     else
+                        c = 0;
+                  }
+               } while (c != EOF && c != 0x0D);
+            break;
+         case 'E':
+            StopNested = TRUE;
+            break;
+         case 'G':
+            switch (c = GetNextChar ()) {
+               case 'A':      // ^W^FA = Name of current file area
+                  if (FileArea != NULL)
+                     OutString ("%s", FileArea->Key);
+                  break;
+               case 'N':      // ^W^FN = Description of current file area
+                  if (FileArea != NULL)
+                     OutString ("%s", FileArea->Display);
+                  break;
+            }
+            break;
+         case 'j':
+            switch (c = GetNextChar ()) {
+               case 'N':      // ^WjN = Node number
+                  OutString ("%d", Task);
+                  break;
+            }
+            break;
+         case 'L': {    // ^WL = Link con un'altro file
+            FILE *SaveFP;
+            CHAR SaveResponse;
+
+            p = Temp;
+            do {
+               if ((c = GetNextChar ()) > ' ')
+                  *p++ = (CHAR)c;
+            } while (c != EOF && c > ' ');
+            if (c == 0x0D && PeekNextChar () == 0x0A)
+               GetNextChar ();
+            *p = '\0';
+
+            if (Temp[0] != '\0') {
+               strlwr (Temp);
+
+               SaveFP = fp;
+               SaveResponse = Response;
+               if (strstr (Temp, ".cmd") == NULL) {
+                  Nested++;
+                  DisplayFile (Temp);
+                  if (--Nested == 0) {
+                     if (StopNested == TRUE)
+                        Stop = TRUE;
+                     StopNested = FALSE;
+                  }
+               }
+#if defined(__OS2__)
+               else {
+                  fp = NULL;
+                  CallRexx (this, Temp);
+               }
+#endif
+
+               Response = SaveResponse;
+               fp = SaveFP;
+            }
+            break;
+         }
+         case 'P':
+            if (User != NULL)
+               OutString ("%s", User->DayPhone);
+            break;
+         case 'R':
+            if (User != NULL)
+               OutString ("%s", User->RealName);
+            break;
+         case 'W':      // ^WW[comment] = Scrive la stringa nell'answer file
+            p = Temp;
+            do {
+               if ((c = GetNextChar ()) > ' ')
+                  *p++ = (CHAR)c;
+            } while (c != EOF && c > ' ');
+            *p = '\0';
+            if (c == 0x0D && PeekNextChar () == 0x0A)
+               GetNextChar ();
+
+            if (AnswerFile != NULL)
+               fprintf (AnswerFile, "  %s\n", Temp);
+            break;
+
+         case CTRLA: {  // ^W^A = User's last call date (dd mmm yy)
+            struct tm *ltm;
+
+            if (User != NULL) {
+               ltm = localtime ((time_t *)&User->LastCall);
+               OutString ("%d %3.3s %d", ltm->tm_mday, Language->Months[ltm->tm_mon], ltm->tm_year + 1900);
+            }
+            break;
+         }
+         case CTRLC:    // ^W^C = System Name
+            if (Cfg != NULL)
+               OutString ("%s", Cfg->SystemName);
+            break;
+         case CTRLD:    // ^W^D = Sysop Name
+            if (Cfg != NULL)
+               OutString ("%s", Cfg->SysopName);
+            break;
+         case CTRLF:
+            switch (c = GetNextChar ()) {
+               case 'A':      // ^W^FA = Name of current file area
+                  if (FileArea != NULL)
+                     OutString ("%s", FileArea->Key);
+                  break;
+               case 'N':      // ^W^FN = Description of current file area
+                  if (FileArea != NULL)
+                     OutString ("%s", FileArea->Display);
+                  break;
+            }
+            break;
+         case CTRLM: {
+            switch (c = GetNextChar ()) {
+               case '#':      // ^W^M# = Number of messages in current area
+                  if (MsgArea != NULL)
+                     OutString ("%lu", MsgArea->ActiveMsgs);
+                  break;
+               case 'A':      // ^W^MA = Name of current message area
+                  if (MsgArea != NULL)
+                     OutString ("%s", MsgArea->Key);
+                  break;
+               case 'L':      // ^W^MH = Highest message in area
+                  if (MsgArea != NULL)
+                     OutString ("%lu", MsgArea->LastMessage);
+                  break;
+               case 'N':      // ^W^MN = Description of current message area
+                  if (MsgArea != NULL)
+                     OutString ("%s", MsgArea->Display);
+                  break;
+            }
+            break;
+         }
+      }
+   }
 }
 
 VOID TEmbedded::RunExternal (PSZ Command)

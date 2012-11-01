@@ -987,27 +987,28 @@ VOID ParseAddress (PSZ text, PSZ name, PSZ address)
    strcpy (Temp, text);
    if (strchr (Temp, '(') != NULL) {
       if ((p = strtok (Temp, " ")) != NULL) {
-         p = strtok (NULL, "");
-         while (*p == ' ')
-            p++;
-         if (*p == '(') {
-            strcpy (Temp, ++p);
-            p = strchr (Temp, '\0');
-            while (--p > Temp) {
-               if (*p == ')') {
-                  *p = '\0';
-                  break;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            if (*p == '(') {
+               strcpy (Temp, ++p);
+               p = strchr (Temp, '\0');
+               while (--p > Temp) {
+                  if (*p == ')') {
+                     *p = '\0';
+                     break;
+                  }
                }
+               strcpy (name, Temp);
+               strcpy (Temp, text);
+               if ((p = strtok (Temp, " ")) != NULL)
+                  strcpy (address, p);
             }
-            strcpy (name, Temp);
-            strcpy (Temp, text);
-            if ((p = strtok (Temp, " ")) != NULL)
-               strcpy (address, p);
-         }
-         else {
-            strcpy (Temp, text);
-            if ((p = strtok (Temp, " ")) != NULL)
-               strcpy (name, p);
+            else {
+               strcpy (Temp, text);
+               if ((p = strtok (Temp, " ")) != NULL)
+                  strcpy (name, p);
+            }
          }
       }
    }
@@ -1740,7 +1741,7 @@ void main (int argc, char *argv[])
                DisplayMessage ();
                Line = 1;
                break;
-            case 'a':
+            case 'A':
             case 0x1E00:   // Alt-A  - Cambio Area
                if ((User = new TUser (Cfg->UserFile)) != NULL) {
                   if (User->GetData (Cfg->SysopName) == TRUE) {
@@ -1902,7 +1903,7 @@ void main (int argc, char *argv[])
                   Line = 1;
                }
                break;
-            case 'e':
+            case 'E':
             case 0x1200:   // Alt-E = Edit new message
             case 0x5200:   // Ins   = Edit new message
                EditMessage (FALSE, FALSE);
@@ -1910,38 +1911,38 @@ void main (int argc, char *argv[])
                   Msg->Next (Number);
                DisplayMessage ();
                break;
-            case 'l':
+            case 'L':
             case 0x2600:   // Alt-L = List messages
                if (CMessageListDlg () == TRUE) {
                   DisplayMessage ();
                   Line = 1;
                }
                break;
-            case 'r':
+            case 'R':
             case 0x1300:   // Alt-R = Reply
                EditMessage (TRUE, FALSE);
                if (Number == 0L)
                   Msg->Next (Number);
                DisplayMessage ();
                break;
-            case 'q':
+            case 'Q':
             case 0x1000:   // Alt-Q = Reply + Quote
                EditMessage (TRUE, TRUE);
                if (Number == 0L)
                   Msg->Next (Number);
                DisplayMessage ();
                break;
-            case 'v':
+            case 'V':
             case 0x2F00:   // Alt-V  - Show Kludges
                ShowKludges = (ShowKludges == TRUE) ? FALSE : TRUE;
                DisplayMessage ();
                Line = 1;
                break;
-            case 'w':
+            case 'W':
             case 0x1100:   // Alt-W  - Export Message
                ExportMessage ();
                break;
-            case 'x':
+            case 'X':
             case 0x2D00:   // Alt-X  - Uscita
                if (MessageBox (" Quit ", "Are you really sure ?") == TRUE)
                   EndRun = TRUE;

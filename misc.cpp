@@ -389,8 +389,8 @@ USHORT DLL_EXPORT ValidateKey (PSZ product, PSZ name, PSZ number)
 
 USHORT DLL_EXPORT CheckExpiration (VOID)
 {
-   #define EXPIRE_DAY        15
-   #define EXPIRE_MONTH       3
+   #define EXPIRE_DAY        30
+   #define EXPIRE_MONTH       4
    #define EXPIRE_YEAR     1997
    USHORT RetVal = 0;
    time_t today, expire;
@@ -565,12 +565,12 @@ VOID DLL_EXPORT RunExternal (PSZ Command, USHORT TimeLimit)
       if (rc == 0) {
          Terminated = FALSE;
          if (TimeLimit != 0)
-            timeout = TimerSet (TimeLimit * 6000L);
+            timeout = time (NULL) + ((ULONG)TimeLimit * 60L);
          while (Terminated == FALSE) {
             sd.Length = sizeof (STATUSDATA);
             sd.SelectInd = SET_SESSION_UNCHANGED;
             sd.BondInd = SET_SESSION_UNCHANGED;
-            if (DosSetSession (id, &sd) != 0 || (TimeLimit != 0 && TimeUp (timeout)))
+            if (DosSetSession (id, &sd) != 0 || (TimeLimit != 0 && time (NULL) > timeout))
                Terminated = TRUE;
             DosSleep (1L);
          }

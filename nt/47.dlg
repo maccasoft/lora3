@@ -1,0 +1,20 @@
+47 DIALOGEX FIXED IMPURE  30, 45, 273, 137
+STYLE DS_3DLOOK | WS_OVERLAPPED | WS_CAPTION | WS_VISIBLE | WS_SYSMENU | WS_THICKFRAME
+CAPTION "Outbound Details"
+FONT 8, "Helv"
+BEGIN
+	CONTROL "Arci Computer Club - LoraBBS Support", 102, "STATIC", SS_LEFT | WS_CHILD | WS_VISIBLE, 7, 7, 169, 8
+	CONTROL "2:332/402",                            103, "STATIC", SS_RIGHT | WS_CHILD | WS_VISIBLE, 181, 7, 87, 8
+	CONTROL "Bologna, Italy",                       109, "STATIC", SS_LEFT | WS_CHILD | WS_VISIBLE, 7, 18, 148, 8
+	CONTROL "Marco Maccaferri",                     104, "STATIC", SS_RIGHT | WS_CHILD | WS_VISIBLE, 157, 18, 111, 8
+   CONTROL "",                                     101, "SysListView32", LVS_REPORT | LVS_SINGLESEL | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 7, 30, 213, 84, WS_EX_CLIENTEDGE
+	CONTROL "&Normal",                              48, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 227, 31, 40, 14
+	CONTROL "&Direct",                              49, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 227, 48, 40, 14
+	CONTROL "&Crash",                               50, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 227, 65, 40, 14
+	CONTROL "&Hold",                                51, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 227, 82, 40, 14
+	CONTROL "&Add",                                 115, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 10, 118, 40, 14
+	CONTROL "&Delete",                              116, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 55, 118, 40, 14
+	CONTROL "Del. &Entry",                          117, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 100, 118, 40, 14
+	CONTROL "&Immed.",                              52, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 227, 118, 40, 14
+END
+

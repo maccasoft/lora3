@@ -606,6 +606,40 @@ USHORT TMailProcessor::IsArcmail (VOID)
    return (RetVal);
 }
 
+USHORT TMailProcessor::CheckEchoList (PSZ pszFile, PSZ pszEchoTag)
+{
+   #define MAX_LINECHAR 2048
+   FILE *fp;
+   USHORT RetVal = FALSE;
+   CHAR *lpTemp = (CHAR *)malloc (MAX_LINECHAR + 1);
+   CHAR *lpTag;
+
+   if (*pszFile == '@')
+      pszFile++;
+   fp = fopen (pszFile, "rt");
+
+   if (fp != NULL && lpTemp != NULL) {
+      while (fgets (lpTemp, MAX_LINECHAR, fp) != NULL) {
+         lpTemp[strlen (lpTemp) - 1] = '\0';
+         if (lpTemp[0] == ';' || lpTemp[0] == '\0')
+            continue;
+         if ((lpTag = strtok (lpTemp, " ")) != NULL) {
+            if (!stricmp (lpTag, pszEchoTag)) {
+               RetVal = TRUE;
+               break;
+            }
+         }
+      }
+   }
+
+   if (lpTemp != NULL)
+      free (lpTemp);
+   if (fp != NULL)
+      fclose (fp);
+
+   return (RetVal);
+}
+
 USHORT TMailProcessor::OpenArea (PSZ pszEchoTag)
 {
    FILE *fp;
@@ -699,7 +733,11 @@ USHORT TMailProcessor::OpenArea (PSZ pszEchoTag)
                if ((p = strtok (Nodes->NewAreasFilter, " ")) != NULL) {
                   Create = FALSE;
                   do {
-                     if (strstr (pszEchoTag, strupr (p)) != NULL) {
+                     if (*p == '@') {
+                        if (CheckEchoList (p, pszEchoTag) == FALSE)
+                           Create = FALSE;
+                     }
+                     else if (strstr (pszEchoTag, strupr (p)) != NULL) {
                         Create = TRUE;
                         break;
                      }
@@ -707,6 +745,9 @@ USHORT TMailProcessor::OpenArea (PSZ pszEchoTag)
                }
             }
          }
+
+         if (Create == FALSE && Log != NULL)
+            Log->Write ("!Node %s can't create new area %s", Packet->FromAddress, pszEchoTag);
       }
 
       if (Create == TRUE) {
@@ -751,15 +792,27 @@ USHORT TMailProcessor::OpenArea (PSZ pszEchoTag)
          Data->ReadEcho (pszEchoTag);
 
          Found = TRUE;
+         if (Log != NULL)
+            Log->Write ("*Created area [%s] %s from %s", Data->Key, Data->EchoTag, Packet->FromAddress);
 
          if (Forward != NULL) {
             Forward->Load (pszEchoTag);
             Forward->AddString (Packet->FromAddress);
+
+            if (Nodes != NULL) {
+               strcpy (Temp, Packet->FromAddress);
+               if (Nodes->First () == TRUE)
+                  do {
+                     if (Nodes->LinkNewEcho == TRUE && stricmp (Nodes->Address, Packet->FromAddress)) {
+                        Forward->AddString (Nodes->Address);
+                        if (Log != NULL)
+                           Log->Write ("-Area %s auto-linked to %s", Data->EchoTag, Nodes->Address);
+                     }
+                  } while (Nodes->Next () == TRUE);
+            }
+
             Forward->Save ();
          }
-
-         if (Log != NULL)
-            Log->Write ("*Created area [%s] %s from %s", Data->Key, Data->EchoTag, Packet->FromAddress);
 
          if (Data->Storage == ST_JAM)
             Msg = new JAM (Data->Path);

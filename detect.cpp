@@ -322,11 +322,15 @@ USHORT TDetect::AbortSession (VOID)
 
 USHORT TDetect::CheckEMSIPacket (VOID)
 {
-   USHORT RetVal = EMSI_NONE;
+   USHORT key, RetVal = EMSI_NONE;
    CHAR pkt[4];
 
-   if (TimedRead () != 'E')
-      return (RetVal);
+   do {
+      key = TimedRead ();
+      if (key != 'E' && key != '*')
+         return (RetVal);
+   } while (key != 'E');
+
    if (TimedRead () != 'M')
       return (RetVal);
    if (TimedRead () != 'S')
@@ -656,9 +660,13 @@ VOID TDetect::SendEMSIPacket (VOID)
    }
 
    if (Cfg->Janus == TRUE)
-      strcat (SendEMSI, "}{8N1,PUA}{JAN,ZAP,ZMO,ARC,XMA}");
+      strcat (SendEMSI, "}{8N1,PUA}{JAN,ZAP,ZMO,ARC,XMA");
    else
-      strcat (SendEMSI, "}{8N1,PUA}{ZAP,ZMO,ARC,XMA}");
+      strcat (SendEMSI, "}{8N1,PUA}{ZAP,ZMO,ARC,XMA");
+   if (Events->AllowRequests == FALSE)
+      strcat (SendEMSI, ",NRQ");
+   strcat (SendEMSI, "}");
+
 #if defined(__OS2__)
    sprintf (Temp, "{%02X}{%s/OS2}{%s}{}{IDENT}{", PRODUCT_ID, NAME, VERSION);
 #elif defined(__NT__)
@@ -885,9 +893,6 @@ VOID TDetect::Terminal (VOID)
    CHAR Temp[128], RipTemp[32];
    ULONG tout;
    PSZ Announce = "\rAuto-Sensing Terminal...\r";
-#if !defined(__POINT__)
-   class TEvents *Events;
-#endif
 
    StartCall = time (NULL);
    canexit = FALSE;
@@ -902,80 +907,83 @@ VOID TDetect::Terminal (VOID)
    prev = 0;
    IsEMSI = FALSE;
 
-   if (Cfg->Ansi == NO)
+   if (Cfg->Ansi == NO) {
       Ansi = FALSE;
-   else if (Cfg->Ansi == YES)
-      Ansi = TRUE;
-
-#if !defined(__POINT__)
-   if ((Events = new TEvents (Cfg->SchedulerFile)) != NULL) {
-      Events->Load ();
-      Events->SetCurrent ();
-      MailOnly = Events->MailOnly;
-      delete Events;
+      gotAnswer = TRUE;
    }
-#endif
+   else if (Cfg->Ansi == YES) {
+      Ansi = TRUE;
+      gotAnswer = TRUE;
+   }
+   if (Cfg->UseAvatar == NO) {
+      Avatar = FALSE;
+      gotAnswer = TRUE;
+   }
+   else if (Cfg->UseAvatar == YES) {
+      Avatar = TRUE;
+      gotAnswer = TRUE;
+   }
 
+   MailOnly = Events->MailOnly;
    Remote = (MailOnly == TRUE) ? REMOTE_NONE : REMOTE_USER;
 
-   for (i = 0; i < 5 && gotAnswer == FALSE && AbortSession () == FALSE; i++) {
+   for (i = 0; i < 5 && (gotAnswer == FALSE || i == 0) && AbortSession () == FALSE; i++) {
       while (!TimeUp (tout) && AbortSession () == FALSE) {
          if (Com->BytesReady () == TRUE) {
             key = Com->ReadByte ();
-
             switch (ripos) {
                case 0:
                   if (key == 'R')
-                     RipTemp[ripos++] = key;
+                     RipTemp[ripos++] = (CHAR)key;
                   else
                      ripos = 0;
                   break;
                case 1:
                   if (key == 'I')
-                     RipTemp[ripos++] = key;
+                     RipTemp[ripos++] = (CHAR)key;
                   else
                      ripos = 0;
                   break;
                case 2:
                   if (key == 'P')
-                     RipTemp[ripos++] = key;
+                     RipTemp[ripos++] = (CHAR)key;
                   else
                      ripos = 0;
                   break;
                case 3:
                   if (key == 'S')
-                     RipTemp[ripos++] = key;
+                     RipTemp[ripos++] = (CHAR)key;
                   else
                      ripos = 0;
                   break;
                case 4:
                   if (key == 'C')
-                     RipTemp[ripos++] = key;
+                     RipTemp[ripos++] = (CHAR)key;
                   else
                      ripos = 0;
                   break;
                case 5:
                   if (key == 'R')
-                     RipTemp[ripos++] = key;
+                     RipTemp[ripos++] = (CHAR)key;
                   else
                      ripos = 0;
                   break;
                case 6:
                   if (key == 'I')
-                     RipTemp[ripos++] = key;
+                     RipTemp[ripos++] = (CHAR)key;
                   else
                      ripos = 0;
                   break;
                case 7:
                   if (key == 'P')
-                     RipTemp[ripos++] = key;
+                     RipTemp[ripos++] = (CHAR)key;
                   else
                      ripos = 0;
                   break;
                default:
                   if (ripos > 7 && ripos < 14) {
                      if (isdigit (key))
-                        RipTemp[ripos++] = key;
+                        RipTemp[ripos++] = (CHAR)key;
                      else
                         ripos = 0;
                      if (ripos == 13) {
@@ -1130,16 +1138,16 @@ VOID TDetect::Terminal (VOID)
       if (gotAnswer == FALSE && AbortSession () == FALSE && Com != NULL) {
          Com->BufferBytes ((UCHAR *)" \r", 2);
 
-         if (MailOnly == FALSE)
-            Com->BufferBytes ((UCHAR *)"\r\x19\x20\x0B", 4);
          if (Cfg->EMSI == TRUE)
             Com->BufferBytes ((UCHAR *)"\r**EMSI_REQA77E\r", 16);
          if (Cfg->IEMSI == TRUE && MailOnly == FALSE)
             Com->BufferBytes ((UCHAR *)"\r**EMSI_IRQ8E08\r", 16);
-         if (Cfg->Ansi == AUTO && MailOnly == FALSE)
-            Com->BufferBytes ((UCHAR *)"\x1B[6n", 4);
          if (MailOnly == FALSE)
             Com->BufferBytes ((UCHAR *)"\x1B[!", 3);
+         if (Cfg->Ansi == AUTO && MailOnly == FALSE) {
+            Com->BufferBytes ((UCHAR *)"\r\x19\x20\x0B", 4);
+            Com->BufferBytes ((UCHAR *)"\x1B[6n", 4);
+         }
 
          Com->BufferBytes ((UCHAR *)Announce, (USHORT)strlen (Announce));
          if (MailOnly == TRUE) {
@@ -1763,6 +1771,7 @@ VOID TDetect::Receiver (VOID)
    class TOutbound *Outbound;
 #if !defined(__POINT__)
    class TFileBase *File;
+   class TOkFile *OkFile;
 #endif
    class TCollection Request;
    class PACKET *Packet;
@@ -1782,6 +1791,7 @@ VOID TDetect::Receiver (VOID)
             Janus->Com = Com;
             Janus->Log = Log;
             Janus->Speed = Speed;
+            Janus->AllowRequests = Events->AllowRequests;
             strcpy (Janus->RxPath, Inbound);
 
             if (AbortSession () == FALSE) {
@@ -1822,6 +1832,8 @@ VOID TDetect::Receiver (VOID)
                   strlwr (rname);
 #endif
                   if (strstr (rname, ".req") != NULL) {
+                     if (Events->AllowRequests == FALSE)
+                        unlink (rname);
                      if ((fp = fopen (rname, "rt")) != NULL) {
                         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
                            if ((p = strchr (Temp, '\r')) != NULL)
@@ -1944,8 +1956,29 @@ VOID TDetect::Receiver (VOID)
                            } while (RetVal == TRUE && File->Next (rname) == TRUE);
                         }
                         else if (Packet != NULL) {
-                           sprintf (Temp, "%-12s            %s", rname, "* Not found *");
-                           Packet->Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                           // Il file non e' stato trovato nel database dei files, adesso
+                           // verifica se fa parte dei magic names.
+                           if ((OkFile = new TOkFile (Cfg->SystemPath)) != NULL) {
+                              if (OkFile->Read (rname) == TRUE) {
+                                 if (stat (OkFile->Path, &statbuf) == 0) {
+                                    if (Capabilities & ZED_ZAPPER)
+                                       RetVal = Transfer->SendZModem8K (OkFile->Path);
+                                    else
+                                       RetVal = Transfer->SendZModem (OkFile->Path);
+                                    if (RetVal == TRUE) {
+                                       if (Packet != NULL) {
+                                          sprintf (Temp, "%-12s %8lu   %s", OkFile->Name, statbuf.st_size, "");
+                                          Packet->Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                                       }
+                                    }
+                                 }
+                              }
+                              else {
+                                 sprintf (Temp, "%-12s            %s", rname, "* Not found *");
+                                 Packet->Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                              }
+                              delete OkFile;
+                           }
                         }
                      } while ((rname = (CHAR *)Request.Next ()) != NULL && RetVal == TRUE && AbortSession () == FALSE);
 
@@ -2035,6 +2068,7 @@ VOID TDetect::Sender (VOID)
             Janus->Com = Com;
             Janus->Log = Log;
             Janus->Speed = Speed;
+            Janus->MakeRequests = Events->MakeRequests;
             strcpy (Janus->RxPath, Inbound);
 
             if (AbortSession () == FALSE) {
@@ -2070,7 +2104,7 @@ VOID TDetect::Sender (VOID)
                      Outbound->ClearAttempt (Address.String);
                      if (Outbound->First () == TRUE) {
                         do {
-                           if (Outbound->Poll == FALSE) {
+                           if (Outbound->Poll == FALSE && (Outbound->Request == FALSE || Events->MakeRequests == TRUE)) {
                               if (Outbound->MailPKT == TRUE) {
                                  while (time (NULL) == LastPktName)
                                     ;
@@ -2091,7 +2125,7 @@ VOID TDetect::Sender (VOID)
                                  Outbound->Remove ();
                               }
                            }
-                           else
+                           else if (Outbound->Poll == TRUE)
                               Outbound->Remove ();
                         } while (Stop == FALSE && Outbound->First () == TRUE);
                         Outbound->Update ();
@@ -2141,6 +2175,7 @@ USHORT TDetect::SendHello (VOID)
    HELLO Hello;
    class TNodes *Nodes;
    class TOutbound *Outbound;
+   class TEvents *Events;
 
    OutPktFiles = OutDataFiles = 0;
    OutPktBytes = OutDataBytes = 0L;
@@ -2178,7 +2213,16 @@ USHORT TDetect::SendHello (VOID)
    Hello.Capabilities |= ZED_ZAPPER|ZED_ZIPPER;
    if (Cfg->Janus == TRUE)
       Hello.Capabilities |= DOES_IANUS;
-   Hello.Capabilities |= WZ_FREQ;
+
+#if !defined(__POINT__)
+   if ((Events = new TEvents (Cfg->SchedulerFile)) != NULL) {
+      Events->Load ();
+      Events->SetCurrent ();
+      if (Events->AllowRequests == TRUE)
+         Hello.Capabilities |= WZ_FREQ;
+      delete Events;
+   }
+#endif
 
    Hello.Tranx = time (NULL);
 

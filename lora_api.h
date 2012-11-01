@@ -54,20 +54,6 @@ USHORT DLL_EXPORT CheckExpiration (VOID);
 #endif
 #endif
 
-#define VERSION            "2.99.34"
-#define VER_MAJOR          2
-#define VER_MINOR          99
-#define PRODUCT_ID         0x4E
-
-typedef struct {
-   USHORT Zone;
-   USHORT Net;
-   USHORT Node;
-   USHORT Point;
-   CHAR   Domain[32];
-   USHORT FakeNet;
-} MAILADDRESS;
-
 class DLL_EXPORT TAddress
 {
 public:
@@ -75,6 +61,7 @@ public:
    ~TAddress (void);
 
    USHORT Zone, Net, Node, Point;
+   USHORT FakeNet;
    CHAR   Domain[32];
    CHAR   String[64];
 
@@ -88,213 +75,12 @@ public:
    USHORT Merge (PSZ pszFile);
    SHORT  Next (VOID);
    VOID   Parse (PSZ pszAddress);
+   VOID   Update (VOID);
    USHORT Save (PSZ pszFile);
 
 private:
    class  TCollection List;
 };
-
-#define CONFIG_VERSION     2932
-
-#define NO                 0
-#define YES                1
-#define REQUIRED           2
-#define AUTO               2
-
-typedef struct {
-   USHORT Size;
-   USHORT Version;
-
-   CHAR   Device[32];            // Communication Device (COM2, COM3, etc.)
-   ULONG  Speed;                 // DTE Maximum Speed
-   USHORT LockSpeed;
-   CHAR   Initialize[3][48];     // Initialization Strings
-   CHAR   Answer[48];            // Command to Answer an Incoming Call
-   CHAR   Dial[48];              // Command to Dial to Another Modem
-   CHAR   Hangup[48];            // Command to Hangup the Line
-   CHAR   OffHook[48];           // Command to Bring the Modem OffHook
-   USHORT DialTimeout;
-   USHORT CarrierDropTimeout;
-   USHORT StripDashes;
-   CHAR   FaxMessage[48];
-   CHAR   FaxCommand[64];
-
-   CHAR   SystemName[64];
-   CHAR   SysopName[48];
-   CHAR   Location[48];
-   CHAR   Phone[32];
-   CHAR   NodelistFlags[64];
-
-   USHORT NewUserLevel;
-   ULONG  NewUserFlags;
-   ULONG  NewUserDenyFlags;
-   CHAR   NewUserLimits[16];
-   UCHAR  LoginType;
-   UCHAR  CheckAnsi;
-   UCHAR  RealName;
-   UCHAR  CompanyName;
-   UCHAR  Address;
-   UCHAR  City;
-   UCHAR  PhoneNumber;
-   UCHAR  Gender;
-
-   CHAR   LogFile[64];
-
-   CHAR   SystemPath[64];
-   CHAR   UserFile[64];
-   CHAR   NormalInbound[64];
-   CHAR   KnownInbound[64];
-   CHAR   ProtectedInbound[64];
-   CHAR   Outbound[64];
-   CHAR   NodelistPath[64];
-   CHAR   UsersHomePath[64];
-   CHAR   MenuPath[64];
-   CHAR   LanguageFile[64];
-   CHAR   TextFiles[64];
-   CHAR   SchedulerFile[64];
-
-   CHAR   MainMenu[32];
-
-   CHAR   HostName[48];
-   CHAR   NewsServer[48];
-   CHAR   MailServer[48];
-   CHAR   PopServer[48];
-
-   USHORT FakeNet;
-
-   USHORT MailStorage;
-   CHAR   MailPath[64];
-   USHORT NetMailStorage;
-   CHAR   NetMailPath[64];
-   USHORT BadStorage;
-   CHAR   BadPath[64];
-   USHORT DupeStorage;
-   CHAR   DupePath[64];
-
-   USHORT TelnetServer;
-   USHORT TelnetPort;
-   USHORT FtpServer;
-   USHORT FtpPort;
-   USHORT WebServer;
-   USHORT WebPort;
-   USHORT SMTPServer;
-   USHORT SMTPPort;
-   USHORT POP3Server;
-   USHORT POP3Port;
-   USHORT NNTPServer;
-   USHORT NNTPPort;
-
-   USHORT WaZoo;
-   USHORT EMSI;
-   USHORT Janus;
-
-   USHORT NewAreasStorage;
-   CHAR   NewAreasPath[64];
-   USHORT NewAreasLevel;
-   ULONG  NewAreasFlags;
-   ULONG  NewAreasDenyFlags;
-   USHORT NewAreasWriteLevel;
-   ULONG  NewAreasWriteFlags;
-   ULONG  NewAreasDenyWriteFlags;
-
-   UCHAR  Ansi;
-   UCHAR  IEMSI;
-
-   UCHAR  ImportEmpty;
-   UCHAR  ReplaceTear;
-   CHAR   TearLine[32];
-   UCHAR  ForceIntl;
-   UCHAR  Secure;
-   UCHAR  KeepNetMail;
-   UCHAR  TrackNetMail;
-
-   CHAR   MailOnly[64];
-   CHAR   EnterBBS[64];
-
-   CHAR   ImportCmd[64];
-   CHAR   ExportCmd[64];
-   CHAR   SinglePassCmd[64];
-   CHAR   PackCmd[64];
-   CHAR   NewsgroupCmd[64];
-
-   UCHAR  UseSinglePass;
-   UCHAR  SeparateNetMail;
-
-   CHAR   AreasBBS[64];
-   UCHAR  UseAreasBBS;
-   UCHAR  UpdateAreasBBS;
-
-   CHAR   AfterCallerCmd[64];
-   CHAR   AfterMailCmd[64];
-
-   CHAR   Ring[32];
-   UCHAR  ZModemTelnet;
-   UCHAR  EnablePPP;
-   USHORT PPPTimeLimit;
-   CHAR   PPPCmd[64];
-
-   CHAR   TempPath[64];
-   CHAR   OLRPacketName[16];
-   USHORT OLRMaxMessages;
-
-   UCHAR  ExternalFax;
-   UCHAR  FaxFormat;
-   CHAR   FaxPath[64];
-   CHAR   AfterFaxCmd[64];
-   CHAR   FaxAlertNodes[64];
-   CHAR   FaxAlertUser[64];
-
-   UCHAR  ReloadLog;
-   UCHAR  MakeProcessLog;
-   USHORT RetriveMaxMessages;
-
-   UCHAR  CheckAvatar;
-   UCHAR  CheckColor;
-   UCHAR  CheckFullScreen;
-   UCHAR  CheckHotKey;
-   UCHAR  CheckIBMChars;
-   UCHAR  AskLines;
-   UCHAR  AskPause;
-   UCHAR  AskScreenClear;
-   UCHAR  AskBirthDate;
-   UCHAR  AskMailCheck;
-   UCHAR  AskFileCheck;
-
-   UCHAR  ExternalEditor;
-   CHAR   EditorCmd[64];
-
-   CHAR   HudsonPath[64];
-   CHAR   GoldPath[64];
-   USHORT BadBoard;
-   USHORT DupeBoard;
-   USHORT MailBoard;
-   USHORT NetMailBoard;
-} CONFIG;
-
-
-typedef struct {
-   USHORT TaskNumber;
-   CHAR   Device[32];            // Communication Device (COM2, COM3, etc.)
-   ULONG  Speed;                 // DTE Maximum Speed
-   USHORT LockSpeed;
-   CHAR   Initialize[3][48];     // Initialization Strings
-   CHAR   Answer[48];            // Command to Answer an Incoming Call
-   CHAR   Dial[48];              // Command to Dial to Another Modem
-   CHAR   Hangup[48];            // Command to Hangup the Line
-   CHAR   OffHook[48];           // Command to Bring the Modem OffHook
-   USHORT DialTimeout;
-   USHORT CarrierDropTimeout;
-   USHORT StripDashes;
-   CHAR   FaxMessage[48];
-   CHAR   FaxCommand[64];
-   CHAR   SchedulerFile[64];
-   CHAR   MainMenu[32];
-   CHAR   Ring[32];
-   UCHAR  ManualAnswer;
-   UCHAR  LimitedHours;
-   USHORT StartTime;
-   USHORT EndTime;
-} CHANNEL;
 
 class DLL_EXPORT TConfig
 {
@@ -312,10 +98,18 @@ public:
    UCHAR  ManualAnswer, LimitedHours;
    USHORT StartTime, EndTime;
    CHAR   FaxMessage[48], FaxCommand[64];
+   CHAR   CallIf[64], DontCallIf[64];
+
    CHAR   SystemName[64], SysopName[48], Location[48];
    CHAR   Phone[32], NodelistFlags[64];
-   UCHAR  LoginType, CheckAnsi, RealName, CompanyName;
-   UCHAR  Address, City, PhoneNumber, Gender;
+   UCHAR  LoginType;
+   UCHAR  UseAnsi;
+   UCHAR  AskAlias;
+   UCHAR  AskCompanyName;
+   UCHAR  AskAddress;
+   UCHAR  AskCity;
+   UCHAR  AskPhoneNumber;
+   UCHAR  AskGender;
    USHORT TaskNumber;
    USHORT NewUserLevel;
    ULONG  NewUserFlags, NewUserDenyFlags;
@@ -356,13 +150,14 @@ public:
    CHAR   FaxPath[64], AfterFaxCmd[64], FaxAlertNodes[64], FaxAlertUser[64];
    UCHAR  ReloadLog, MakeProcessLog;
    USHORT RetriveMaxMessages;
-   UCHAR  CheckAvatar, CheckColor;
-   UCHAR  CheckFullScreen;
-   UCHAR  CheckHotKey;
-   UCHAR  CheckIBMChars;
+   UCHAR  UseAvatar;
+   UCHAR  UseColor;
+   UCHAR  UseFullScreenEditor;
+   UCHAR  UseHotKey;
+   UCHAR  UseIBMChars;
    UCHAR  AskLines;
-   UCHAR  AskPause;
-   UCHAR  AskScreenClear;
+   UCHAR  UsePause;
+   UCHAR  UseScreenClear;
    UCHAR  AskBirthDate;
    UCHAR  AskMailCheck;
    UCHAR  AskFileCheck;
@@ -370,6 +165,19 @@ public:
    CHAR   EditorCmd[64];
    CHAR   HudsonPath[64], GoldPath[64];
    USHORT BadBoard, DupeBoard, MailBoard, NetMailBoard;
+   UCHAR  UseFullScreenReader;
+   UCHAR  UseFullScreenLists;
+   UCHAR  UseFullScreenAreaLists;
+   UCHAR  AreafixActive;
+   UCHAR  AllowRescan;
+   UCHAR  CheckZones;
+   UCHAR  RaidActive;
+   CHAR   AreafixNames[64];
+   CHAR   AreafixHelp[64];
+   CHAR   RaidNames[64];
+   CHAR   RaidHelp[64];
+   CHAR   NewTicPath[64];
+   UCHAR  TextPasswords;
    class  TAddress MailAddress;
 
    PSZ    AdjustPath (PSZ path);
@@ -490,12 +298,13 @@ public:
    CHAR   Address[48];
    ULONG  Highest, FirstMessage, LastMessage;
    SHORT  OriginIndex;
-   ULONG  LastReaded;
+   ULONG  LastReaded, NewsHWM;
 
    USHORT Add (VOID);
    VOID   Delete (VOID);
    USHORT First (VOID);
    USHORT Insert (VOID);
+   USHORT Insert (class TMsgData *Data);
    USHORT Last (VOID);
    VOID   New (VOID);
    USHORT Next (VOID);
@@ -504,7 +313,7 @@ public:
    USHORT Read (PSZ pszName, USHORT fCloseFile = TRUE);
    USHORT ReadEcho (PSZ pszEchoTag);
    USHORT ReRead (VOID);
-   USHORT Update (VOID);
+   USHORT Update (PSZ pszNewKey = NULL);
 
 private:
    int    fdDat, fdIdx;
@@ -583,6 +392,7 @@ public:
    VOID   Delete (VOID);
    USHORT First (VOID);
    USHORT Insert (VOID);
+   USHORT Insert (class TFileData *Data);
    USHORT Last (VOID);
    VOID   New (VOID);
    USHORT Next (VOID);
@@ -591,7 +401,7 @@ public:
    USHORT Read (PSZ pszName, USHORT fCloseFile = TRUE);
    USHORT ReadEcho (PSZ pszEchoTag);
    USHORT ReRead (VOID);
-   USHORT Update (VOID);
+   USHORT Update (PSZ pszNewKey = NULL);
 
 private:
    int    fdDat, fdIdx;
@@ -641,15 +451,6 @@ private:
 
 #define MSGTAGS_INDEX      32
 
-typedef struct {
-   UCHAR  Free;            // TRUE=Record is free
-   UCHAR  Tagged;          // TRUE=Tagged for offline mail packing
-   ULONG  UserId;          // CRC32 of user's name
-   CHAR   Area[16];        // Area name
-   ULONG  LastRead;        // Number of last message read
-   ULONG  OlderMsg;        // Timestamp of the older message to pack
-} MSGTAGS;
-
 class DLL_EXPORT TMsgTag
 {
 public:
@@ -665,6 +466,7 @@ public:
 
    VOID   Add (VOID);
    VOID   Change (PSZ pszOldName, PSZ pszNewName);
+   VOID   Change (ULONG OldId, ULONG NewId);
    VOID   Clear (VOID);
    USHORT First (VOID);
    VOID   Load (VOID);
@@ -681,18 +483,6 @@ private:
 };
 
 #define FILETAGS_INDEX     32
-
-typedef struct {
-   UCHAR  Free;            // TRUE=Record is free
-   ULONG  UserId;          // CRC32 of user's name
-   USHORT Index;
-   CHAR   Area[16];        // Area name
-   CHAR   Name[32];        // Name of tagged file
-   ULONG  Size;            // Size in bytes
-   CHAR   Complete[128];   // Complete path and file name
-   USHORT DeleteAfter;     // Delete file after transfer
-   USHORT CdRom;           // The file is on a CD-ROM drive
-} FILETAGS;
 
 class DLL_EXPORT TFileTag
 {
@@ -711,6 +501,8 @@ public:
    ULONG  TotalBytes;
 
    USHORT Add (VOID);
+   VOID   Change (PSZ pszOldName, PSZ pszNewName);
+   VOID   Change (ULONG OldId, ULONG NewId);
    USHORT Check (PSZ pszName);
    VOID   Clear (VOID);
    USHORT First (VOID);
@@ -729,33 +521,6 @@ private:
    class  TCollection Data;
 };
 
-typedef struct {
-   CHAR   Key[16];             // Nome di riferimento
-   CHAR   Description[32];     // Descrizione del livello
-   USHORT Level;
-   ULONG  Flags;
-   ULONG  DenyFlags;
-   ULONG  ExpireDays;          // Numero di giorni di validita'
-   CHAR   ExpireClass[16];     // Classe di limitazione dopo la scadenza
-   USHORT ExpireLevel;         // Livello da selezionare dopo la scadenza
-   ULONG  ExpireFlags;
-   ULONG  ExpireDenyFlags;
-   USHORT CallTimeLimit;       // Tempo limite per chiamata
-   USHORT DayTimeLimit;        // Tempo limite giornaliero
-   USHORT WeekTimeLimit;       // Tempo limite settimanale
-   USHORT MonthTimeLimit;      // Tempo limite mensile
-   ULONG  YearTimeLimit;       // Tempo limite annuale
-   ULONG  CallDownloadLimit;   // Limite di download per chiamata
-   ULONG  DayDownloadLimit;    // Limite di download giornaliero
-   ULONG  WeekDownloadLimit;   // Limite di download settimanale
-   ULONG  MonthDownloadLimit;  // Limite di download mensile
-   ULONG  YearDownloadLimit;   // Limite di download annuale
-   USHORT InactivityTime;
-   USHORT ShowLevel;           // Livello per vedere questo livello nella lista
-   ULONG  ShowFlags;
-   ULONG  ShowDenyFlags;
-} LIMITS;
-
 class DLL_EXPORT TLimits
 {
 public:
@@ -763,29 +528,22 @@ public:
    TLimits (PSZ pszUserFile);
    ~TLimits (void);
 
-   CHAR   Key[16];             // Nome di riferimento
-   CHAR   Description[32];     // Descrizione del livello
+   CHAR   Key[16];
+   CHAR   Description[32];
    USHORT Level;
-   ULONG  Flags, DenyFlags;
-   ULONG  ExpireDays;          // Numero di giorni di validita'
-   CHAR   ExpireClass[16];     // Classe di limitazione dopo la scadenza
-   USHORT ExpireLevel;         // Livello da selezionare dopo la scadenza
-   ULONG  ExpireFlags;
-   ULONG  ExpireDenyFlags;
-   USHORT CallTimeLimit;       // Tempo limite per chiamata
-   USHORT DayTimeLimit;        // Tempo limite giornaliero
-   USHORT WeekTimeLimit;       // Tempo limite settimanale
-   USHORT MonthTimeLimit;      // Tempo limite mensile
-   ULONG  YearTimeLimit;       // Tempo limite annuale
-   ULONG  CallDownloadLimit;   // Limite di download per chiamata
-   ULONG  DayDownloadLimit;    // Limite di download giornaliero
-   ULONG  WeekDownloadLimit;   // Limite di download settimanale
-   ULONG  MonthDownloadLimit;  // Limite di download mensile
-   ULONG  YearDownloadLimit;   // Limite di download annuale
-   USHORT InactivityTime;
-   USHORT ShowLevel;           // Livello per vedere questo livello nella lista
-   ULONG  ShowFlags;
-   ULONG  ShowDenyFlags;
+   ULONG  Flags;
+   ULONG  DenyFlags;
+   USHORT CallTimeLimit;
+   USHORT DayTimeLimit;
+   USHORT DownloadLimit;
+   USHORT DownloadAt2400;
+   USHORT DownloadAt9600;
+   USHORT DownloadAt14400;
+   USHORT DownloadAt28800;
+   USHORT DownloadAt33600;
+   USHORT DownloadRatio;
+   USHORT RatioStart;
+   ULONG  DownloadSpeed;
 
    USHORT Add (VOID);
    VOID   New (VOID);
@@ -799,6 +557,7 @@ public:
 private:
    int    fdDat;
    CHAR   DatFile[64];
+   CHAR   LastKey[16];
 };
 
 class DLL_EXPORT TUser
@@ -869,11 +628,14 @@ public:
    UCHAR  BirthMonth;
    USHORT BirthYear;
    ULONG  LastPwdChange;            // Time of last password change
+   USHORT PwdLength;                // Length of text password
+   CHAR   PwdText[32];              // Text password, encrypted
    class  TMsgTag  *MsgTag;
    class  TFileTag *FileTag;
 
    USHORT Add (VOID);
    USHORT Age (VOID);
+   VOID   ChangeLimitClass (PSZ pszOld, PSZ pszNew);
    USHORT CheckPassword (PSZ pszPassword);
    VOID   Clear (VOID);
    USHORT Delete (VOID);
@@ -889,6 +651,7 @@ public:
 private:
    int    fdDat, fdIdx;
    CHAR   TempMailBox[32], DatFile[64], IdxFile[64];
+   ULONG  CurrentCRC;
    UINDEX Idx;
    USER   Usr;
 
@@ -897,32 +660,6 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-
-typedef struct {
-   CHAR   Address[64];           // Node's address
-   CHAR   SystemName[64];        // System name
-   CHAR   SysopName[48];         // Sysop name
-   CHAR   Location[48];          // Location of this node (city/state)
-   ULONG  Speed;                 // Maximum connection speed
-   ULONG  MinSpeed;              // Minimum connection speed allowed
-   CHAR   Phone[48];             // Phone number
-   CHAR   Flags[48];             // Nodelist-type flags
-   CHAR   DialCmd[32];           // Special dialing command for this node
-   CHAR   SessionPwd[32];        // Mail session password
-   CHAR   AreaMgrPwd[32];        // AreaManager (Echomail and Tic) password
-   CHAR   OutPktPwd[9];          // Outbound packet password
-   CHAR   InPktPwd[9];           // Inbound packet password
-   CHAR   TicPwd[32];
-   UCHAR  RemapMail;             // TRUE=Remap mail directed to SysopName
-   UCHAR  UsePkt22;              // TRUE=Use mail packet type 2.2
-   UCHAR  CreateNewAreas;        // TRUE=Can create new echomail areas
-   CHAR   NewAreasFilter[128];   // Filter for new echomail areas
-   CHAR   Packer[16];
-   UCHAR  ImportPOP3Mail;        // TRUE=Import e-mail from POP3 server
-   UCHAR  UseInetAddress;        // TRUE=Use the personal Inet address
-   CHAR   InetAddress[64];       // Personal E-Mail address
-   CHAR   Pop3Pwd[32];           // Password for POP3 mail server
-} NODES;
 
 typedef struct {
    CHAR   Name[14];
@@ -968,6 +705,25 @@ public:
    CHAR   Pop3Pwd[32];           // Password for POP3 mail server
    USHORT DefaultZone;
    CHAR   Nodelist[64], Nodediff[64];
+   USHORT Level;
+   ULONG  AccessFlags;
+   ULONG  DenyFlags;
+   USHORT TicLevel;
+   ULONG  TicAccessFlags;
+   ULONG  TicDenyFlags;
+   UCHAR  LinkNewEcho;
+   UCHAR  EchoMaint;
+   UCHAR  ChangeEchoTag;
+   UCHAR  NotifyAreafix;
+   UCHAR  CreateNewTic;
+   UCHAR  LinkNewTic;
+   UCHAR  TicMaint;
+   UCHAR  ChangeTicTag;
+   UCHAR  NotifyRaid;
+   CHAR   MailerAka[48];
+   CHAR   EchoAka[48];
+   CHAR   TicAka[48];
+   CHAR   NewTicFilter[128];
 
    VOID   Add (VOID);
    VOID   AddNodelist (PSZ name, PSZ diff, USHORT zone = 0);
@@ -1062,21 +818,6 @@ private:
 
 // ---------------------------------------------------------------------------
 
-#define OS_DOS          0x0001
-#define OS_OS2          0x0002
-#define OS_WINDOWS      0x0004
-#define OS_LINUX        0x0008
-
-typedef struct {
-   CHAR   Key[16];
-   CHAR   Display[32];
-   CHAR   PackCmd[128];
-   CHAR   UnpackCmd[128];
-   CHAR   Id[32];
-   LONG   Position;
-   USHORT OS;
-} PACKER;
-
 class DLL_EXPORT TPacker
 {
 public:
@@ -1111,48 +852,6 @@ private:
 
 // ---------------------------------------------------------------------------
 
-#define DAY_SUNDAY       0x01
-#define DAY_MONDAY       0x02
-#define DAY_TUESDAY      0x04
-#define DAY_WEDNESDAY    0x08
-#define DAY_THURSDAY     0x10
-#define DAY_FRIDAY       0x20
-#define DAY_SATURDAY     0x40
-
-typedef struct {
-   CHAR   Label[32];          // Reference label
-   UCHAR  Hour;
-   UCHAR  Minute;
-   USHORT WeekDays;
-   USHORT Length;             // Duration of this event (if applicable)
-   USHORT LastDay;
-   UCHAR  Dynamic;
-   UCHAR  Force;              // Force execution of this event
-   UCHAR  MailOnly;
-   UCHAR  ForceCall;          // TRUE=Force a call to the node specified
-   CHAR   Address[32];        // Fidonet address to call
-   UCHAR  SendNormal;
-   UCHAR  SendCrash;
-   UCHAR  SendDirect;
-   UCHAR  SendImmediate;
-   USHORT CallDelay;
-   UCHAR  StartImport;
-   UCHAR  StartExport;
-   UCHAR  ExportMail;
-   UCHAR  ImportNormal;
-   UCHAR  ImportKnown;
-   UCHAR  ImportProtected;
-   CHAR   RouteCmd[64];
-   CHAR   Command[128];
-   USHORT MaxCalls;
-   USHORT MaxConnects;
-   UCHAR  AllowRequests;
-   UCHAR  MakeRequests;
-   UCHAR  ProcessTIC;
-   UCHAR  ClockAdjustment;
-   UCHAR  Dummy[128];
-} EVENT;
-
 class DLL_EXPORT TEvents
 {
 public:
@@ -1177,6 +876,7 @@ public:
    CHAR   RouteCmd[64], Command[128];
    USHORT MaxCalls, MaxConnects;
    UCHAR  AllowRequests, MakeRequests, ProcessTIC, ClockAdjustment;
+   UCHAR  Completed;
 
    VOID   Add (VOID);
    VOID   Delete (VOID);
@@ -1470,6 +1170,9 @@ enum {
    LNG_FILETOTAG,
    LNG_FILETAGCONFIRM,
    LNG_FILENOTFOUND,
+   LNG_ONLINETITLE,
+   LNG_ONLINEHEADER,
+   LNG_ONLINEENTRY,
    LNG_MAX_ENTRIES
 };
 
@@ -1523,27 +1226,6 @@ private:
 
 // ---------------------------------------------------------------------------
 
-typedef struct {
-   USHORT Size;
-   CHAR   Key[16];
-   CHAR   Description[64];
-   UCHAR  Active;
-   UCHAR  Batch;
-   UCHAR  DisablePort;
-   UCHAR  ChangeToUploadPath;
-   CHAR   DownloadCmd[64];
-   CHAR   UploadCmd[64];
-   CHAR   LogFileName[64];
-   CHAR   CtlFileName[64];
-   CHAR   DownloadCtlString[32];
-   CHAR   UploadCtlString[32];
-   CHAR   DownloadKeyword[32];
-   CHAR   UploadKeyword[32];
-   USHORT FileNamePos;
-   USHORT SizePos;
-   USHORT CpsPos;
-} PROTOCOL;
-
 class DLL_EXPORT TProtocol
 {
 public:
@@ -1576,6 +1258,104 @@ private:
 
    VOID   Class2Struct (PROTOCOL *proto);
    VOID   Struct2Class (PROTOCOL *proto);
+};
+
+// ---------------------------------------------------------------------------
+
+class DLL_EXPORT TOkFile
+{
+public:
+   TOkFile (void);
+   TOkFile (PSZ pszDataPath);
+   ~TOkFile (void);
+
+   CHAR Name[32];
+   CHAR Path[128];
+   CHAR Pwd[32];
+   CHAR Normal;
+   CHAR Known;
+   CHAR Protected;
+
+   VOID   Add (VOID);
+   VOID   DeleteAll (VOID);
+   USHORT First (VOID);
+   USHORT Next (VOID);
+   USHORT Read (PSZ pszName);
+   VOID   Update (VOID);
+
+private:
+   int fdDat;
+   CHAR DataFile[128];
+};
+
+// ---------------------------------------------------------------------------
+
+class DLL_EXPORT TNodeFlags
+{
+public:
+   TNodeFlags (void);
+   TNodeFlags (PSZ pszDataPath);
+   ~TNodeFlags (void);
+
+   CHAR   Flags[64];
+   CHAR   Cmd[64];
+
+   VOID   Add (VOID);
+   USHORT First (VOID);
+   VOID   Delete (VOID);
+   VOID   DeleteAll (VOID);
+   USHORT Next (VOID);
+   USHORT Read (PSZ pszName);
+   USHORT Read (USHORT index);
+   VOID   Save (VOID);
+   VOID   Update (VOID);
+
+private:
+   int fdDat;
+   CHAR DataFile[128];
+   NODEFLAGS nf;
+   class TCollection List;
+};
+
+// ---------------------------------------------------------------------------
+
+class DLL_EXPORT TTranslation
+{
+public:
+   TTranslation (void);
+   TTranslation (PSZ pszDataPath);
+   ~TTranslation (void);
+
+   CHAR   Location[48];             // Name of the location this data is referring to
+   CHAR   Search[32];               // Phone number prefix to translate
+   CHAR   Traslate[64];             // Translated prefix
+   struct {
+      USHORT Days;                  // Week days
+      USHORT Start;                 // Starting time
+      USHORT Stop;                  // Ending time
+      USHORT CostFirst;             // Cost for TimeFirst seconds of conversation
+      USHORT TimeFirst;             // Seconds for CostFirst
+      USHORT Cost;                  // Cost for Time seconds of conversation or fraction
+      USHORT Time;                  // Time for Cost
+   } Cost[MAXCOST];
+
+   VOID   Add (VOID);
+   VOID   DeleteAll (VOID);
+   VOID   Export (PSZ pszFile);
+   USHORT First (VOID);
+   USHORT Import (PSZ pszFile);
+   USHORT Next (VOID);
+   VOID   New (VOID);
+   USHORT Read (PSZ pszName);
+   VOID   Update (VOID);
+
+private:
+   int fdDat;
+   CHAR DataFile[128];
+   TRANSLATION table;
+
+   VOID   Class2Struct (VOID);
+   VOID   Struct2Class (VOID);
 };
 
 #endif

@@ -777,7 +777,8 @@ VOID ParseAddress (PSZ text, PSZ name, PSZ address)
    strcpy (Temp, text);
    if (strchr (Temp, '(') != NULL) {
       if ((p = strtok (Temp, " ")) != NULL) {
-         p = strtok (NULL, "");
+         if ((a = strtok (NULL, "")) != NULL)
+            p = a;
          while (*p == ' ')
             p++;
          if (*p == '(') {
@@ -931,15 +932,14 @@ VOID DisplayMessage (HWND hwnd)
                if (*p == '(' || *p == ' ')
                   p++;
                strcpy (Msg->FromAddress, p);
+               Msg->ToAddress[0] = '\0';
                break;
             }
             else if (!strncmp (p, "\001MSGID: ", 8)) {
                strcpy (Temp, &p[8]);
                if ((p = strtok (Temp, " ")) != NULL) {
-                  if (strchr (p, ':') != NULL && strchr (p, '/') != NULL) {
-                     Msg->ToAddress[0] = '\0';
+                  if (strchr (p, ':') != NULL && strchr (p, '/') != NULL)
                      strcpy (Msg->FromAddress, p);
-                  }
                }
                break;
             }
@@ -2815,7 +2815,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
       wc.cbClsExtra    = 0;
       wc.cbWndExtra    = 0;
       wc.hInstance     = hinstCurrent;
-      wc.hIcon         = NULL;
+      wc.hIcon         = LoadIcon (NULL, MAKEINTRESOURCE (1));;
       wc.hCursor       = LoadCursor (NULL, IDC_ARROW);
       wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
       wc.lpszMenuName  = "MENU_1";

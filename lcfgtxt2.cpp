@@ -11,6 +11,9 @@
 #include "msgbase.h"
 #include "lorawin.h"
 
+short cmd_sel = 0;
+
+VOID AddShadow (VOID);
 VOID DisplayButton (USHORT y, USHORT x, CHAR *Text, USHORT Shadow);
 VOID DisplayTextField (USHORT y, USHORT x, CHAR *Text, USHORT FieldSize, USHORT Size);
 VOID GetTextField (USHORT y, USHORT x, CHAR *Text, USHORT FieldSize, USHORT Size);
@@ -26,117 +29,145 @@ typedef struct {
    PSZ    Text;
 } MENUCMD;
 
-MENUCMD MenuCmd[] = {
-   // Moving between menu
-   { MNU_CLEARGOTO, "Clear goto menu" },
-   { MNU_CLEARGOSUB, "Clear gosub menu" },
-   { MNU_RETURNMAIN, "Return to MAIN menu" },
-   { MNU_GOTO, "Goto menu" },
-   { MNU_GOSUB, "Gosub menu" },
-   { MNU_RETURN, "Return to previous" },
-   { MNU_CLEARSTACK, "Clear menu stack" },
+// Moving between menu
+MENUCMD MenuCmd1[] = {
+   MNU_GOTO,       "Goto menu          ",
+   MNU_GOSUB,      "Gosub menu         ",
+   MNU_RETURN,     "Return to previous ",
+   MNU_CLEARSTACK, "Clear menu stack   ",
+   MNU_CLEARGOSUB, "Clear gosub menu   ",
+   MNU_CLEARGOTO,  "Clear goto menu    ",
+   MNU_RETURNMAIN, "Return to MAIN menu",
+   0, NULL
+};
 
-   // Message areas
-   { MNU_MSGDELETE, "Kill message" },
-   { MNU_MSGWRITE, "Edit new message" },
-   { MNU_MSGREPLY, "Reply to message" },
-   { MNU_MSGBRIEFLIST, "Short message list" },
-   { MNU_MSGFORWARD, "Read next message" },
-   { MNU_MSGBACKWARD, "Read previous message" },
-   { MNU_MSGREADNONSTOP, "Read message non-stop" },
-   { MNU_INQUIRETEXT, "Inquire messages" },
-   { MNU_MSGINDIVIDUAL, "Read individual message" },
-   { MNU_MSGTITLELIST, "Verbose message list" },
-   { MNU_MSGLISTNEWAREAS, "List areas w/new messages" },
-   { MNU_MSGREAD, "Read messages" },
-   { MNU_INQUIREPERSONAL, "Inquire personal messages" },
-   { MNU_MSGSELECT, "Change message area" },
-   { MNU_MSGMODIFY, "Change message" },
-   { MNU_MSGREADCURRENT, "Read current message" },
-   { MNU_TOGGLEKLUDGES, "Toggle kludges lines" },
-   { MNU_MSGUNRECEIVE, "Unreceive message" },
-   { MNU_MSGREADORIGINAL, "Read original message" },
-   { MNU_MSGREADREPLY, "Read reply message" },
+// Message areas
+MENUCMD MenuCmd2[] = {
+   MNU_MSGSELECT,       "Change message area      ",
+   MNU_MSGDELETE,       "Kill message             ",
+   MNU_MSGWRITE,        "Edit new message         ",
+   MNU_MSGREPLY,        "Reply to message         ",
+   MNU_MSGBRIEFLIST,    "Short message list       ",
+   MNU_MSGFORWARD,      "Read next message        ",
+   MNU_MSGBACKWARD,     "Read previous message    ",
+   MNU_MSGREADNONSTOP,  "Read message non-stop    ",
+   MNU_INQUIRETEXT,     "Inquire messages         ",
+   MNU_MSGINDIVIDUAL,   "Read individual message  ",
+   MNU_MSGTITLELIST,    "Verbose message list     ",
+   MNU_MSGLISTNEWAREAS, "List areas w/new messages",
+   MNU_MSGREAD,         "Read messages            ",
+   MNU_INQUIREPERSONAL, "Inquire personal messages",
+   MNU_MSGMODIFY,       "Change message           ",
+   MNU_MSGUNRECEIVE,    "Unreceive message        ",
+   MNU_MSGREADORIGINAL, "Read original message    ",
+   MNU_MSGREADREPLY,    "Read reply message       ",
+   MNU_MSGREADCURRENT,  "Read current message     ",
+   MNU_TOGGLEKLUDGES,   "Toggle kludges lines     ",
+   0, NULL
+};
 
-   // File areas
-   { MNU_FILENAMELIST, "File list" },
-   { MNU_FILEDOWNLOAD, "Download file" },
-   { MNU_FILETEXTLIST, "Locate files" },
-   { MNU_FILEUPLOAD, "Upload file" },
-   { MNU_FILENEWLIST, "New files list" },
-   { MNU_FILEDOWNLOADANY, "Download from any area" },
-   { MNU_FILEDELETE, "Kill files" },
-   { MNU_FILESELECT, "Change file area" },
-   { MNU_SEARCHFILENAME, "Locate files by name" },
-   { MNU_FILEKEYWORDLIST, "Locate files by keyword" },
-   { MNU_FILEDATELIST, "File list by date" },
-   { MNU_FILEDOWNLOADLIST, "Download list of files" },
-   { MNU_FILEUPLOADUSER, "Upload file to user" },
-   { MNU_FILEDISPLAY, "File Display" },
-   { MNU_ADDTAGGED, "Tag files" },
-   { MNU_DELETETAGGED, "Delete tagged files" },
-   { MNU_LISTTAGGED, "List tagged files" },
-   { MNU_DELETEALLTAGGED, "Delete all tagged files" },
+// File areas
+MENUCMD MenuCmd3[] = {
+   MNU_FILENAMELIST, "File list",
+   MNU_FILEDOWNLOAD, "Download file",
+   MNU_FILETEXTLIST, "Locate files",
+   MNU_FILEUPLOAD, "Upload file",
+   MNU_FILENEWLIST, "New files list",
+   MNU_FILEDOWNLOADANY, "Download from any area",
+   MNU_FILEDELETE, "Kill files",
+   MNU_FILESELECT, "Change file area",
+   MNU_SEARCHFILENAME, "Locate files by name",
+   MNU_FILEKEYWORDLIST, "Locate files by keyword",
+   MNU_FILEDATELIST, "File list by date",
+   MNU_FILEDOWNLOADLIST, "Download list of files",
+   MNU_FILEUPLOADUSER, "Upload file to user",
+   MNU_FILEDISPLAY, "File Display",
+   MNU_ADDTAGGED, "Tag files",
+   MNU_DELETETAGGED, "Delete tagged files",
+   MNU_LISTTAGGED, "List tagged files",
+   MNU_DELETEALLTAGGED, "Delete all tagged files",
+   0, NULL
+};
 
-   // User configuration
-   { MNU_SETLANGUAGE, "Change language" },
-   { MNU_SETPASSWORD, "Set password" },
-   { MNU_TOGGLEANSI, "Toggle ANSI graphics" },
-   { MNU_TOGGLEAVATAR, "Toggle AVATAR graphics" },
-   { MNU_TOGGLECOLOR, "Toggle COLOR codes" },
-   { MNU_TOGGLEHOTKEY, "Toggle hot-keyed menu" },
-   { MNU_SETCOMPANY, "Set company name" },
-   { MNU_SETADDRESS, "Set address" },
-   { MNU_SETCITY, "Set city" },
-   { MNU_SETPHONE, "Set phone number" },
-   { MNU_SETGENDER, "Set gender" },
-   { MNU_TOGGLEFULLSCREEN, "Toggle fullscreen enhancements" },
-   { MNU_TOGGLEIBMCHARS, "Toggle IBM characters" },
-   { MNU_TOGGLEMOREPROMPT, "Toggle More? prompt" },
-   { MNU_TOGGLESCREENCLEAR, "Toggle screen clear" },
-   { MNU_TOGGLEINUSERLIST, "Toggle in user list" },
-   { MNU_SETARCHIVER, "Set default archiver" },
-   { MNU_SETPROTOCOL, "Set default protocol" },
-   { MNU_SETSIGNATURE, "Set personal signature" },
-   { MNU_SETVIDEOMODE, "Set video mode" },
-   { MNU_TOGGLEFULLED, "Toggle fullscreen editor" },
-   { MNU_TOGGLEFULLREAD, "Toggle fullscreen reader" },
-   { MNU_TOGGLENODISTURB, "Toggle do not disturb flag" },
-   { MNU_TOGGLEMAILCHECK, "Toggle logon mail check" },
-   { MNU_TOGGLEFILECHECK, "Toggle new files check" },
-   { MNU_SETBIRTHDATE, "Set birthdate" },
+// User configuration
+MENUCMD MenuCmd4[] = {
+   MNU_SETLANGUAGE, "Change language",
+   MNU_SETPASSWORD, "Set password",
+   MNU_TOGGLEANSI, "Toggle ANSI graphics",
+   MNU_TOGGLEAVATAR, "Toggle AVATAR graphics",
+   MNU_TOGGLECOLOR, "Toggle COLOR codes",
+   MNU_TOGGLEHOTKEY, "Toggle hot-keyed menu",
+   MNU_SETCOMPANY, "Set company name",
+   MNU_SETADDRESS, "Set address",
+   MNU_SETCITY, "Set city",
+   MNU_SETPHONE, "Set phone number",
+   MNU_SETGENDER, "Set gender",
+   MNU_TOGGLEFULLSCREEN, "Toggle fullscreen lists",
+   MNU_TOGGLEIBMCHARS, "Toggle IBM characters",
+   MNU_TOGGLEMOREPROMPT, "Toggle More? prompt",
+   MNU_TOGGLESCREENCLEAR, "Toggle screen clear",
+   MNU_TOGGLEINUSERLIST, "Toggle in user list",
+   MNU_SETARCHIVER, "Set default archiver",
+   MNU_SETPROTOCOL, "Set default protocol",
+   MNU_SETSIGNATURE, "Set personal signature",
+   MNU_SETVIDEOMODE, "Set video mode",
+   MNU_TOGGLEFULLED, "Toggle fullscreen editor",
+   MNU_TOGGLEFULLREAD, "Toggle fullscreen reader",
+   MNU_TOGGLENODISTURB, "Toggle do not disturb flag",
+   MNU_TOGGLEMAILCHECK, "Toggle logon mail check",
+   MNU_TOGGLEFILECHECK, "Toggle new files check",
+   MNU_SETBIRTHDATE, "Set birthdate",
+   MNU_SETSCREENLENGTH, "Set screen length",
+   MNU_TOGGLERIP, "Toggle RIP graphics",
+   0, NULL
+};
 
-   // Personal mail
-   { MNU_MAILLIST, "List mail" },
-   { MNU_MAILREAD, "Read mail" },
-   { MNU_MAILWRITE, "Edit new mail" },
-   { MNU_MAILDELETE, "Kill mail" },
-   { MNU_MAILCHECK, "Check unread mail" },
+// Personal mail
+MENUCMD MenuCmd5[] = {
+   MNU_MAILWRITELOCAL,    "Write local mail    ",
+   MNU_MAILWRITEINTERNET, "Write Internet mail ",
+   MNU_MAILREAD,          "Read mail           ",
+   MNU_MAILDELETE,        "Kill mail           ",
+   MNU_MAILLIST,          "List mail           ",
+   MNU_MAILWRITEFIDONET,  "Write FidoNet mail  ",
+   MNU_MAILCHECK,         "Check unread mail   ",
+   MNU_MAILNEXT,          "Read next mail      ",
+   MNU_MAILPREVIOUS,      "Read previous mail  ",
+   MNU_MAILINDIVIDUAL,    "Read individual mail",
+   MNU_MAILNONSTOP,       "Read mail non-stop  ",
+   0, NULL
+};
 
-   // Offline reader
-   { MNU_OLRTAGAREA, "Tag areas" },
-   { MNU_OLRDOWNLOADASCII, "ASCII download" },
-   { MNU_OLRUPLOAD, "Upload replies" },
-   { MNU_OLRDOWNLOADQWK, "QWK download" },
-   { MNU_OLRDOWNLOADBW, "BlueWave download" },
-   { MNU_OLRDOWNLOADPNT, "PointMail download" },
-   { MNU_OLRREMOVEAREA, "Untag areas" },
-   { MNU_OLRVIEWTAGGED, "View tagged areas" },
-   { MNU_OLRRESTRICTDATE, "Restrict date" },
+// Offline reader
+MENUCMD MenuCmd6[] = {
+   MNU_OLRDOWNLOADASCII, "ASCII download    ",
+   MNU_OLRDOWNLOADBW,    "BlueWave download ",
+   MNU_OLRDOWNLOADQWK,   "QWK download      ",
+   MNU_OLRTAGAREA,       "Tag areas         ",
+   MNU_OLRREMOVEAREA,    "Untag areas       ",
+   MNU_OLRVIEWTAGGED,    "View tagged areas ",
+   MNU_OLRUPLOAD,        "Upload replies    ",
+   MNU_OLRDOWNLOADPNT,   "PointMail download",
+   MNU_OLRRESTRICTDATE,  "Restrict date     ",
+   0, NULL
+};
 
    // Miscellaneous
-   { MNU_DISPLAY, "Display file (anywhere)" },
-   { MNU_NULL, "Display only" },
-   { MNU_LOGOFF, "Logoff" },
-   { MNU_VERSION, "Version information" },
-   { MNU_RUNEXTERNAL, "Run external program" },
-   { MNU_PRESSENTER, "Press Enter to Continue" },
-   { MNU_FINGER, "Finger" },
-   { MNU_FTP, "FTP client" },
+MENUCMD MenuCmd7[] = {
+   MNU_NULL,        "Display only           ",
+   MNU_LOGOFF,      "Logoff                 ",
+   MNU_ONLINEUSERS, "Online users           ",
+   MNU_DISPLAY,     "Display file (anywhere)",
+   MNU_RUNEXTERNAL, "Run external program   ",
+   MNU_PRESSENTER,  "Press Enter to Continue",
+   MNU_VERSION,     "Version information    ",
+   MNU_TELNET,      "Telnet client          ",
+   MNU_FINGER,      "Finger                 ",
+   MNU_FTP,         "FTP client             ",
+   MNU_IRC,         "IRC client             ",
+   MNU_APPENDMENU,  "Append menu            ",
 //   MNU_GOPHER, "Gopher Client",
-   { MNU_TELNET, "Telnet client" },
-   { MNU_ONLINEUSERS, "Users online" },
-   { 0, NULL }
+   0, NULL
 };
 
 VOID AddCmdShadow (VOID)
@@ -277,11 +308,20 @@ USHORT CMenuPromptDlg (class TMenu *Menu)
    return (RetVal);
 }
 
+VOID CommandSelection (VOID)
+{
+   struct _item_t *item;
+
+   item = wmenuicurr ();
+   cmd_sel = item->tagid;
+}
+
 USHORT CMenuEditorDlg (PSZ pszFile)
 {
    short i, menu_sel = 1, maxlen, start;
-   CHAR Temp[48], **Array, *p;
+   CHAR Temp[48], *p;
    USHORT r, RetVal = FALSE;
+   MENUCMD *MenuCmd;
    class TCollection List;
    class TMenu *Data;
 
@@ -334,9 +374,51 @@ USHORT CMenuEditorDlg (PSZ pszFile)
       wprints (2, 14, Data->Color, "Sample color text");
       wprints (3, 14, Data->Hilight, "Sample color text");
       p = "???";
-      for (i = 0; MenuCmd[i].Text != NULL; i++) {
-         if (MenuCmd[i].Id == Data->Command) {
-            sprintf (Temp, "%d - %s", MenuCmd[i].Id, MenuCmd[i].Text);
+      for (i = 0; MenuCmd1[i].Text != NULL; i++) {
+         if (MenuCmd1[i].Id == Data->Command) {
+            sprintf (Temp, "%d - %s", MenuCmd1[i].Id, MenuCmd1[i].Text);
+            p = Temp;
+            break;
+         }
+      }
+      for (i = 0; MenuCmd2[i].Text != NULL; i++) {
+         if (MenuCmd2[i].Id == Data->Command) {
+            sprintf (Temp, "%d - %s", MenuCmd2[i].Id, MenuCmd2[i].Text);
+            p = Temp;
+            break;
+         }
+      }
+      for (i = 0; MenuCmd3[i].Text != NULL; i++) {
+         if (MenuCmd3[i].Id == Data->Command) {
+            sprintf (Temp, "%d - %s", MenuCmd3[i].Id, MenuCmd3[i].Text);
+            p = Temp;
+            break;
+         }
+      }
+      for (i = 0; MenuCmd4[i].Text != NULL; i++) {
+         if (MenuCmd4[i].Id == Data->Command) {
+            sprintf (Temp, "%d - %s", MenuCmd4[i].Id, MenuCmd4[i].Text);
+            p = Temp;
+            break;
+         }
+      }
+      for (i = 0; MenuCmd5[i].Text != NULL; i++) {
+         if (MenuCmd5[i].Id == Data->Command) {
+            sprintf (Temp, "%d - %s", MenuCmd5[i].Id, MenuCmd5[i].Text);
+            p = Temp;
+            break;
+         }
+      }
+      for (i = 0; MenuCmd6[i].Text != NULL; i++) {
+         if (MenuCmd6[i].Id == Data->Command) {
+            sprintf (Temp, "%d - %s", MenuCmd6[i].Id, MenuCmd6[i].Text);
+            p = Temp;
+            break;
+         }
+      }
+      for (i = 0; MenuCmd7[i].Text != NULL; i++) {
+         if (MenuCmd7[i].Id == Data->Command) {
+            sprintf (Temp, "%d - %s", MenuCmd7[i].Id, MenuCmd7[i].Text);
             p = Temp;
             break;
          }
@@ -364,26 +446,158 @@ USHORT CMenuEditorDlg (PSZ pszFile)
          case 5:
             List.Clear ();
             start = maxlen = 0;
-            for (i = 0; MenuCmd[i].Text != NULL; i++) {
-               sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
-               List.Add (Temp);
-               if (maxlen < strlen (Temp))
-                  maxlen = (short)strlen (Temp);
-               if (Data->Command == MenuCmd[i].Id)
-                  start = i;
-            }
-            if (List.Elements > 0) {
-               i = 0;
-               Array = (CHAR **)malloc ((List.Elements + 1) * sizeof (CHAR *));
-               if ((p = (CHAR *)List.First ()) != NULL)
-                  do {
-                     Array[i++] = p;
-                  } while ((p = (CHAR *)List.Next ()) != NULL);
-               Array[i] = NULL;
-               if ((i = wpickstr (7, 25, 21, (short)(25 + maxlen + 1), 1, WHITE|_CYAN, BLACK|_CYAN, WHITE|_GREEN, Array, start, AddCmdShadow)) != -1)
-                  Data->Command = MenuCmd[i].Id;
-               if (Array != NULL)
-                  free (Array);
+
+            wmenubeg (7, 25, 15, 48, 3, BLACK|_LGREY, BLACK|_LGREY, AddShadow);
+            wmenuitem (0, 0, " Moving between menus ", 0, 901, 0, NULL, 0, 0);
+               maxlen = 0;
+               MenuCmd = MenuCmd1;
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  if (maxlen < strlen (Temp))
+                     maxlen = (short)strlen (Temp);
+               }
+               wmenubeg (5, 40, (short)(5 + i + 1), (short)(40 + maxlen + 1), 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  List.Add (Temp);
+                  wmenuitem ( i, 0, (PSZ)List.Value (), 0, MenuCmd[i].Id, M_CLALL, CommandSelection, 0, 0);
+               }
+               wmenuend (MenuCmd[0].Id, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+            wmenuitem (1, 0, " Message areas        ", 0, 902, 0, NULL, 0, 0);
+               maxlen = 0;
+               MenuCmd = MenuCmd2;
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  if (maxlen < strlen (Temp))
+                     maxlen = (short)strlen (Temp);
+               }
+               wmenubeg (2, 40, (short)(2 + i + 1), (short)(40 + maxlen + 1), 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  List.Add (Temp);
+                  wmenuitem ( i, 0, (PSZ)List.Value (), 0, MenuCmd[i].Id, M_CLALL, CommandSelection, 0, 0);
+               }
+               wmenuend (MenuCmd[0].Id, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+            wmenuitem (2, 0, " File areas           ", 0, 903, 0, NULL, 0, 0);
+               maxlen = 0;
+               MenuCmd = MenuCmd3;
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  if (maxlen < strlen (Temp))
+                     maxlen = (short)strlen (Temp);
+               }
+               wmenubeg (3, 40, (short)(3 + i + 1), (short)(40 + maxlen + 1), 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  List.Add (Temp);
+                  wmenuitem ( i, 0, (PSZ)List.Value (), 0, MenuCmd[i].Id, M_CLALL, CommandSelection, 0, 0);
+               }
+               wmenuend (MenuCmd[0].Id, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+            wmenuitem (3, 0, " User configuration   ", 0, 904, 0, NULL, 0, 0);
+               maxlen = 0;
+               MenuCmd = MenuCmd4;
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  if (maxlen < strlen (Temp))
+                     maxlen = (short)strlen (Temp);
+               }
+               wmenubeg (2, 40, (short)(2 + i + 1), (short)(40 + maxlen + 1), 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  List.Add (Temp);
+                  wmenuitem ( i, 0, (PSZ)List.Value (), 0, MenuCmd[i].Id, M_CLALL, CommandSelection, 0, 0);
+               }
+               wmenuend (MenuCmd[0].Id, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+            wmenuitem (4, 0, " Personal mail        ", 0, 905, 0, NULL, 0, 0);
+               maxlen = 0;
+               MenuCmd = MenuCmd5;
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  if (maxlen < strlen (Temp))
+                     maxlen = (short)strlen (Temp);
+               }
+               wmenubeg (5, 40, (short)(5 + i + 1), (short)(40 + maxlen + 1), 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  List.Add (Temp);
+                  wmenuitem ( i, 0, (PSZ)List.Value (), 0, MenuCmd[i].Id, M_CLALL, CommandSelection, 0, 0);
+               }
+               wmenuend (MenuCmd[0].Id, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+            wmenuitem (5, 0, " Offline reader       ", 0, 906, 0, NULL, 0, 0);
+               maxlen = 0;
+               MenuCmd = MenuCmd6;
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  if (maxlen < strlen (Temp))
+                     maxlen = (short)strlen (Temp);
+               }
+               wmenubeg (6, 40, (short)(6 + i + 1), (short)(40 + maxlen + 1), 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  List.Add (Temp);
+                  wmenuitem ( i, 0, (PSZ)List.Value (), 0, MenuCmd[i].Id, M_CLALL, CommandSelection, 0, 0);
+               }
+               wmenuend (MenuCmd[0].Id, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+            wmenuitem (6, 0, " Miscellaneous        ", 0, 907, 0, NULL, 0, 0);
+               maxlen = 0;
+               MenuCmd = MenuCmd7;
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  if (maxlen < strlen (Temp))
+                     maxlen = (short)strlen (Temp);
+               }
+               wmenubeg (5, 40, (short)(5 + i + 1), (short)(40 + maxlen + 1), 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+               for (i = 0; MenuCmd[i].Text != NULL; i++) {
+                  sprintf (Temp, " %3d - %s ", MenuCmd[i].Id, MenuCmd[i].Text);
+                  List.Add (Temp);
+                  wmenuitem ( i, 0, (PSZ)List.Value (), 0, MenuCmd[i].Id, M_CLALL, CommandSelection, 0, 0);
+               }
+               wmenuend (MenuCmd[0].Id, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+            wmenuend (901, M_VERT, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+
+            if (wmenuget () != -1) {
+               for (i = 0; MenuCmd1[i].Text != NULL; i++) {
+                  if (MenuCmd1[i].Id == cmd_sel) {
+                     Data->Command = MenuCmd1[i].Id;
+                     break;
+                  }
+               }
+               for (i = 0; MenuCmd2[i].Text != NULL; i++) {
+                  if (MenuCmd2[i].Id == cmd_sel) {
+                     Data->Command = MenuCmd2[i].Id;
+                     break;
+                  }
+               }
+               for (i = 0; MenuCmd3[i].Text != NULL; i++) {
+                  if (MenuCmd3[i].Id == cmd_sel) {
+                     Data->Command = MenuCmd3[i].Id;
+                     break;
+                  }
+               }
+               for (i = 0; MenuCmd4[i].Text != NULL; i++) {
+                  if (MenuCmd4[i].Id == cmd_sel) {
+                     Data->Command = MenuCmd4[i].Id;
+                     break;
+                  }
+               }
+               for (i = 0; MenuCmd5[i].Text != NULL; i++) {
+                  if (MenuCmd5[i].Id == cmd_sel) {
+                     Data->Command = MenuCmd5[i].Id;
+                     break;
+                  }
+               }
+               for (i = 0; MenuCmd6[i].Text != NULL; i++) {
+                  if (MenuCmd6[i].Id == cmd_sel) {
+                     Data->Command = MenuCmd6[i].Id;
+                     break;
+                  }
+               }
+               for (i = 0; MenuCmd7[i].Text != NULL; i++) {
+                  if (MenuCmd7[i].Id == cmd_sel) {
+                     Data->Command = MenuCmd7[i].Id;
+                     break;
+                  }
+               }
             }
             break;
          case 6:
@@ -834,6 +1048,7 @@ USHORT CFileDlg (VOID)
    wshadow (DGREY|_BLACK);
    wtitle (" File Areas ", TCENTER, WHITE|_LGREY);
 
+   DisplayButton (9, 2, "  Move  ");
    DisplayButton (9, 12, " Delete ");
    DisplayButton (9, 22, " Links  ");
    DisplayButton (9, 32, " Search ");
@@ -857,6 +1072,7 @@ USHORT CFileDlg (VOID)
       wmenuitem (6, 1, " Free Download ", 0, 7, 0, NULL, 0, 0);
       wmenuitem (7, 1, " FileEcho Tag  ", 0, 8, 0, NULL, 0, 0);
 
+      wmenuitem (9, 2, "  Move  ", 'M', 124, 0, NULL, 0, 0);
       wmenuitem (9, 12, " Delete ", 'D', 120, 0, NULL, 0, 0);
       wmenuitem (9, 22, " Links  ", 'k', 121, 0, NULL, 0, 0);
       wmenuitem (9, 32, " Search ", 'r', 122, 0, NULL, 0, 0);
@@ -969,6 +1185,24 @@ USHORT CFileDlg (VOID)
          case 123:
             CFileSecurityDlg (Data);
             break;
+         case 124: {
+            CHAR Key[16];
+            class TFileData *NewData;
+
+            strcpy (Key, Data->Key);
+            if (CFileListDlg (Key, NULL) == TRUE) {
+               if ((NewData = new TFileData (Cfg->SystemPath)) != NULL) {
+                  NewData->Read (Data->Key);
+                  NewData->Delete ();
+                  NewData->Read (Key);
+                  NewData->Insert (Data);
+                  delete NewData;
+               }
+            }
+            if (Data->Read (Data->Key, FALSE) == FALSE)
+               Data->Read (Key, FALSE);
+            break;
+         }
          case 996:
             Data->Update ();
             break;
@@ -1324,6 +1558,7 @@ USHORT CMessageDlg (VOID)
    wshadow (DGREY|_BLACK);
    wtitle (" Message Areas ", TCENTER, WHITE|_LGREY);
 
+   DisplayButton (13, 2, "  Move  ");
    DisplayButton (13, 12, " Delete ");
    DisplayButton (13, 22, " Links  ");
    DisplayButton (13, 32, " Search ");
@@ -1356,6 +1591,7 @@ USHORT CMessageDlg (VOID)
       wmenuitem (10, 1, " Max.Msgs. ", 0, 12, 0, NULL, 0, 0);
       wmenuitem (11, 1, " Max Days  ", 0, 13, 0, NULL, 0, 0);
 
+      wmenuitem (13, 2, "  Move  ", 'M', 124, 0, NULL, 0, 0);
       wmenuitem (13, 12, " Delete ", 'D', 120, 0, NULL, 0, 0);
       wmenuitem (13, 22, " Links  ", 'k', 121, 0, NULL, 0, 0);
       wmenuitem (13, 32, " Search ", 'r', 122, 0, NULL, 0, 0);
@@ -1575,6 +1811,24 @@ USHORT CMessageDlg (VOID)
          case 123:
             CMessageSecurityDlg (Data);
             break;
+         case 124: {
+            CHAR Key[16];
+            class TMsgData *NewData;
+
+            strcpy (Key, Data->Key);
+            if (CMessageListDlg (Key, NULL) == TRUE) {
+               if ((NewData = new TMsgData (Cfg->SystemPath)) != NULL) {
+                  NewData->Read (Data->Key);
+                  NewData->Delete ();
+                  NewData->Read (Key);
+                  NewData->Insert (Data);
+                  delete NewData;
+               }
+            }
+            if (Data->Read (Data->Key, FALSE) == FALSE)
+               Data->Read (Key, FALSE);
+            break;
+         }
          case 996:
             Data->Update ();
             break;
@@ -2095,6 +2349,38 @@ VOID DisplayYesNo (USHORT y, USHORT x, USHORT flag, USHORT Required = FALSE)
    }
 }
 
+VOID DisplayChoice1 (USHORT y, USHORT x, USHORT flag)
+{
+   if (flag == 1)
+      wprints (y, x, WHITE|_BLUE, "Yes");
+   else if (flag == 0)
+      wprints (y, x, WHITE|_BLUE, "No ");
+   else if (flag == 2)
+      wprints (y, x, WHITE|_BLUE, "Ask");
+}
+
+VOID DisplayChoice2 (USHORT y, USHORT x, USHORT flag)
+{
+   if (flag == 1)
+      wprints (y, x, WHITE|_BLUE, "Yes   ");
+   else if (flag == 0)
+      wprints (y, x, WHITE|_BLUE, "No    ");
+   else if (flag == 2)
+      wprints (y, x, WHITE|_BLUE, "Ask   ");
+   else if (flag == 3)
+      wprints (y, x, WHITE|_BLUE, "Detect");
+}
+
+VOID DisplayChoice3 (USHORT y, USHORT x, USHORT flag)
+{
+   if (flag == YES)
+      wprints (y, x, WHITE|_BLUE, "Yes     ");
+   else if (flag == NO)
+      wprints (y, x, WHITE|_BLUE, "No      ");
+   else if (flag == REQUIRED)
+      wprints (y, x, WHITE|_BLUE, "Required");
+}
+
 VOID LimitClassShadow (VOID)
 {
    wtitle (" Limit Classes ", TCENTER, WHITE|_CYAN);
@@ -2109,125 +2395,135 @@ USHORT CNewUsersDlg (VOID)
    class TCollection List;
    class TLimits *Limits;
 
-   wopen (5, 13, 20, 66, 1, WHITE|_LGREY, WHITE|_LGREY);
+   wopen (4, 9, 21, 70, 1, WHITE|_LGREY, WHITE|_LGREY);
    wshadow (DGREY|_BLACK);
    wtitle (" New Users ", TCENTER, WHITE|_LGREY);
 
-   DisplayButton (12, 2, "   Ok   ");
-   DisplayButton (12, 12, " Cancel ");
-   DisplayButton (12, 22, "  Help  ");
+   DisplayButton (14,  2, "   Ok   ");
+   DisplayButton (14, 12, " Cancel ");
+   DisplayButton (14, 22, "  Help  ");
 
-   DisplayButton (12, 32, "    Security     ");
+   DisplayButton (14, 40, "    Security     ");
 
    do {
       wmenubegc ();
 
-      wmenuitem (0, 1, " Check ANSI      ", 0, 1, 0, NULL, 0, 0);
-      wmenuitem (1, 1, " Check AVATAR    ", 0, 2, 0, NULL, 0, 0);
-      wmenuitem (2, 1, " Ask colors      ", 0, 3, 0, NULL, 0, 0);
-      wmenuitem (3, 1, " Ask fullscreen  ", 0, 4, 0, NULL, 0, 0);
-      wmenuitem (4, 1, " Ask hotkey      ", 0, 5, 0, NULL, 0, 0);
-      wmenuitem (5, 1, " Ask IBM chars.  ", 0, 6, 0, NULL, 0, 0);
-      wmenuitem (6, 1, " Ask lines       ", 0, 7, 0, NULL, 0, 0);
-      wmenuitem (7, 1, " Ask pause       ", 0, 8, 0, NULL, 0, 0);
-      wmenuitem (8, 1, " Ask scrn. clear ", 0, 9, 0, NULL, 0, 0);
+      wmenuitem ( 0,  1, " Use ANSI            ", 0, 1, 0, NULL, 0, 0);
+      wmenuitem ( 1,  1, " Use AVATAR          ", 0, 2, 0, NULL, 0, 0);
+      wmenuitem ( 2,  1, " Use colors          ", 0, 3, 0, NULL, 0, 0);
+      wmenuitem ( 3,  1, " Use fullscr. editor ", 0, 4, 0, NULL, 0, 0);
+      wmenuitem ( 4,  1, " Use fullscr. reader ", 0, 5, 0, NULL, 0, 0);
+      wmenuitem ( 5,  1, " Use fullscr. lists  ", 0, 6, 0, NULL, 0, 0);
+      wmenuitem ( 6,  1, " Ask hotkey          ", 0, 7, 0, NULL, 0, 0);
+      wmenuitem ( 7,  1, " Ask IBM chars.      ", 0, 8, 0, NULL, 0, 0);
+      wmenuitem ( 8,  1, " Ask lines           ", 0, 9, 0, NULL, 0, 0);
+      wmenuitem ( 9,  1, " Page pause          ", 0, 10, 0, NULL, 0, 0);
+      wmenuitem (10,  1, " Ask scrn. clear     ", 0, 11, 0, NULL, 0, 0);
 
-      wmenuitem (0, 23, " Ask birthdate   ", 0, 10, 0, NULL, 0, 0);
-      wmenuitem (1, 23, " Ask mail check  ", 0, 11, 0, NULL, 0, 0);
-      wmenuitem (2, 23, " Ask files check ", 0, 12, 0, NULL, 0, 0);
-      wmenuitem (3, 23, " Ask real name   ", 0, 13, 0, NULL, 0, 0);
-      wmenuitem (4, 23, " Company name    ", 0, 14, 0, NULL, 0, 0);
-      wmenuitem (5, 23, " Address         ", 0, 15, 0, NULL, 0, 0);
-      wmenuitem (6, 23, " City            ", 0, 16, 0, NULL, 0, 0);
-      wmenuitem (7, 23, " Phone number    ", 0, 17, 0, NULL, 0, 0);
-      wmenuitem (8, 23, " Gender          ", 0, 18, 0, NULL, 0, 0);
+      wmenuitem ( 2, 27, " Ask birthdate       ", 0, 12, 0, NULL, 0, 0);
+      wmenuitem ( 3, 27, " New mail check      ", 0, 13, 0, NULL, 0, 0);
+      wmenuitem ( 4, 27, " New files check     ", 0, 14, 0, NULL, 0, 0);
+      wmenuitem ( 5, 27, " Ask real name       ", 0, 15, 0, NULL, 0, 0);
+      wmenuitem ( 6, 27, " Company name        ", 0, 16, 0, NULL, 0, 0);
+      wmenuitem ( 7, 27, " Address             ", 0, 17, 0, NULL, 0, 0);
+      wmenuitem ( 8, 27, " City                ", 0, 18, 0, NULL, 0, 0);
+      wmenuitem ( 9, 27, " Phone number        ", 0, 19, 0, NULL, 0, 0);
+      wmenuitem (10, 27, " Gender              ", 0, 20, 0, NULL, 0, 0);
 
-      wmenuitem (10, 1, " Limit Class     ", 0, 19, 0, NULL, 0, 0);
-      wmenuitem (12, 2, "   Ok   ", 'O', 996, 0, NULL, 0, 0);
-      wmenuitem (12, 12, " Cancel ", 'C', 997, 0, NULL, 0, 0);
-      wmenuitem (12, 22, "  Help  ", 'H', 998, 0, NULL, 0, 0);
-      wmenuitem (12, 32, "    Security      ", 'S', 123, 0, NULL, 0, 0);
+      wmenuitem (12, 1, " Limit Class     ", 0, 21, 0, NULL, 0, 0);
+      wmenuitem (14, 2, "   Ok   ", 'O', 996, 0, NULL, 0, 0);
+      wmenuitem (14, 12, " Cancel ", 'C', 997, 0, NULL, 0, 0);
+      wmenuitem (14, 22, "  Help  ", 'H', 998, 0, NULL, 0, 0);
+      wmenuitem (14, 40, "    Security      ", 'S', 123, 0, NULL, 0, 0);
       wmenuend ((short)menu_sel, M_OMNI|M_SAVE, 0, 0, BLACK|_GREEN, YELLOW|_GREEN, DGREY|_GREEN, WHITE|_GREEN);
 
-      DisplayYesNo (0, 19, Cfg->CheckAnsi);
-      DisplayYesNo (1, 19, Cfg->CheckAvatar);
-      DisplayYesNo (2, 19, Cfg->CheckColor);
-      DisplayYesNo (3, 19, Cfg->CheckFullScreen);
-      DisplayYesNo (4, 19, Cfg->CheckHotKey);
-      DisplayYesNo (5, 19, Cfg->CheckIBMChars);
-      DisplayYesNo (6, 19, Cfg->AskLines);
-      DisplayYesNo (7, 19, Cfg->AskPause);
-      DisplayYesNo (8, 19, Cfg->AskScreenClear);
+      DisplayChoice2 (0, 23, Cfg->UseAnsi);
+      DisplayChoice2 (1, 23, Cfg->UseAvatar);
+      DisplayChoice1 (2, 23, Cfg->UseColor);
+      DisplayChoice1 (3, 23, Cfg->UseFullScreenEditor);
+      DisplayChoice1 (4, 23, Cfg->UseFullScreenReader);
+      DisplayChoice1 (5, 23, Cfg->UseFullScreenLists);
+      DisplayChoice1 (6, 23, Cfg->UseHotKey);
+      DisplayChoice1 (7, 23, Cfg->UseIBMChars);
+      DisplayChoice1 (8, 23, Cfg->AskLines);
+      DisplayChoice1 (9, 23, Cfg->UsePause);
+      DisplayChoice1 (10, 23, Cfg->UseScreenClear);
 
-      DisplayYesNo (0, 41, Cfg->AskBirthDate);
-      DisplayYesNo (1, 41, Cfg->AskMailCheck);
-      DisplayYesNo (2, 41, Cfg->AskFileCheck);
-      DisplayYesNo (3, 41, Cfg->RealName, TRUE);
-      DisplayYesNo (4, 41, Cfg->CompanyName, TRUE);
-      DisplayYesNo (5, 41, Cfg->Address, TRUE);
-      DisplayYesNo (6, 41, Cfg->City, TRUE);
-      DisplayYesNo (7, 41, Cfg->PhoneNumber, TRUE);
-      DisplayYesNo (8, 41, Cfg->Gender, TRUE);
+      DisplayChoice1 (2, 49, Cfg->AskBirthDate);
+      DisplayChoice1 (3, 49, Cfg->AskMailCheck);
+      DisplayChoice1 (4, 49, Cfg->AskFileCheck);
+      DisplayChoice3 (5, 49, Cfg->AskAlias);
+      DisplayChoice3 (6, 49, Cfg->AskCompanyName);
+      DisplayChoice3 (7, 49, Cfg->AskAddress);
+      DisplayChoice3 (8, 49, Cfg->AskCity);
+      DisplayChoice3 (9, 49, Cfg->AskPhoneNumber);
+      DisplayChoice3 (10, 49, Cfg->AskGender);
 
       sprintf (Temp, "%-16.16s", Cfg->NewUserLimits);
-      wprints (10, 19, WHITE|_BLUE, Temp);
+      wprints (12, 23, WHITE|_BLUE, Temp);
 
       switch (menu_sel = wmenuget ()) {
          case 1:
-            Cfg->CheckAnsi = (Cfg->CheckAnsi == TRUE) ? FALSE : TRUE;
+            Cfg->UseAnsi = (UCHAR)((Cfg->UseAnsi + 1) % 4);
             break;
          case 2:
-            Cfg->CheckAvatar = (Cfg->CheckAvatar == TRUE) ? FALSE : TRUE;
+            Cfg->UseAvatar = (UCHAR)((Cfg->UseAvatar + 1) % 4);
             break;
          case 3:
-            Cfg->CheckColor = (Cfg->CheckColor == TRUE) ? FALSE : TRUE;
+            Cfg->UseColor = (UCHAR)((Cfg->UseColor + 1) % 3);
             break;
          case 4:
-            Cfg->CheckFullScreen = (Cfg->CheckFullScreen == TRUE) ? FALSE : TRUE;
+            Cfg->UseFullScreenEditor = (UCHAR)((Cfg->UseFullScreenEditor + 1) % 3);
             break;
          case 5:
-            Cfg->CheckHotKey = (Cfg->CheckHotKey == TRUE) ? FALSE : TRUE;
+            Cfg->UseFullScreenReader = (UCHAR)((Cfg->UseFullScreenReader + 1) % 3);
             break;
          case 6:
-            Cfg->CheckIBMChars = (Cfg->CheckIBMChars == TRUE) ? FALSE : TRUE;
+            Cfg->UseFullScreenLists = (UCHAR)((Cfg->UseFullScreenLists + 1) % 3);
             break;
          case 7:
-            Cfg->AskLines = (Cfg->AskLines == TRUE) ? FALSE : TRUE;
+            Cfg->UseHotKey = (UCHAR)((Cfg->UseHotKey + 1) % 3);
             break;
          case 8:
-            Cfg->AskPause = (Cfg->AskPause == TRUE) ? FALSE : TRUE;
+            Cfg->UseIBMChars = (UCHAR)((Cfg->UseIBMChars + 1) % 3);
             break;
          case 9:
-            Cfg->AskScreenClear = (Cfg->AskScreenClear == TRUE) ? FALSE : TRUE;
+            Cfg->AskLines = (Cfg->AskLines == TRUE) ? FALSE : TRUE;
             break;
          case 10:
-            Cfg->AskBirthDate = (Cfg->AskBirthDate == TRUE) ? FALSE : TRUE;
+            Cfg->UsePause = (UCHAR)((Cfg->UsePause + 1) % 3);
             break;
          case 11:
-            Cfg->AskMailCheck = (Cfg->AskMailCheck == TRUE) ? FALSE : TRUE;
+            Cfg->UseScreenClear = (UCHAR)((Cfg->UseScreenClear + 1) % 3);
             break;
          case 12:
-            Cfg->AskFileCheck = (Cfg->AskFileCheck == TRUE) ? FALSE : TRUE;
+            Cfg->AskBirthDate = (Cfg->AskBirthDate == TRUE) ? FALSE : TRUE;
             break;
          case 13:
-            Cfg->RealName = (UCHAR)((Cfg->RealName + 1) % 3);
+            Cfg->AskMailCheck = (UCHAR)((Cfg->AskMailCheck + 1) % 3);
             break;
          case 14:
-            Cfg->CompanyName = (UCHAR)((Cfg->CompanyName + 1) % 3);
+            Cfg->AskFileCheck = (UCHAR)((Cfg->AskFileCheck + 1) % 3);
             break;
          case 15:
-            Cfg->Address = (UCHAR)((Cfg->Address + 1) % 3);
+            Cfg->AskAlias = (UCHAR)((Cfg->AskAlias + 1) % 3);
             break;
          case 16:
-            Cfg->City = (UCHAR)((Cfg->City + 1) % 3);
+            Cfg->AskCompanyName = (UCHAR)((Cfg->AskCompanyName + 1) % 3);
             break;
          case 17:
-            Cfg->PhoneNumber = (UCHAR)((Cfg->PhoneNumber + 1) % 3);
+            Cfg->AskAddress = (UCHAR)((Cfg->AskAddress + 1) % 3);
             break;
          case 18:
-            Cfg->Gender = (UCHAR)((Cfg->Gender + 1) % 3);
+            Cfg->AskCity = (UCHAR)((Cfg->AskCity + 1) % 3);
             break;
-         case 19: {
+         case 19:
+            Cfg->AskPhoneNumber = (UCHAR)((Cfg->AskPhoneNumber + 1) % 3);
+            break;
+         case 20:
+            Cfg->AskGender = (UCHAR)((Cfg->AskGender + 1) % 3);
+            break;
+         case 21: {
             List.Clear ();
             start = maxlen = i = 0;
             if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
@@ -2274,5 +2570,220 @@ USHORT CNewUsersDlg (VOID)
    wclose ();
 
    return (RetVal);
+}
+
+USHORT CSelectNodeFlagDlg (class TNodeFlags *Data)
+{
+   short i, a, start = 0;
+   CHAR Temp[128], *p, **Array;
+   USHORT RetVal = FALSE;
+   class TCollection List;
+
+   if (Data->First () == TRUE) {
+      i = 1;
+      List.Clear ();
+      do {
+         sprintf (Temp, "%-9.9s ³ %-25.25s", Data->Flags, Data->Cmd);
+         List.Add (Temp);
+         i++;
+      } while (Data->Next () == TRUE);
+
+      if (List.Elements > 0) {
+         i = 0;
+         Array = (CHAR **)malloc ((List.Elements + 1) * sizeof (CHAR *));
+         if ((p = (CHAR *)List.First ()) != NULL)
+            do {
+               Array[i++] = p;
+            } while ((p = (CHAR *)List.Next ()) != NULL);
+         Array[i] = NULL;
+         if ((i += 4) > 15)
+            i = 15;
+         if ((i = wpickstr (5, 15, i, 52, 5, BLACK|_CYAN, BLACK|_CYAN, YELLOW|_CYAN, Array, start, NULL)) != -1) {
+            a = 0;
+            if (Data->First () == TRUE)
+               do {
+                  if (a++ == i)
+                     break;
+               } while (Data->Next () == TRUE);
+            RetVal = TRUE;
+         }
+         if (Array != NULL)
+            free (Array);
+      }
+      else
+         getxch ();
+   }
+   else
+      getxch ();
+
+   return (RetVal);
+}
+
+VOID CNodeFlagsDlg (VOID)
+{
+   short i, menu_sel = 996, sub_menu_sel;
+   CHAR Temp[64], TempCmd[64];
+   class TNodeFlags *Data;
+
+   Data = new TNodeFlags (Cfg->SystemPath);
+
+   wopen (3, 12, 21, 66, 1, WHITE|_LGREY, WHITE|_LGREY);
+   wshadow (DGREY|_BLACK);
+   wtitle (" Nodelist flags ", TCENTER, WHITE|_LGREY);
+
+   DisplayButton (1, 42, "  Add   ");
+   DisplayButton (3, 42, " Remove ");
+   DisplayButton (5, 42, " Modify ");
+
+   DisplayButton (15, 2, "   Ok   ");
+   DisplayButton (15, 12, " Cancel ");
+   DisplayButton (15, 22, "  Help  ");
+
+   do {
+      wmenubegc ();
+      wmenuitem (1, 42, "  Add   ", 'A', 102, 0, NULL, 0, 0);
+      wmenuitem (3, 42, " Remove ", 'R', 103, 0, NULL, 0, 0);
+      wmenuitem (5, 42, " Modify ", 'M', 104, 0, NULL, 0, 0);
+
+      wmenuitem (12, 1, " Call if        ", 0, 1, 0, NULL, 0, 0);
+      wmenuitem (13, 1, " Don't call if  ", 0, 2, 0, NULL, 0, 0);
+
+      wmenuitem (15, 2, "   Ok   ", 'O', 996, 0, NULL, 0, 0);
+      wmenuitem (15, 12, " Cancel ", 'C', 997, 0, NULL, 0, 0);
+      wmenuitem (15, 22, "  Help  ", 'H', 998, 0, NULL, 0, 0);
+      wmenuend ((short)menu_sel, M_OMNI|M_SAVE, 0, 0, BLACK|_GREEN, YELLOW|_GREEN, DGREY|_GREEN, WHITE|_GREEN);
+
+      sprintf (Temp, " %-9.9s ³ %-25.25s ", "", "");
+      for (i = 0; i <= 9; i++)
+         wprints ((short)(i + 1), 1, BLACK|_CYAN, Temp);
+
+      sprintf (Temp, " %-9.9s ³ %-25.25s ", "Flags", "Command");
+      wprints (0, 1, BLACK|_GREEN, Temp);
+
+      i = 0;
+      if (Data->First () == TRUE)
+         do {
+            if (i <= 9) {
+               sprintf (Temp, " %-9.9s ³ %-25.25s ", Data->Flags, Data->Cmd);
+               wprints ((short)(i + 1), 1, BLACK|_CYAN, Temp);
+               i++;
+            }
+         } while (Data->Next () == TRUE);
+
+      DisplayTextField (12, 18, Cfg->CallIf, 25, 25);
+      DisplayTextField (13, 18, Cfg->DontCallIf, 25, 25);
+
+      switch (menu_sel = wmenuget ()) {
+         case 1:
+            GetTextField (12, 18, Cfg->CallIf, 25, 25);
+            break;
+         case 2:
+            GetTextField (13, 18, Cfg->DontCallIf, 25, 25);
+            break;
+         case 102:
+            if (wopen (9, 18, 15, 58, 1, WHITE|_LGREY, WHITE|_LGREY) > 0) {
+               wshadow (DGREY|_BLACK);
+               wtitle (" Add Flag ", TCENTER, WHITE|_LGREY);
+
+               DisplayButton (3, 2, "   Ok   ");
+               DisplayButton (3, 12, " Cancel ");
+
+               sub_menu_sel = 996;
+               Temp[0] = TempCmd[0] = '\0';
+
+               do {
+                  wmenubegc ();
+                  wmenuitem (0, 1, " Flags    ", 0, 1, 0, NULL, 0, 0);
+                  wmenuitem (1, 1, " Command  ", 0, 2, 0, NULL, 0, 0);
+
+                  wmenuitem (3, 2, "   Ok   ", 'O', 996, 0, NULL, 0, 0);
+                  wmenuitem (3, 12, " Cancel ", 'C', 997, 0, NULL, 0, 0);
+                  wmenuend ((short)sub_menu_sel, M_OMNI|M_SAVE, 0, 0, BLACK|_GREEN, YELLOW|_GREEN, DGREY|_GREEN, WHITE|_GREEN);
+
+                  DisplayTextField (0, 12, Temp, sizeof (Temp), 9);
+                  DisplayTextField (1, 12, TempCmd, sizeof (TempCmd), 25);
+
+                  switch (sub_menu_sel = wmenuget ()) {
+                     case 1:
+                        GetTextField (0, 12, Temp, sizeof (Temp), 9);
+                        break;
+                     case 2:
+                        GetTextField (1, 12, TempCmd, sizeof (TempCmd), 25);
+                        break;
+                 }
+               } while (sub_menu_sel != -1 && sub_menu_sel != 996 && sub_menu_sel != 997);
+
+               if (sub_menu_sel == 996) {
+                  strcpy (Data->Flags, Temp);
+                  strcpy (Data->Cmd, TempCmd);
+                  Data->Add ();
+               }
+
+               hidecur ();
+               wclose ();
+            }
+            break;
+         case 103:
+            if (CSelectNodeFlagDlg (Data) == TRUE) {
+               if (MessageBox ("Delete Item", "Are you really sure ?") == TRUE)
+                  Data->Delete ();
+            }
+            break;
+         case 104:
+            if (CSelectNodeFlagDlg (Data) == TRUE) {
+               if (wopen (9, 18, 15, 58, 1, WHITE|_LGREY, WHITE|_LGREY) > 0) {
+                  wshadow (DGREY|_BLACK);
+                  wtitle (" Modify Flag ", TCENTER, WHITE|_LGREY);
+
+                  DisplayButton (3, 2, "   Ok   ");
+                  DisplayButton (3, 12, " Cancel ");
+
+                  strcpy (Temp, Data->Flags);
+                  strcpy (TempCmd, Data->Cmd);
+
+                  do {
+                     wmenubegc ();
+                     wmenuitem (0, 1, " Flags    ", 0, 1, 0, NULL, 0, 0);
+                     wmenuitem (1, 1, " Command  ", 0, 2, 0, NULL, 0, 0);
+
+                     wmenuitem (3, 2, "   Ok   ", 'O', 996, 0, NULL, 0, 0);
+                     wmenuitem (3, 12, " Cancel ", 'C', 997, 0, NULL, 0, 0);
+                     wmenuend ((short)sub_menu_sel, M_OMNI|M_SAVE, 0, 0, BLACK|_GREEN, YELLOW|_GREEN, DGREY|_GREEN, WHITE|_GREEN);
+
+                     DisplayTextField (0, 12, Temp, sizeof (Temp), 9);
+                     DisplayTextField (1, 12, TempCmd, sizeof (TempCmd), 25);
+
+                     switch (sub_menu_sel = wmenuget ()) {
+                        case 1:
+                           GetTextField (0, 12, Temp, sizeof (Temp), 9);
+                           break;
+                        case 2:
+                           GetTextField (1, 12, TempCmd, sizeof (TempCmd), 25);
+                           break;
+                    }
+                  } while (sub_menu_sel != -1 && sub_menu_sel != 996 && sub_menu_sel != 997);
+
+                  if (sub_menu_sel == 996) {
+                     strcpy (Data->Flags, Temp);
+                     strcpy (Data->Cmd, TempCmd);
+                     Data->Update ();
+                  }
+
+                  hidecur ();
+                  wclose ();
+               }
+            }
+            break;
+         case 996:
+            Data->Save ();
+            break;
+         case 997:
+            break;
+      }
+   } while (menu_sel != -1 && menu_sel != 996 && menu_sel != 997);
+
+   delete Data;
+
+   wclose ();
 }
 

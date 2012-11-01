@@ -170,12 +170,14 @@ public:
    class  TConfig *Cfg;
    class  TLog *Log;
    class  TCollection *Description;
-   class  TCollection *SeenBy, *Path;
+   class  TKludges *SeenBy;
+   class  TCollection *Path;
    class  TAddress From;
    class  TAddress Origin;
    class  TPMList *Output;
 
    USHORT Check (VOID);
+   USHORT CheckEchoList (PSZ pszFile, PSZ pszEchoTag);
    VOID   Delete (VOID);
    VOID   Hatch (class TAddress *Dest);
    VOID   Hatch (class TAddress &Dest);
@@ -244,14 +246,16 @@ public:
    class  TStatus *Status;
 
    VOID   Change (VOID);
+   USHORT CheckEchoList (PSZ pszFile, PSZ pszEchoTag);
    VOID   Export (VOID);
    VOID   ExportNetMail (VOID);
    VOID   Import (VOID);
    VOID   ImportBad (VOID);
    USHORT IsArcmail (VOID);
    VOID   News (VOID);
-   VOID   Pack (PSZ pszFile);
+   VOID   Pack (PSZ pszFile, PSZ pszRoute = NULL);
    VOID   Mail (VOID);
+   USHORT DoRescan (VOID);
    USHORT UnpackArcmail (VOID);
 
 private:
@@ -272,7 +276,8 @@ private:
    class  TDupes *Dupes;
    class  TMsgBase *Msg;
    class  TEchotoss *Echo;
-   class  TKludges *SeenBy, *Path;
+   class  TKludges *SeenBy;
+   class  TKludges *Path;
 
    USHORT ExportEchoMail (ULONG Number, PSZ pszEchoTag);
    ULONG  ImportEchoMail (PSZ EchoTag, class TMsgBase *InBase = NULL);
@@ -281,6 +286,7 @@ private:
    USHORT OpenNextPacket (VOID);
    VOID   RouteTo (VOID);
    VOID   SendTo (VOID);
+   VOID   Poll (VOID);
 };
 
 // --------------------------------------------------------------------------
@@ -294,10 +300,15 @@ public:
    class  TConfig *Cfg;
    class  TLog *Log;
    class  TMsgBase *Msg;
+   class  TStatus *Status;
 
    USHORT AddArea (PSZ address, PSZ area);
+   VOID   DoAreaListings (PSZ Address, USHORT Type, USHORT Level, ULONG AccessFlags, ULONG DenyFlags);
    USHORT FilePassive (PSZ address, USHORT flag);
    USHORT FileRemoveAll (PSZ address);
+   VOID   ImportAreasBBS (VOID);
+   VOID   ImportDescriptions (PSZ pszFile);
+   VOID   ExportDescriptions (PSZ pszFile);
    VOID   MsgFooter (VOID);
    VOID   MsgHeader (VOID);
    USHORT Passive (PSZ address, USHORT flag);
@@ -305,7 +316,7 @@ public:
    VOID   ProcessRaid (VOID);
    USHORT RemoveAll (PSZ address);
    USHORT RemoveArea (PSZ address, PSZ area);
-   VOID   Rescan (PSZ pszEchoTag, PSZ pszAddress);
+   VOID   Rescan (PSZ pszEchoTag, PSZ pszAddress, USHORT MaxMsgs = 0);
    USHORT SetInPacketPwd (PSZ address, PSZ pwd);
    USHORT SetOutPacketPwd (PSZ address, PSZ pwd);
    USHORT SetPacker (PSZ Cmd);
@@ -405,7 +416,9 @@ private:
    DECLARE_MESSAGE_MAP ()
 
    VOID   Add (VOID);
+   VOID   Change (VOID);
    VOID   Remove (VOID);
+   VOID   SelChanged (VOID);
 };
 
 class CAnswerDlg : public CDialog
@@ -524,6 +537,7 @@ private:
    VOID   DisplayData (VOID);
    VOID   Links (VOID);
    VOID   List (VOID);
+   VOID   Move (VOID);
    VOID   ReadData (VOID);
    VOID   Search (VOID);
 };
@@ -562,17 +576,22 @@ class CLimitsDlg : public CDialog
 {
 public:
    CLimitsDlg (HWND p_hWnd);
+   virtual ~CLimitsDlg ();
 
-   DECLARE_MESSAGE_MAP ()
+   class  TLimits *Limits;
 
    USHORT OnInitDialog (VOID);
    VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
-   VOID   Add (VOID);
+   DECLARE_MESSAGE_MAP ()
+
+   VOID   DisplayData (VOID);
    VOID   Delete (VOID);
-   VOID   SelectItem (VOID);
+   VOID   Next (VOID);
+   VOID   Previous (VOID);
+   VOID   Add (VOID);
 };
 
 class CMailprocDlg : public CDialog
@@ -643,6 +662,7 @@ private:
    VOID   DisplayData (VOID);
    VOID   Links (VOID);
    VOID   List (VOID);
+   VOID   Move (VOID);
    VOID   ReadData (VOID);
    VOID   Search (VOID);
    VOID   Security (VOID);
@@ -706,6 +726,7 @@ private:
    DECLARE_MESSAGE_MAP ()
 
    VOID   Add (VOID);
+   VOID   Copy (VOID);
    VOID   Delete (VOID);
    VOID   DisplayData (VOID);
    VOID   List (VOID);
@@ -714,6 +735,25 @@ private:
    VOID   Previous (VOID);
    VOID   ReadData (VOID);
    VOID   Security (VOID);
+   VOID   NodeTic (VOID);
+   VOID   NodeEcho (VOID);
+};
+
+class CNodeFlagsDlg : public CDialog
+{
+public:
+   CNodeFlagsDlg (HWND p_hWnd);
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   DECLARE_MESSAGE_MAP ()
+
+   VOID   Add (VOID);
+   VOID   Change (VOID);
+   VOID   Remove (VOID);
 };
 
 class COfflineDlg : public CDialog
@@ -724,6 +764,24 @@ public:
    USHORT OnInitDialog (VOID);
    VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
+};
+
+class COkFileDlg : public CDialog
+{
+public:
+   COkFileDlg (HWND p_hWnd);
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   DECLARE_MESSAGE_MAP ()
+
+   VOID   Add (VOID);
+   VOID   Change (VOID);
+   VOID   Remove (VOID);
+   VOID   SelChanged (VOID);
 };
 
 class COriginDlg : public CDialog
@@ -791,6 +849,16 @@ private:
    VOID   ReadData (VOID);
 };
 
+class CRaidDlg : public CDialog
+{
+public:
+   CRaidDlg (HWND p_hWnd);
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
+   VOID   OnOK (VOID);
+};
+
 class CSiteInfoDlg : public CDialog
 {
 public:
@@ -799,6 +867,30 @@ public:
    USHORT OnInitDialog (VOID);
    VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
+};
+
+class CTranslationDlg : public CDialog
+{
+public:
+   CTranslationDlg (HWND p_hWnd);
+   ~CTranslationDlg (void);
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   void *Data;
+   DECLARE_MESSAGE_MAP ()
+
+   VOID   Add (VOID);
+   VOID   Copy (VOID);
+   VOID   Delete (VOID);
+   VOID   DisplayData (VOID);
+   VOID   List (VOID);
+   VOID   Next (VOID);
+   VOID   Previous (VOID);
+   VOID   ReadData (VOID);
 };
 
 class CUserDlg : public CDialog
@@ -853,6 +945,7 @@ USHORT CMenuEditorDlg (PSZ pszFile);
 USHORT CMessageDlg (VOID);
 USHORT CNewUsersDlg (VOID);
 USHORT CNodelistDlg (VOID);
+VOID   CNodeFlagsDlg (VOID);
 USHORT CNodesDlg (VOID);
 USHORT COfflineDlg (VOID);
 USHORT CSiteInfoDlg (VOID);

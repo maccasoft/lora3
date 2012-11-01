@@ -15,32 +15,6 @@
 #include "combase.h"
 
 #if defined(__OS2__)
-#include <types.h>
-#include <netinet\in.h>
-#include <sys\socket.h>
-#include <netdb.h>
-#include <sys\ioctl.h>
-#elif defined(__NT__)
-#elif defined(__LINUX__)
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#else
-extern "C" {
-#include <sys\types.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <pctcp/types.h>
-#include <pctcp/rwconf.h>
-#include <pctcp/pctcp.h>
-#include <pctcp/syscalls.h>
-};
-#endif
-
-#if defined(__OS2__)
 VOID WaitThread (PVOID Args)
 {
    FILE *fp;
@@ -270,9 +244,9 @@ USHORT TTcpip::ConnectServer (PSZ pszServer, USHORT usPort)
    return (RetVal);
 }
 
-USHORT TTcpip::Initialize (USHORT usPort, USHORT usSocket)
+USHORT TTcpip::Initialize (USHORT usPort, USHORT usSocket, USHORT usProtocol)
 {
-   int i;
+   int i, socktype = SOCK_STREAM;
    USHORT RetVal = FALSE;
    struct sockaddr_in server;
 #if defined(__NT__)
@@ -307,7 +281,9 @@ USHORT TTcpip::Initialize (USHORT usPort, USHORT usSocket)
       sprintf (HostIP, "%ld.%ld.%ld.%ld", (HostID & 0xFF000000L) >> 24, (HostID & 0xFF0000L) >> 16, (HostID & 0xFF00L) >> 8, (HostID & 0xFFL));
 
       if (usSocket == 0) {
-         if ((LSock = socket (AF_INET, SOCK_STREAM, 0)) >= 0) {
+         if (usProtocol == IPPROTO_UDP)
+            socktype = SOCK_DGRAM;
+         if ((LSock = socket (AF_INET, socktype, usProtocol)) >= 0) {
             server.sin_family = AF_INET;
             server.sin_port = htons (usPort);
             server.sin_addr.s_addr = INADDR_ANY;
@@ -322,15 +298,22 @@ USHORT TTcpip::Initialize (USHORT usPort, USHORT usSocket)
                ioctl (LSock, FIONBIO, (char *)&i, sizeof (int));
 #elif defined(__NT__)
                ioctlsocket (LSock, FIONBIO, (unsigned long *)&i);
+#elif defined(__OS2__)
+               if (usProtocol == IPPROTO_UDP)
+                  ioctl (LSock, FIONBIO, (char *)&i, sizeof (int));
 #endif
-               if (listen (LSock, 1) >= 0) {
-                  Sock = 0;
+               if (usProtocol == IPPROTO_TCP) {
+                  if (listen (LSock, 1) >= 0) {
+                     Sock = 0;
 #if defined(__OS2__)
-                  Accepted = 0;
-                  _beginthread (WaitThread, NULL, 32767, (PVOID)this);
+                     Accepted = 0;
+                     _beginthread (WaitThread, NULL, 32767, (PVOID)this);
 #endif
-                  RetVal = TRUE;
+                     RetVal = TRUE;
+                  }
                }
+               else
+                  RetVal = TRUE;
             }
          }
       }
@@ -422,6 +405,26 @@ USHORT TTcpip::ReadBytes (UCHAR *bytes, USHORT len)
    }
 
    return (Max);
+}
+
+USHORT TTcpip::PeekPacket (PVOID lpBuffer, USHORT usSize)
+{
+   int namelen = sizeof (udp_client);
+   if (recvfrom (LSock, (char *)lpBuffer, usSize, MSG_PEEK, (struct sockaddr *)&udp_client, &namelen) > 0)
+      return (TRUE);
+
+   return (FALSE);
+}
+
+USHORT TTcpip::GetPacket (PVOID lpBuffer, USHORT usSize)
+{
+   int namelen = sizeof (udp_client);
+   return ((USHORT)recvfrom (LSock, (char *)lpBuffer, usSize, 0, (struct sockaddr *)&udp_client, &namelen));
+}
+
+USHORT TTcpip::SendPacket (PVOID lpBuffer, USHORT usSize)
+{
+   return ((USHORT)sendto (LSock, (char *)lpBuffer, usSize, 0, (struct sockaddr *)&udp_client, sizeof (udp_client)));
 }
 
 USHORT TTcpip::WaitClient (VOID)

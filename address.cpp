@@ -31,6 +31,7 @@ SHORT TAddress::Add (PSZ pszAddress)
    PSZ p;
 
    Zone = Net = Node = Point = 0;
+   FakeNet = 0;
    Domain[0] = '\0';
 
    if (pszAddress != NULL) {
@@ -87,6 +88,7 @@ VOID TAddress::Clear (VOID)
 {
    List.Clear ();
    Zone = Net = Node = Point = 0;
+   FakeNet = 0;
    Domain[0] = String[0] = '\0';
 }
 
@@ -101,6 +103,7 @@ SHORT TAddress::First (VOID)
    MAILADDRESS *Addr;
 
    Zone = Net = Node = Point = 0;
+   FakeNet = 0;
    Domain[0] = String[0] = '\0';
 
    if ((Addr = (MAILADDRESS *)List.First ()) != NULL) {
@@ -117,6 +120,7 @@ SHORT TAddress::First (VOID)
          strcat (String, "@");
          strcat (String, Domain);
       }
+      FakeNet = Addr->FakeNet;
       RetVal = TRUE;
    }
 
@@ -176,6 +180,7 @@ SHORT TAddress::Next (VOID)
          strcat (String, "@");
          strcat (String, Domain);
       }
+      FakeNet = Addr->FakeNet;
       RetVal = TRUE;
    }
 
@@ -187,6 +192,7 @@ VOID TAddress::Parse (PSZ pszAddress)
    PSZ p;
 
    Zone = Net = Node = Point = 0;
+   FakeNet = 0;
    Domain[0] = '\0';
 
    if (pszAddress != NULL) {
@@ -228,6 +234,29 @@ VOID TAddress::Parse (PSZ pszAddress)
          strcat (String, "@");
          strcat (String, Domain);
       }
+   }
+}
+
+VOID TAddress::Update (VOID)
+{
+   MAILADDRESS *Addr;
+
+   if ((Addr = (MAILADDRESS *)List.Value ()) != NULL) {
+      Addr->Zone = Zone;
+      Addr->Net = Net;
+      Addr->Node = Node;
+      Addr->Point = Point;
+      strcpy (Addr->Domain, Domain);
+      Addr->FakeNet = FakeNet;
+   }
+
+   if (Point != 0)
+      sprintf (String, "%u:%u/%u.%u", Zone, Net, Node, Point);
+   else
+      sprintf (String, "%u:%u/%u", Zone, Net, Node);
+   if (Domain[0] != '\0') {
+      strcat (String, "@");
+      strcat (String, Domain);
    }
 }
 

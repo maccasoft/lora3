@@ -434,6 +434,9 @@ VOID CDialog::LM_SetItemText (int id, USHORT value, PSZ text)
 #if defined(__OS2__)
    WinSendDlgItemMsg (m_hWnd, id, LM_SETITEMTEXT, MPFROMSHORT (value), MPFROMP (text));
 #elif defined(__NT__)
+   SendDlgItemMessage (m_hWnd, id, LB_INSERTSTRING, (WPARAM)value, (LPARAM)text);
+   SendDlgItemMessage (m_hWnd, id, LB_DELETESTRING, (WPARAM)(value + 1), 0L);
+   SendDlgItemMessage (m_hWnd, id, LB_SELECTSTRING, (WPARAM)value, (LPARAM)text);
 #endif
 }
 

@@ -46,7 +46,6 @@ USHORT ADEPT::Add (class TMsgBase *MsgBase)
    strcpy (From, MsgBase->From);
    strcpy (To, MsgBase->To);
    strcpy (Subject, MsgBase->Subject);
-
    strcpy (FromAddress, MsgBase->FromAddress);
    strcpy (ToAddress, MsgBase->ToAddress);
 

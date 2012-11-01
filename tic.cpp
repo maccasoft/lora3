@@ -69,6 +69,14 @@ VOID TTicProcessor::Hatch (class TAddress &Dest)
    struct dostime_t dtime;
    struct stat statbuf;
    class TOutbound *Out;
+   class TNodes *Nodes;
+
+   Password[0] = '\0';
+   if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+      if (Nodes->Read (Dest.String) == TRUE)
+         strcpy (Password, Nodes->TicPwd);
+      delete Nodes;
+   }
 
    Cfg->MailAddress.First ();
 
@@ -125,10 +133,10 @@ VOID TTicProcessor::Hatch (class TAddress &Dest)
             fprintf (fp, "Path %s\n", p);
          } while ((p = (PSZ)Path->Next ()) != NULL);
 
-      if ((p = (PSZ)SeenBy->First ()) != NULL)
+      if (SeenBy->First () == TRUE)
          do {
-            fprintf (fp, "Seenby %s\n", p);
-         } while ((p = (PSZ)SeenBy->Next ()) != NULL);
+            fprintf (fp, "Seenby %s\n", SeenBy->Address);
+         } while (SeenBy->Next () == TRUE);
 
       fprintf (fp, "Pw %s\n", Password);
       fclose (fp);
@@ -170,7 +178,7 @@ VOID TTicProcessor::Hatch (class TAddress &Dest)
 VOID TTicProcessor::Import (VOID)
 {
    Description = new TCollection;
-   SeenBy = new TCollection;
+   SeenBy = new TKludges;
    Path = new TCollection;
 
    while (OpenNext () == TRUE) {
@@ -186,13 +194,48 @@ VOID TTicProcessor::Import (VOID)
       delete Description;
 }
 
+USHORT TTicProcessor::CheckEchoList (PSZ pszFile, PSZ pszEchoTag)
+{
+   #define MAX_LINECHAR 2048
+   FILE *fp;
+   USHORT RetVal = FALSE;
+   CHAR *lpTemp = (CHAR *)malloc (MAX_LINECHAR + 1);
+   CHAR *lpTag;
+
+   if (*pszFile == '@')
+      pszFile++;
+   fp = fopen (pszFile, "rt");
+
+   if (fp != NULL && lpTemp != NULL) {
+      while (fgets (lpTemp, MAX_LINECHAR, fp) != NULL) {
+         lpTemp[strlen (lpTemp) - 1] = '\0';
+         if (lpTemp[0] == ';' || lpTemp[0] == '\0')
+            continue;
+         if ((lpTag = strtok (lpTemp, " ")) != NULL) {
+            if (!stricmp (lpTag, pszEchoTag)) {
+               RetVal = TRUE;
+               break;
+            }
+         }
+      }
+   }
+
+   if (lpTemp != NULL)
+      free (lpTemp);
+   if (fp != NULL)
+      fclose (fp);
+
+   return (RetVal);
+}
+
 USHORT TTicProcessor::ImportTic (VOID)
 {
    int i, a, fds, fdd;
-   USHORT RetVal = FALSE, Found = FALSE, Bad = FALSE;
-   CHAR *Buffer, *p;
+   USHORT RetVal = FALSE, Found = FALSE, Bad = FALSE, Create;
+   CHAR Temp[32], *Buffer, *p;
    ULONG FileCrc;
    class TFilechoLink *Link;
+   class TNodes *Nodes;
    struct stat statbuf;
    struct dosdate_t datet;
    struct dostime_t timet;
@@ -205,176 +248,255 @@ USHORT TTicProcessor::ImportTic (VOID)
    }
 
    if ((Data = new TFileData (Cfg->SystemPath)) != NULL) {
-      if (Data->First () == TRUE)
-         do {
-            if (!stricmp (Data->EchoTag, Area)) {
-               Found = TRUE;
-               if ((Link = new TFilechoLink (Cfg->SystemPath)) != NULL) {
-                  Link->Load (Area);
-                  if (Link->Check (From.String) == FALSE && Cfg->Secure == TRUE) {
-                     if (Log != NULL)
-                        Log->Write ("!Bad origin node %s", From.String);
-                     if (Output != NULL) {
-                        strcat (Display, " Bad origin");
-                        Output->Update (Display);
-                     }
-                     Bad = TRUE;
-                  }
-                  delete Link;
-               }
-               if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
-                  if (Nodes->Read (From) == TRUE) {
-                     if (Nodes->TicPwd[0] != '\0' && stricmp (Nodes->TicPwd, Password)) {
-                        if (Log != NULL)
-                           Log->Write ("!Bad password %s from %s", Password, From.String);
-                        if (Output != NULL) {
-                           strcat (Display, " Bad password");
-                           Output->Update (Display);
+      if ((Found = Data->ReadEcho (Area)) == FALSE) {
+         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+            if (Nodes->Read (From.String, FALSE) == TRUE) {
+               if (Nodes->CreateNewTic == TRUE) {
+                  Create = TRUE;
+                  if ((p = strtok (Nodes->NewTicFilter, " ")) != NULL) {
+                     Create = FALSE;
+                     do {
+                        if (*p == '@') {
+                           if (CheckEchoList (p, Area) == FALSE)
+                              Create = FALSE;
                         }
-                        Bad = TRUE;
-                     }
+                        else if (strstr (Area, strupr (p)) != NULL) {
+                           Create = TRUE;
+                           break;
+                        }
+                     } while ((p = strtok (NULL, " ")) != NULL);
                   }
+               }
+            }
+
+            delete Nodes;
+         }
+
+         if (Create == TRUE) {
+            strcpy (Temp, Area);
+            Temp[sizeof (Data->Key) - 1] = '\0';
+            while (Data->Read (Temp) == TRUE) {
+               if (isdigit (Temp[strlen (Temp) - 1]))
+                  Temp[strlen (Temp) - 1]++;
+               else
+                  Temp[strlen (Temp) - 1] = '0';
+            }
+
+            Data->New ();
+            strcpy (Data->Key, Temp);
+            sprintf (Data->Display, "New area %s", Area);
+            sprintf (Data->Download, "%s%s", Cfg->NewTicPath, Area);
+            mkdir (Data->Download);
+            strcat (Data->Download, "\\");
+            strcpy (Data->Upload, Data->Download);
+            Data->DownloadLevel = Data->Level = Cfg->NewAreasLevel;
+            Data->DownloadFlags = Data->AccessFlags = Cfg->NewAreasFlags;
+            Data->DownloadDenyFlags = Data->DenyFlags = Cfg->NewAreasDenyFlags;
+            strcpy (Data->EchoTag, Area);
+            Data->Add ();
+
+            Found = Data->Read (Temp);
+            if (Found == TRUE && Log != NULL)
+               Log->Write ("*Created area [%s] %s from %s", Data->Key, Data->EchoTag, From.String);
+
+            if ((Link = new TFilechoLink (Cfg->SystemPath)) != NULL) {
+               Link->Load (Area);
+               Link->AddString (From.String);
+
+               if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+                  if (Nodes->First () == TRUE)
+                     do {
+                        if (Nodes->LinkNewTic == TRUE && stricmp (Nodes->Address, From.String)) {
+                           Link->AddString (Nodes->Address);
+                           if (Log != NULL)
+                              Log->Write ("-Area %s auto-linked to %s", Area, Nodes->Address);
+                        }
+                     } while (Nodes->Next () == TRUE);
                   delete Nodes;
                }
-               if (Bad == FALSE) {
-                  if ((fds = open (Complete, O_RDONLY|O_BINARY)) != -1) {
-                     if ((Buffer = (PSZ)malloc (8192)) != NULL) {
-                        FileCrc = 0xFFFFFFFFL;
+
+               Link->Save ();
+               delete Link;
+            }
+         }
+
+         if (Create == FALSE && Log != NULL)
+            Log->Write ("!Node %s can't create new TIC area %s", From.String, Area);
+      }
+
+      if (Found == TRUE) {
+         if ((Link = new TFilechoLink (Cfg->SystemPath)) != NULL) {
+            Link->Load (Area);
+            if (Link->Check (From.String) == FALSE && Cfg->Secure == TRUE) {
+               if (Log != NULL)
+                  Log->Write ("!Bad origin node %s", From.String);
+               if (Output != NULL) {
+                  strcat (Display, " Bad origin");
+                  Output->Update (Display);
+               }
+               Bad = TRUE;
+            }
+            delete Link;
+         }
+         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+            if (Nodes->Read (From) == TRUE) {
+               if (Nodes->TicPwd[0] != '\0' && stricmp (Nodes->TicPwd, Password)) {
+                  if (Log != NULL)
+                     Log->Write ("!Bad password %s from %s", Password, From.String);
+                  if (Output != NULL) {
+                     strcat (Display, " Bad password");
+                     Output->Update (Display);
+                  }
+                  Bad = TRUE;
+               }
+            }
+            delete Nodes;
+         }
+         if (Bad == FALSE) {
+            if ((fds = open (Complete, O_RDONLY|O_BINARY)) != -1) {
+               if ((Buffer = (PSZ)malloc (8192)) != NULL) {
+                  FileCrc = 0xFFFFFFFFL;
+                  do {
+                     i = read (fds, Buffer, 8192);
+                     for (a = 0; a < i; a++)
+                        FileCrc = Crc32 (Buffer[a], FileCrc);
+                  } while (i == 8192);
+                  FileCrc = ~FileCrc;
+                  if (FileCrc == Crc) {
+                     sprintf (Temp, "%s%s", Data->Download, Name);
+                     if ((fdd = open (Temp, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) != -1) {
+                        if (Log != NULL)
+                           Log->Write (" Moving %s to %s", Complete, Temp);
+                        lseek (fds, 0L, SEEK_SET);
                         do {
                            i = read (fds, Buffer, 8192);
-                           for (a = 0; a < i; a++)
-                              FileCrc = Crc32 (Buffer[a], FileCrc);
+                           write (fdd, Buffer, i);
                         } while (i == 8192);
-                        FileCrc = ~FileCrc;
-                        if (FileCrc == Crc) {
-                           sprintf (Temp, "%s%s", Data->Download, Name);
-                           if ((fdd = open (Temp, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) != -1) {
-                              if (Log != NULL)
-                                 Log->Write (" Moving %s to %s", Complete, Temp);
-                              lseek (fds, 0L, SEEK_SET);
-                              do {
-                                 i = read (fds, Buffer, 8192);
-                                 write (fdd, Buffer, i);
-                              } while (i == 8192);
-                              close (fdd);
-                              RetVal = TRUE;
-                           }
-                        }
-                        else if (Log != NULL)
-                           Log->Write ("!%s bad CRC! (%08lX / %08lX)", Name, Crc, FileCrc);
-                        free (Buffer);
+                        close (fdd);
+                        RetVal = TRUE;
                      }
-                     close (fds);
                   }
+                  else if (Log != NULL)
+                     Log->Write ("!%s bad CRC! (%08lX / %08lX)", Name, Crc, FileCrc);
+                  free (Buffer);
                }
-               if (RetVal == TRUE && Bad == FALSE) {
-                  if (Replace[0] != '\0') {
-                     sprintf (Temp, "%s%s", Data->Download, Replace);
-                     if (unlink (Temp) == -1) {
-                        if (Log != NULL)
-                           Log->Write ("*%s doesn't exist", Temp);
-                     }
-                     else {
-                        if (Log != NULL)
-                           Log->Write ("*Replaces: %s", Temp);
-                     }
-                  }
-                  if ((File = new TFileBase (Cfg->SystemPath, Data->Key)) != NULL) {
-                     if (Replace[0] != '\0') {
-                        if (File->Read (Replace) == TRUE)
-                           File->Delete ();
-                     }
-                     if (File->Read (Name) == TRUE)
-                        File->Delete ();
-                     File->Clear ();
-                     strcpy (File->Area, Data->Key);
-                     strcpy (File->Name, Name);
-                     sprintf (File->Complete, "%s%s", Data->Download, Name);
-                     if ((p = (PSZ)Description->First ()) != NULL)
-                        do {
-                           File->Description->Add (p, (USHORT)(strlen (p) + 1));
-                        } while ((p = (PSZ)Description->Next ()) != NULL);
-
-                     _dos_getdate (&datet);
-                     _dos_gettime (&timet);
-                     File->UplDate.Day = datet.day;
-                     File->UplDate.Month = datet.month;
-                     File->UplDate.Year = datet.year;
-                     File->UplDate.Hour = timet.hour;
-                     File->UplDate.Minute = timet.minute;
-
-                     stat (Complete, &statbuf);
-                     File->Size = statbuf.st_size;
-
-                     timep = localtime (&statbuf.st_mtime);
-                     File->Date.Day = (UCHAR)timep->tm_mday;
-                     File->Date.Month = (UCHAR)(timep->tm_mon + 1);
-                     File->Date.Year = (USHORT)(timep->tm_year + 1900);
-                     File->Date.Hour = (UCHAR)timep->tm_hour;
-                     File->Date.Minute = (UCHAR)timep->tm_min;
-
-                     File->Uploader = "TIC Processor";
-
-                     File->Add ();
-                     delete File;
-
-                     Data->ActiveFiles++;
-                     Data->Update ();
-                  }
-
-                  sprintf (Complete, "%s%s", Data->Download, Name);
-                  if ((Link = new TFilechoLink (Cfg->SystemPath)) != NULL) {
-                     Link->Load (Area);
-                     if (Link->First () == TRUE)
-                        do {
-                           if (strcmp (Link->Address, From.String))
-                              SeenBy->Add (Link->Address);
-                        } while (Link->Next () == TRUE);
-
-                     t = time (NULL);
-                     timep = gmtime (&t);
-                     sprintf (Temp, "%s %lu %s", Cfg->MailAddress.String, t, asctime (timep));
-                     Temp[strlen (Temp) - 1] = '\0';
-                     strcat (Temp, " GMT");
-                     Path->Add (Temp);
-
-                     if (Link->First () == TRUE)
-                        do {
-                           if (strcmp (Link->Address, From.String)) {
-                              if (Log != NULL)
-                                 Log->Write ("+Sending %s to %s", Name, Link->Address);
-                              Password[0] = '\0';
-                              if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
-                                 if (Nodes->Read (From) == TRUE)
-                                    strcpy (Password, Nodes->TicPwd);
-                                 delete Nodes;
-                              }
-                              Hatch (Link->Address);
-                           }
-                        } while (Link->Next () == TRUE);
-                     delete Link;
-                  }
-               }
-               break;
+               close (fds);
             }
-         } while (Data->Next () == TRUE);
-      delete Data;
-   }
+         }
+         if (RetVal == TRUE && Bad == FALSE) {
+            if (Replace[0] != '\0') {
+               sprintf (Temp, "%s%s", Data->Download, Replace);
+               if (unlink (Temp) == -1) {
+                  if (Log != NULL)
+                     Log->Write ("*%s doesn't exist", Temp);
+               }
+               else {
+                  if (Log != NULL)
+                     Log->Write ("*Replaces: %s", Temp);
+               }
+            }
+            if ((File = new TFileBase (Cfg->SystemPath, Data->Key)) != NULL) {
+               if (Replace[0] != '\0') {
+                  if (File->Read (Replace) == TRUE)
+                     File->Delete ();
+               }
+               if (File->Read (Name) == TRUE)
+                  File->Delete ();
+               File->Clear ();
+               strcpy (File->Area, Data->Key);
+               strcpy (File->Name, Name);
+#if !defined(__LINUX__)
+               strupr (File->Name);
+#endif
+               sprintf (File->Complete, "%s%s", Data->Download, Name);
+               if ((p = (PSZ)Description->First ()) != NULL)
+                  do {
+                     File->Description->Add (p, (USHORT)(strlen (p) + 1));
+                  } while ((p = (PSZ)Description->Next ()) != NULL);
 
-   if (RetVal == FALSE) {
-      if (Found == FALSE) {
-         if (Log != NULL)
-            Log->Write ("!Unknown area \"%s\" in %s", Area, CurrentFile);
-         if (Output != NULL) {
-            strcat (Display, " Bad area");
-            Output->Update (Display);
+               _dos_getdate (&datet);
+               _dos_gettime (&timet);
+               File->UplDate.Day = datet.day;
+               File->UplDate.Month = datet.month;
+               File->UplDate.Year = datet.year;
+               File->UplDate.Hour = timet.hour;
+               File->UplDate.Minute = timet.minute;
+
+               stat (Complete, &statbuf);
+               File->Size = statbuf.st_size;
+
+               timep = localtime (&statbuf.st_mtime);
+               File->Date.Day = (UCHAR)timep->tm_mday;
+               File->Date.Month = (UCHAR)(timep->tm_mon + 1);
+               File->Date.Year = (USHORT)(timep->tm_year + 1900);
+               File->Date.Hour = (UCHAR)timep->tm_hour;
+               File->Date.Minute = (UCHAR)timep->tm_min;
+
+               File->Uploader = "TIC Processor";
+
+               File->Add ();
+               delete File;
+
+               Data->ActiveFiles++;
+               Data->Update ();
+            }
+
+            sprintf (Complete, "%s%s", Data->Download, Name);
+            if ((Link = new TFilechoLink (Cfg->SystemPath)) != NULL) {
+               Link->Load (Area);
+               if (Link->First () == TRUE)
+                  do {
+                     if (SeenBy->Check (Link->Address) == TRUE) {
+                        Link->Skip = TRUE;
+                        Link->Update ();
+                     }
+                     else if (strcmp (Link->Address, From.String))
+                        SeenBy->AddString (Link->Address);
+                  } while (Link->Next () == TRUE);
+
+               t = time (NULL);
+               timep = gmtime (&t);
+               sprintf (Temp, "%s %lu %s", Cfg->MailAddress.String, t, asctime (timep));
+               Temp[strlen (Temp) - 1] = '\0';
+               strcat (Temp, " GMT");
+               Path->Add (Temp);
+
+               if (Link->First () == TRUE)
+                  do {
+                     if (strcmp (Link->Address, From.String) && Link->Skip == FALSE) {
+                        if (Log != NULL)
+                           Log->Write ("+Sending %s to %s", Name, Link->Address);
+                        Password[0] = '\0';
+                        if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+                           if (Nodes->Read (From) == TRUE)
+                              strcpy (Password, Nodes->TicPwd);
+                           delete Nodes;
+                        }
+                        Hatch (Link->Address);
+                     }
+                  } while (Link->Next () == TRUE);
+               delete Link;
+            }
          }
       }
-      strcpy (Temp, CurrentFile);
-      strcpy (&Temp[strlen (Temp) - 4], ".bad");
-      if (Log != NULL)
-         Log->Write (":Renaming %s in %s", CurrentFile, Temp);
-      rename (CurrentFile, Temp);
+
+      if (Found == FALSE || Bad == TRUE) {
+         if (Log != NULL && Bad == FALSE) {
+            Log->Write ("!Unknown area \"%s\" in %s", Area, CurrentFile);
+            if (Output != NULL) {
+               strcat (Display, " Bad area");
+               Output->Update (Display);
+            }
+         }
+
+         strcpy (Temp, CurrentFile);
+         strcpy (&Temp[strlen (Temp) - 4], ".bad");
+         if (Log != NULL)
+            Log->Write (":Renaming %s in %s", CurrentFile, Temp);
+         rename (CurrentFile, Temp);
+      }
+
+      delete Data;
    }
 
    return (RetVal);
@@ -399,6 +521,7 @@ USHORT TTicProcessor::Open (PSZ pszFile)
    Count = 0;
    Description->Clear ();
    SeenBy->Clear ();
+   SeenBy->Sort = TRUE;
    Path->Clear ();
    Replace[0] = '\0';
 
@@ -452,13 +575,13 @@ USHORT TTicProcessor::Open (PSZ pszFile)
                }
                else if (!stricmp (p, "SeenBy")) {
                   if ((p = strtok (NULL, " ")) != NULL)
-                     SeenBy->Add (p, (USHORT)(strlen (p) + 1));
+                     SeenBy->AddString (p);
                }
                else if (!stricmp (p, "Path")) {
                   if ((p = strtok (NULL, "")) != NULL) {
                      while (*p == ' ')
                         p++;
-                     Path->Add (p, (USHORT)(strlen (p) + 1));
+                     Path->Add (p);
                   }
                }
                else if (!stricmp (p, "From")) {

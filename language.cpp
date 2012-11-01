@@ -148,6 +148,9 @@ static KEYWORDS Keywords[] = {
    { LNG_FILETAGCONFIRM, "FileTagConfirm" },
    { LNG_FILENOTFOUND, "FileNotFound" },
    { LNG_REENTERPASSWORD, "ReenterPassword" },
+   { LNG_ONLINETITLE, "OnlineTitle" },
+   { LNG_ONLINEHEADER, "OnlineHeader" },
+   { LNG_ONLINEENTRY, "OnlineEntry" },
 
 
    { LNG_ASKADDRESS, "AskAddress" },
@@ -323,7 +326,6 @@ VOID TLanguage::Default (VOID)
 {
    TextMemory = NULL;
 
-#if !defined (__DOS__)
    strcpy (File, "default.lng");
    strcpy (Comment, "Default");
    TextFiles[0] = MenuName[0] = '\0';
@@ -365,6 +367,7 @@ VOID TLanguage::Default (VOID)
    Pointer[LNG_DEFYESNOHELP] = " [Y,n,?=help]? \x16\x01\x1E";
    Pointer[LNG_YESDEFNOHELP] = " [y,N,?=help]? \x16\x01\x1E";
 
+#if !defined(__BORLANDC__)
    // Login
    Pointer[LNG_ENTERNAME] = "\n\026\001\012Please enter your full name: \026\001\x1E";
    Pointer[LNG_USERFROMCITY] = "\n\x16\x01\x0E%s from %s";
@@ -463,7 +466,7 @@ VOID TLanguage::Default (VOID)
    Pointer[LNG_FILELISTDESCRIPTION2] = "\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.";
    Pointer[LNG_FILELISTTAGGED] = "\026\001\016*%-12.12s*\026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n";
    Pointer[LNG_FILELISTNORMAL] = "\026\001\016 %-12.12s \026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n";
-   Pointer[LNG_FILELISTMOREQUESTION] = "\r\026\001\017More [Y,n,t,=]? \026\001\007";
+   Pointer[LNG_FILELISTMOREQUESTION] = "\026\001\017More [Y,n,t,=]? \026\001\007";
    Pointer[LNG_FILELISTDELETEMOREQUESTION] = "\r                  \r";
    Pointer[LNG_FILELISTTAGKEY] = "T";
    Pointer[LNG_FILELISTNOFILESFOUND] = "\n\x16\x01\015Sorry, no files are found to match your search/list parameters.\n\006\007\006\007";
@@ -481,6 +484,11 @@ VOID TLanguage::Default (VOID)
    Pointer[LNG_CURRENTPASSWORD] = "\n\026\001\017Current password: ";
    Pointer[LNG_WHYPASSWORD] = "\nA password is a single word (no spaces).\nIt must be 4 to %d letters (or numbers) long.\n\n";
    Pointer[LNG_WRONGPASSWORD] = "\n\026\001\014Wrong password!\n";
+
+   // Multiline
+   Pointer[LNG_ONLINETITLE] = "\x0C\n\026\001\017\031 \x14OnLine Users at %s\n\026\001\014\031 \x14\031Ä\x28\n\n";
+   Pointer[LNG_ONLINEHEADER] = "\x16\x01\012Name                       Line  Speed  Status               Location\n\026\001\002\031Ä\x19  \031Ä\x04 \031Ä\x06  \031Ä\x13  \031Ä\x12\n";
+   Pointer[LNG_ONLINEENTRY] = "\026\001\013%-25.25s   \026\001\017%2u   %-5lu  \026\001\016%-19.19s  %-.18s\n";
 
    // Miscellaneous
    Pointer[LNG_MENUERROR] = "\n\x16\x01\x0DPlease select one of the choices presented.\n\006\007\006\007";

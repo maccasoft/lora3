@@ -202,6 +202,61 @@ USHORT TFileData::First (VOID)
    return (RetVal);
 }
 
+USHORT TFileData::Insert (class TFileData *Data)
+{
+   PSZ p;
+
+   strcpy (Display, Data->Display);
+   strcpy (Key, Data->Key);
+   Level = Data->Level;
+   AccessFlags = Data->AccessFlags;
+   DenyFlags = Data->DenyFlags;
+   UploadLevel = Data->UploadLevel;
+   UploadFlags = Data->UploadFlags;
+   UploadDenyFlags = Data->UploadDenyFlags;
+   DownloadLevel = Data->DownloadLevel;
+   DownloadFlags = Data->DownloadFlags;
+   DownloadDenyFlags = Data->DownloadDenyFlags;
+   Age = Data->Age;
+
+   strcpy (Download, Data->Download);
+   if (Download[strlen (Download) - 1] != '\\' && Download[strlen (Download) - 1] != '/')
+      strcat (Download, "\\");
+#if defined(__LINUX__)
+   while ((p = strchr (Download, '\\')) != NULL)
+      *p = '/';
+#else
+   while ((p = strchr (Download, '/')) != NULL)
+      *p = '\\';
+#endif
+
+   strcpy (Upload, Data->Upload);
+   if (Upload[strlen (Upload) - 1] != '\\' && Upload[strlen (Upload) - 1] != '/')
+      strcat (Upload, "\\");
+#if defined(__LINUX__)
+   while ((p = strchr (Upload, '\\')) != NULL)
+      *p = '/';
+#else
+   while ((p = strchr (Upload, '/')) != NULL)
+      *p = '\\';
+#endif
+
+   CdRom = Data->CdRom;
+   FreeDownload = Data->FreeDownload;
+   ShowGlobal = Data->ShowGlobal;
+   strcpy (MenuName, Data->MenuName);
+   strcpy (Moderator, Data->Moderator);
+   Cost = Data->Cost;
+   ActiveFiles = Data->ActiveFiles;
+   UnapprovedFiles = Data->UnapprovedFiles;
+   strcpy (EchoTag, Data->EchoTag);
+   UseFilesBBS = Data->UseFilesBBS;
+   DlCost = Data->DlCost;
+   strcpy (FileList, Data->FileList);
+
+   return (Insert ());
+}
+
 USHORT TFileData::Insert (VOID)
 {
    int fdNew;
@@ -586,7 +641,7 @@ VOID TFileData::Struct2Class (FILES *File)
    strcpy (LastKey, File->Key);
 }
 
-USHORT TFileData::Update (VOID)
+USHORT TFileData::Update (PSZ pszNewKey)
 {
    USHORT RetVal = FALSE, DoClose = FALSE;
    FILES *File;
@@ -634,6 +689,9 @@ USHORT TFileData::Update (VOID)
          if ((File = (FILES *)malloc (sizeof (FILES))) != NULL) {
             memset (File, 0, sizeof (FILES));
             File->Size = sizeof (FILES);
+            if (pszNewKey != NULL)
+               strcpy (Key, pszNewKey);
+
             Class2Struct (File);
 
             strcpy (Idx.Key, Key);

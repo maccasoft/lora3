@@ -1293,6 +1293,144 @@ VOID CNewEchoLinkDlg::OnOK (VOID)
 }
 
 // ----------------------------------------------------------------------
+// Request ECHOlink
+// ----------------------------------------------------------------------
+
+class CRequestEchoLinkDlg : public CDialog
+{
+public:
+   CRequestEchoLinkDlg (HWND p_hWnd);
+
+   CHAR   Address[128];
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   CHAR   Command[512];
+};
+
+CRequestEchoLinkDlg::CRequestEchoLinkDlg (HWND p_hWnd) : CDialog ("52", p_hWnd)
+{
+}
+
+USHORT CRequestEchoLinkDlg::OnInitDialog (VOID)
+{
+   CHAR Temp[128];
+   class CAskAddressDlg *Dlg;
+   class TNodes *Nodes;
+   class TAddress Addr;
+
+   Center ();
+
+   EM_SetTextLimit (112, sizeof (Command) - 1);
+
+   if ((Dlg = new CAskAddressDlg (m_hWnd)) != NULL) {
+      strcpy (Dlg->Title, "Request Echomail Link");
+      if (Dlg->DoModal () == FALSE)
+         EndDialog (FALSE);
+      else {
+         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+            Addr.Parse (Dlg->String);
+            if (Cfg->MailAddress.First () == TRUE) {
+               if (Addr.Zone == 0)
+                  Addr.Zone = Cfg->MailAddress.Zone;
+               if (Addr.Net == 0)
+                  Addr.Net = Cfg->MailAddress.Net;
+               Addr.Add ();
+               Addr.First ();
+            }
+            strcpy (Address, Addr.String);
+            if (Nodes->Read (Addr) == TRUE) {
+               SetDlgItemText (102, Nodes->SystemName);
+               SetDlgItemText (103, Nodes->Address);
+               SetDlgItemText (109, Nodes->Location);
+               SetDlgItemText (104, Nodes->SysopName);
+               strcpy (Address, Nodes->Address);
+            }
+            else {
+               sprintf (Temp, "Node %s not found !", Address);
+               MessageBox (Temp, "Request Echomail Link", MB_OK);
+               EndDialog (FALSE);
+            }
+            delete Nodes;
+         }
+      }
+      delete Dlg;
+   }
+
+   return (TRUE);
+}
+
+VOID CRequestEchoLinkDlg::OnOK (VOID)
+{
+   CHAR *p;
+   struct dosdate_t d_date;
+   struct dostime_t d_time;
+   class TAddress Addr;
+   class TNodes *Nodes;
+   class TMsgBase *Msg;
+
+   if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+      Nodes->Read (Address);
+      switch (Cfg->NetMailStorage) {
+         case ST_JAM:
+            Msg = new JAM (Cfg->NetMailPath);
+            break;
+         case ST_SQUISH:
+            Msg = new SQUISH (Cfg->NetMailPath);
+            break;
+         case ST_FIDO:
+            Msg = new FIDOSDM (Cfg->NetMailPath);
+            break;
+         case ST_ADEPT:
+            Msg = new ADEPT (Cfg->NetMailPath);
+            break;
+         case ST_HUDSON:
+            Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->NetMailBoard);
+            break;
+         default:
+            Msg = NULL;
+            break;
+      }
+      if (Msg != NULL) {
+         Msg->New ();
+         Cfg->MailAddress.First ();
+
+         strcpy (Msg->From, Cfg->SysopName);
+         strcpy (Msg->FromAddress, Cfg->MailAddress.String);
+         strcpy (Msg->To, "Areafix");
+         strcpy (Msg->ToAddress, Address);
+         strcpy (Msg->Subject, Nodes->AreaMgrPwd);
+
+         _dos_getdate (&d_date);
+         _dos_gettime (&d_time);
+
+         Msg->Arrived.Day = Msg->Written.Day = d_date.day;
+         Msg->Arrived.Month = Msg->Written.Month = d_date.month;
+         Msg->Arrived.Year = Msg->Written.Year = (USHORT)d_date.year;
+         Msg->Arrived.Hour = Msg->Written.Hour = d_time.hour;
+         Msg->Arrived.Minute = Msg->Written.Minute = d_time.minute;
+         Msg->Arrived.Second = Msg->Written.Second = d_time.second;
+
+         GetDlgItemText (112, GetDlgItemTextLength (112), Command);
+         if ((p = strtok (Command, " ")) != NULL)
+            do {
+               Msg->Text.Add (p);
+            } while ((p = strtok (NULL, " ")) != NULL);
+
+         Msg->Text.Add ("---");
+         Msg->Add ();
+
+         delete Msg;
+      }
+      delete Nodes;
+   }
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
 // Rescan ECHOmail
 // ----------------------------------------------------------------------
 
@@ -1656,7 +1794,7 @@ VOID MailProcessorThread (PVOID Args)
 #endif
    USHORT OldStatus;
    ULONG Actions = (ULONG)Args;
-   CHAR Temp[128];
+   CHAR Temp[128], *tag;
    class TMailProcessor *Processor;
    class TTicProcessor *Tic;
 
@@ -1756,7 +1894,12 @@ VOID MailProcessorThread (PVOID Args)
          else {
             Processor->ExportNetMail ();
             sprintf (Temp, "%sroute.cfg", Cfg->SystemPath);
-            Processor->Pack (Temp);
+            tag = NULL;
+            if (Events != NULL)
+               tag = Events->RouteCmd;
+            Processor->Pack (Temp, tag);
+            if (Processor->DoRescan () == TRUE)
+               Processor->Pack (Temp, tag);
          }
       }
 
@@ -1773,7 +1916,12 @@ VOID MailProcessorThread (PVOID Args)
          else {
             Processor->ExportNetMail ();
             sprintf (Temp, "%sroute.cfg", Cfg->SystemPath);
-            Processor->Pack (Temp);
+            tag = NULL;
+            if (Events != NULL)
+               tag = Events->RouteCmd;
+            Processor->Pack (Temp, tag);
+            if (Processor->DoRescan () == TRUE)
+               Processor->Pack (Temp, tag);
          }
       }
 
@@ -1913,6 +2061,7 @@ VOID BbsThread (PVOID Args)
 
       Bbs->Log = Log;
       Bbs->Cfg = Cfg;
+      Bbs->Events = Events;
       Bbs->Progress = new TPMProgress (hwndMainClient);
       Bbs->MailerStatus = new TPMMailStatus (hwndMainClient);
       Bbs->Status = new TPMStatus (hwndMainClient);
@@ -1995,6 +2144,8 @@ VOID BbsThread (PVOID Args)
          Flags |= MAIL_IMPORTPROTECTED;
       if (Events->ExportMail == TRUE)
          Flags |= (MAIL_EXPORT|MAIL_PACK);
+      if (Events->ProcessTIC == TRUE)
+         Flags |= MAIL_TIC;
       _beginthread (MailProcessorThread, NULL, 8192, (PVOID)Flags);
    }
    else
@@ -2093,11 +2244,13 @@ VOID LocalThread (PVOID Args)
          Log->Write ("+Connect Local");
       Bbs->Log = Log;
       Bbs->Cfg = Cfg;
+      Bbs->Events = Events;
       Bbs->Progress = new TPMProgress (hwndMainClient);
       Bbs->Status = new TPMStatus (hwndMainClient);
       Bbs->Speed = 57600L;
       Bbs->Task = Cfg->TaskNumber;
       Bbs->TimeLimit = timeLimit;
+      Bbs->Local = TRUE;
       Bbs->Run ();
       if (Bbs->Status != NULL) {
          Bbs->Status->Clear ();
@@ -2171,6 +2324,7 @@ VOID MailerThread (PVOID Args)
       Detect->Task = Cfg->TaskNumber;
       Detect->Log = Log;
       Detect->Cfg = Cfg;
+      Detect->Events = Events;
       Detect->Progress = new TPMProgress (hwndMainClient);
       Detect->MailerStatus = new TPMMailStatus (hwndMainClient);
       Detect->Status = new TPMStatus (hwndMainClient);
@@ -2233,6 +2387,8 @@ VOID MailerThread (PVOID Args)
          Flags |= MAIL_IMPORTPROTECTED;
       if (Events->ExportMail == TRUE)
          Flags |= (MAIL_EXPORT|MAIL_PACK);
+      if (Events->ProcessTIC == TRUE)
+         Flags |= MAIL_TIC;
    }
    if (Flags != MAIL_STARTTIMER)
       _beginthread (MailProcessorThread, NULL, 8192, (PVOID)Flags);
@@ -2337,12 +2493,15 @@ VOID ModemTimer (HWND hwnd)
       case 0:
          if (Log != NULL && ValidateKey ("bbs", NULL, NULL) == KEY_UNREGISTERED) {
             Log->Write ("!WARNING: No license key found");
+            Log->Write ("!Your system is limited to 2 lines");
+/*
             if ((i = CheckExpiration ()) == 0) {
                Log->Write ("!This evaluation copy has expired");
                Status = 200;
             }
             else
                Log->Write ("!You have %d days left for evaluation", i);
+*/
          }
          switch (ValidateKey ("bbs", NULL, NULL)) {
             case KEY_UNREGISTERED:
@@ -2575,14 +2734,17 @@ VOID ModemTimer (HWND hwnd)
 VOID BackgroundThread (PVOID Args)
 {
    DIR *dir;
-   USHORT i, DoCall, Found;
+   USHORT i, DoCall, Found, DoEvent;
    USHORT OldStatus = 99;
-   CHAR Temp[32], *p;
+   CHAR Temp[64], *p;
    ULONG EventsTimer;
+   time_t t;
    class TAddress Address;
    class TOutbound *Out;
+   class TNodes *Nodes;
    struct stat statbuf;
    struct dirent *ent;
+   struct tm ltm;
 
 #if defined(__OS2__)
    HAB hab;
@@ -2667,7 +2829,46 @@ VOID BackgroundThread (PVOID Args)
                }
             }
 
-            if (Events->SetCurrent () == TRUE) {
+            DoEvent = FALSE;
+
+            if (Events->First () == TRUE)
+               do {
+                  if (Events->Dynamic == TRUE && Events->Completed == FALSE) {
+                     if (Outbound->FirstNode () == TRUE)
+                        do {
+                           if (Events->SendCrash == TRUE && Outbound->Crash == TRUE)
+                              DoEvent = TRUE;
+                           if (Events->SendDirect == TRUE && Outbound->Direct == TRUE)
+                              DoEvent = TRUE;
+                           if (Events->SendNormal == TRUE && Outbound->Normal == TRUE)
+                              DoEvent = TRUE;
+                           if (Events->SendImmediate == TRUE && Outbound->Immediate == TRUE)
+                              DoEvent = TRUE;
+                           if (Events->MaxCalls != 0 && Outbound->Attempts >= Events->MaxCalls)
+                              DoEvent = FALSE;
+                           else if (Events->MaxConnects != 0 && Outbound->Failed >= Events->MaxConnects)
+                              DoEvent = FALSE;
+                        } while (Outbound->NextNode () == TRUE);
+
+                     if (DoEvent == TRUE) {
+                        t = time (NULL);
+                        memcpy (&ltm, localtime (&t), sizeof (struct tm));
+                        if (Events->LastDay != ltm.tm_yday)
+                           DoEvent = FALSE;
+                     }
+
+                     if (DoEvent == TRUE)
+                        break;
+
+                     Events->Completed = TRUE;
+                     Events->Update ();
+                  }
+               } while (Events->Next () == TRUE);
+
+            if (DoEvent == FALSE)
+               DoEvent = Events->SetCurrent ();
+
+            if (DoEvent == TRUE) {
                if (Events->Started == TRUE) {
                   if (Log != NULL) {
                      if (Events->Label[0] != '\0')
@@ -2880,6 +3081,37 @@ VOID BackgroundThread (PVOID Args)
                      DoCall = FALSE;
                   else if (Events->MaxConnects != 0 && Outbound->Failed >= Events->MaxConnects)
                      DoCall = FALSE;
+                  if (DoCall == TRUE) {
+                     if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+                        if (Nodes->Read (Outbound->Address) == FALSE)
+                           DoCall = FALSE;
+                        strupr (Nodes->Flags);
+
+                        // Verifica i flags con i quali puo' chiamare
+                        if (Cfg->CallIf[0] != '\0' && DoCall == TRUE) {
+                           strcpy (Temp, Cfg->CallIf);
+                           DoCall = FALSE;
+                           if ((p = strtok (strupr (Temp), " ,")) != NULL)
+                              do {
+                                 if (strstr (Nodes->Flags, p) != NULL)
+                                    DoCall = TRUE;
+                              } while ((p = strtok (NULL, " ,")) != NULL);
+                        }
+
+                        // Verifica i flags con i quali non puo' chiamare
+                        if (Cfg->DontCallIf[0] != '\0' && DoCall == TRUE) {
+                           strcpy (Temp, Cfg->DontCallIf);
+                           DoCall = TRUE;
+                           if ((p = strtok (strupr (Temp), " ,")) != NULL)
+                              do {
+                                 if (strstr (Nodes->Flags, p) != NULL)
+                                    DoCall = FALSE;
+                              } while ((p = strtok (NULL, " ,")) != NULL);
+                        }
+
+                        delete Nodes;
+                     }
+                  }
                }
 
                if (DoCall == FALSE) {
@@ -2896,6 +3128,37 @@ VOID BackgroundThread (PVOID Args)
                         DoCall = FALSE;
                      else if (Events->MaxConnects != 0 && Outbound->Failed >= Events->MaxConnects)
                         DoCall = FALSE;
+                     if (DoCall == TRUE) {
+                        if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+                           if (Nodes->Read (Outbound->Address) == FALSE)
+                              DoCall = FALSE;
+                           strupr (Nodes->Flags);
+
+                           // Verifica i flags con i quali puo' chiamare
+                           if (Cfg->CallIf[0] != '\0' && DoCall == TRUE) {
+                              strcpy (Temp, Cfg->CallIf);
+                              DoCall = FALSE;
+                              if ((p = strtok (strupr (Temp), " ,")) != NULL)
+                                 do {
+                                    if (strstr (Nodes->Flags, p) != NULL)
+                                       DoCall = TRUE;
+                                 } while ((p = strtok (NULL, " ,")) != NULL);
+                           }
+
+                           // Verifica i flags con i quali non puo' chiamare
+                           if (Cfg->DontCallIf[0] != '\0' && DoCall == TRUE) {
+                              strcpy (Temp, Cfg->DontCallIf);
+                              DoCall = TRUE;
+                              if ((p = strtok (strupr (Temp), " ,")) != NULL)
+                                 do {
+                                    if (strstr (Nodes->Flags, p) != NULL)
+                                       DoCall = FALSE;
+                                 } while ((p = strtok (NULL, " ,")) != NULL);
+                           }
+
+                           delete Nodes;
+                        }
+                     }
                      if (DoCall == TRUE)
                         break;
                   }
@@ -2952,12 +3215,20 @@ USHORT ProcessSimpleDialog (HWND hwnd, USHORT id)
          Dlg = new CAttachDlg (hwnd);
          RetVal = TRUE;
          break;
+      case 111:      // System / Request ECHOmail Link
+         Dlg = new CRequestEchoLinkDlg (hwnd);
+         RetVal = TRUE;
+         break;
       case 112:      // System / New ECHOmail Link
          Dlg = new CNewEchoLinkDlg (hwnd);
          RetVal = TRUE;
          break;
       case 113:      // System / Rescan ECHOmail
          Dlg = new CRescanDlg (hwnd);
+         RetVal = TRUE;
+         break;
+      case 305:      // Mailer / File requests
+         Dlg = new COkFileDlg (hwnd);
          RetVal = TRUE;
          break;
       case 402:      // BBS / Message Areas
@@ -2968,7 +3239,7 @@ USHORT ProcessSimpleDialog (HWND hwnd, USHORT id)
          Dlg = new CFileDlg (hwnd);
          RetVal = TRUE;
          break;
-      case 406:      // BBS / Limits
+      case 406:      // BBS / User Levels
          Dlg = new CLimitsDlg (hwnd);
          RetVal = TRUE;
          break;
@@ -2998,6 +3269,10 @@ USHORT ProcessSimpleDialog (HWND hwnd, USHORT id)
          break;
       case 607:      // Manager / Origin Lines
          Dlg = new COriginDlg (hwnd);
+         RetVal = TRUE;
+         break;
+      case 608:      // Manager / Translations
+         Dlg = new CTranslationDlg (hwnd);
          RetVal = TRUE;
          break;
    }
@@ -3046,6 +3321,10 @@ USHORT ProcessSaveDialog (HWND hwnd, USHORT id)
          Dlg = new CAreafixDlg (hwnd);
          RetVal = TRUE;
          break;
+      case 304:      // Mailer / Raid
+         Dlg = new CRaidDlg (hwnd);
+         RetVal = TRUE;
+         break;
       case 306:      // Mailer / External processing
          Dlg = new CExternalDlg (hwnd);
          RetVal = TRUE;
@@ -3068,6 +3347,10 @@ USHORT ProcessSaveDialog (HWND hwnd, USHORT id)
          break;
       case 504:      // Modem / Answer control
          Dlg = new CAnswerDlg (hwnd);
+         RetVal = TRUE;
+         break;
+      case 505:      // Modem / Nodelist flags
+         Dlg = new CNodeFlagsDlg (hwnd);
          RetVal = TRUE;
          break;
    }
@@ -3211,6 +3494,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             WinSendMsg (hwndMainStatus, LM_INSERTITEM, MPFROMSHORT (LIT_END), (MPARAM)"");
             WinSendMsg (hwndMainStatus, LM_INSERTITEM, MPFROMSHORT (LIT_END), (MPARAM)"");
          }
+
 #elif defined(__NT__)
          LOGFONT logFont;
          HFONT hFont;
@@ -3237,7 +3521,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             ShowWindow (hwndMainList, SW_SHOW);
          }
 
-         if ((hwndModemList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_NOTIFY|WS_CHILD|WS_VSCROLL, 0, 0, 100, 50, hwnd, NULL, (HMENU)1002, NULL)) != NULL) {
+         if ((hwndModemList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_NOTIFY|WS_CHILD|WS_VSCROLL, 0, 0, 100, 50, hwnd, (HMENU)1002, hinst, NULL)) != NULL) {
             if (hFont != NULL)
                SendMessage (hwndModemList, WM_SETFONT, (WPARAM)hFont, MAKELPARAM (FALSE, 0));
             ShowWindow (hwndModemList, SW_SHOW);
@@ -3249,7 +3533,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             ShowWindow (hwndOutboundList, SW_SHOW);
          }
 
-         if ((hwndStatusList = CreateWindow ("LISTBOX", "", LBS_NOSEL|LBS_NOINTEGRALHEIGHT|LBS_NOTIFY|WS_CHILD, 0, 0, 100, 50, hwnd, NULL, (HMENU)1003, NULL)) != NULL) {
+         if ((hwndStatusList = CreateWindow ("LISTBOX", "", LBS_NOSEL|LBS_NOINTEGRALHEIGHT|LBS_NOTIFY|WS_CHILD, 0, 0, 100, 50, hwnd, (HMENU)1003, hinst, NULL)) != NULL) {
             if (hFont != NULL)
                SendMessage (hwndStatusList, WM_SETFONT, (WPARAM)hFont, MAKELPARAM (FALSE, 0));
             ShowWindow (hwndStatusList, SW_SHOW);
@@ -3279,20 +3563,20 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
          LOGBRUSH logBrush;
 
          if ((HWND)lParam == hwndMainList) {
-            SetBkColor ((HDC)wParam, RGB (0x00, 0x00, 0x70));
             SetTextColor ((HDC)wParam, RGB (0xFF, 0xFF, 0xFF));
+            SetBkMode ((HDC)wParam, TRANSPARENT);
          }
          else if ((HWND)lParam == hwndModemList) {
-            SetBkColor ((HDC)wParam, RGB (0x00, 0x00, 0x00));
             SetTextColor ((HDC)wParam, RGB (0xFF, 0xFF, 0xFF));
+            SetBkMode ((HDC)wParam, TRANSPARENT);
          }
          else if ((HWND)lParam == hwndStatusList) {
-            SetBkColor ((HDC)wParam, RGB (0xFF, 0xFF, 0xFF));
             SetTextColor ((HDC)wParam, RGB (0x00, 0x00, 0x00));
+            SetBkMode ((HDC)wParam, TRANSPARENT);
          }
          else if ((HWND)lParam == hwndOutboundList) {
-            SetBkColor ((HDC)wParam, RGB (0xDF, 0xDF, 0x80));
             SetTextColor ((HDC)wParam, RGB (0x00, 0x00, 0x00));
+            SetBkMode ((HDC)wParam, TRANSPARENT);
          }
 
          logBrush.lbStyle = BS_SOLID;
@@ -3303,7 +3587,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
          else if ((HWND)lParam == hwndStatusList)
             logBrush.lbColor = RGB (0xFF, 0xFF, 0xFF);
          else if ((HWND)lParam == hwndOutboundList)
-            logBrush.lbColor = RGB (0xDF, 0xDF, 0x80);
+            logBrush.lbColor = RGB (0xD0, 0xD0, 0x80);
          logBrush.lbHatch = 0;
 
          return ((BOOL)CreateBrushIndirect (&logBrush));
@@ -3520,7 +3804,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #elif defined(__NT__)
          dx = (USHORT)(((float)LOWORD (lParam) / 100.0) * 65.0);
          dy = (USHORT)(HIWORD (lParam) - 34);
-         doy = (USHORT)(((float)dy / 100.0) * 45.0);
+         doy = (USHORT)(((float)dy / 100.0) * 50.0);
          dy -= doy;
          MoveWindow (hwndMainList, 0, 0, dx, dy, TRUE);
          MoveWindow (hwndModemList, dx + 1, 0, LOWORD (lParam) - dx - 1, dy, TRUE);
@@ -3641,6 +3925,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
                if ((Mgr = new TAreaManager) != NULL) {
                   Mgr->Cfg = Cfg;
+                  Mgr->Log = Log;
                   Mgr->UpdateAreasBBS ();
                   delete Mgr;
                }
@@ -3661,6 +3946,130 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                StopTimer (hwnd, 1);
                _beginthread (MailProcessorThread, NULL, 32768U, (PVOID)(MAIL_IMPORTBAD|MAIL_STARTTIMER));
                break;
+
+            case 121: {    // System / EchoMail / Import AREAS.BBS
+               class TAreaManager *Mgr;
+
+               if ((Mgr = new TAreaManager) != NULL) {
+                  Mgr->Cfg = Cfg;
+                  Mgr->Log = Log;
+                  Mgr->ImportAreasBBS ();
+                  delete Mgr;
+               }
+               break;
+            }
+
+            case 122: {
+#if defined(__OS2__)
+               FILEDLG fild;
+               class TAreaManager *Mgr;
+
+               memset (&fild, 0, sizeof (FILEDLG));
+               fild.cbSize = sizeof (FILEDLG);
+               fild.fl = FDS_CENTER|FDS_OPEN_DIALOG;
+               fild.pszTitle = "Import Descriptions";
+               sprintf (fild.szFullFile, "*.*");
+
+               WinFileDlg (HWND_DESKTOP, hwndMainClient, &fild);
+               if (fild.lReturn == DID_OK) {
+                  if ((Mgr = new TAreaManager) != NULL) {
+                     Mgr->Cfg = Cfg;
+                     Mgr->Log = Log;
+                     Mgr->ImportDescriptions (fild.szFullFile);
+                     delete Mgr;
+                  }
+               }
+#elif defined(__NT__)
+               CHAR Temp[128];
+               OPENFILENAME OpenFileName;
+               class TAreaManager *Mgr;
+
+               OpenFileName.lStructSize = sizeof (OPENFILENAME);
+               OpenFileName.hwndOwner = hwndMainClient;
+               OpenFileName.hInstance = NULL;
+               OpenFileName.lpstrFilter = "All files (*.*)\0*.*";
+               OpenFileName.lpstrCustomFilter = (LPTSTR) NULL;
+               OpenFileName.nMaxCustFilter = 0L;
+               OpenFileName.nFilterIndex = 1L;
+               OpenFileName.lpstrFile = Temp;
+               OpenFileName.nMaxFile = sizeof (Temp) - 1;
+               OpenFileName.lpstrFileTitle = NULL;
+               OpenFileName.nMaxFileTitle = 0;
+               OpenFileName.lpstrInitialDir = NULL;
+               OpenFileName.lpstrTitle = "Import Descriptions";
+               OpenFileName.nFileOffset = 0;
+               OpenFileName.nFileExtension = 0;
+               OpenFileName.lpstrDefExt = "";
+               OpenFileName.lCustData = 0;
+               OpenFileName.Flags = OFN_HIDEREADONLY|OFN_LONGNAMES|OFN_CREATEPROMPT|OFN_NOCHANGEDIR;
+
+               if (GetOpenFileName (&OpenFileName) == TRUE) {
+                  if ((Mgr = new TAreaManager) != NULL) {
+                     Mgr->Cfg = Cfg;
+                     Mgr->Log = Log;
+                     Mgr->ImportDescriptions (Temp);
+                     delete Mgr;
+                  }
+               }
+#endif
+               break;
+            }
+
+            case 123: {
+#if defined(__OS2__)
+               FILEDLG fild;
+               class TAreaManager *Mgr;
+
+               memset (&fild, 0, sizeof (FILEDLG));
+               fild.cbSize = sizeof (FILEDLG);
+               fild.fl = FDS_CENTER|FDS_SAVEAS_DIALOG;
+               fild.pszTitle = "Export Descriptions";
+               sprintf (fild.szFullFile, "*.*");
+
+               WinFileDlg (HWND_DESKTOP, hwndMainClient, &fild);
+               if (fild.lReturn == DID_OK) {
+                  if ((Mgr = new TAreaManager) != NULL) {
+                     Mgr->Cfg = Cfg;
+                     Mgr->Log = Log;
+                     Mgr->ExportDescriptions (fild.szFullFile);
+                     delete Mgr;
+                  }
+               }
+#elif defined(__NT__)
+               CHAR Temp[128];
+               OPENFILENAME OpenFileName;
+               class TAreaManager *Mgr;
+
+               OpenFileName.lStructSize = sizeof (OPENFILENAME);
+               OpenFileName.hwndOwner = hwndMainClient;
+               OpenFileName.hInstance = NULL;
+               OpenFileName.lpstrFilter = "All files (*.*)\0*.*";
+               OpenFileName.lpstrCustomFilter = (LPTSTR) NULL;
+               OpenFileName.nMaxCustFilter = 0L;
+               OpenFileName.nFilterIndex = 1L;
+               OpenFileName.lpstrFile = Temp;
+               OpenFileName.nMaxFile = sizeof (Temp) - 1;
+               OpenFileName.lpstrFileTitle = NULL;
+               OpenFileName.nMaxFileTitle = 0;
+               OpenFileName.lpstrInitialDir = NULL;
+               OpenFileName.lpstrTitle = "Export Descriptions";
+               OpenFileName.nFileOffset = 0;
+               OpenFileName.nFileExtension = 0;
+               OpenFileName.lpstrDefExt = "";
+               OpenFileName.lCustData = 0;
+               OpenFileName.Flags = OFN_HIDEREADONLY|OFN_LONGNAMES|OFN_CREATEPROMPT|OFN_NOCHANGEDIR;
+
+               if (GetSaveFileName (&OpenFileName) == TRUE) {
+                  if ((Mgr = new TAreaManager) != NULL) {
+                     Mgr->Cfg = Cfg;
+                     Mgr->Log = Log;
+                     Mgr->ExportDescriptions (Temp);
+                     delete Mgr;
+                  }
+               }
+#endif
+               break;
+            }
 
             case 201: {    // Global / General Options
                CHAR Title[128];
@@ -3827,7 +4236,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 int main (int argc, char *argv[])
 {
    int i, x, y, dx, dy;
-   USHORT Task = 1, Interactive;
+   USHORT Task = 1, Interactive, Setup;
    USHORT DoImport, DoExport, DoPack, DoNews, DoTic, DoMail, DoNodelist;
    CHAR Title[128], *Config, *Channel, *Device;
    HMQ hmq;
@@ -3840,7 +4249,7 @@ int main (int argc, char *argv[])
    Modem = NULL;
    Outbound = NULL;
    Events = NULL;
-   Interactive = FALSE;
+   Interactive = Setup = FALSE;
    DoImport = DoExport = DoPack = DoNews = DoTic = DoMail = DoNodelist = FALSE;
    Config = Channel = Device = NULL;
    Speed = 0L;
@@ -3882,6 +4291,8 @@ int main (int argc, char *argv[])
          DoNodelist = TRUE;
          Interactive = TRUE;
       }
+      else if (!stricmp (argv[i], "SETUP"))
+         Setup = TRUE;
       else if (!strncmp (argv[i], "-p", 2)) {
          Device = &argv[i][2];
          gotPort = TRUE;
@@ -3951,10 +4362,14 @@ int main (int argc, char *argv[])
             WinSetWindowPos (hwndMainFrame, NULLHANDLE, x, y, dx, dy, SWP_SIZE|SWP_MOVE|SWP_SHOW|SWP_ACTIVATE);
 
             if (Interactive == FALSE) {
-               Status = 0;
-               WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
-               hAccel = WinLoadAccelTable (hab, NULLHANDLE, 1);
-               _beginthread (BackgroundThread, NULL, 8192, NULL);
+               if (Setup == FALSE) {
+                  Status = 0;
+                  WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
+                  hAccel = WinLoadAccelTable (hab, NULLHANDLE, 1);
+                  _beginthread (BackgroundThread, NULL, 8192, NULL);
+               }
+               else
+                  Status = 99;
             }
             else {
                if (DoNodelist == TRUE)
@@ -4012,7 +4427,7 @@ int main (int argc, char *argv[])
 int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszCmdLine, int nCmdShow)
 {
    int x, y, dx, dy;
-   USHORT Task = 1, Interactive;
+   USHORT Task = 1, Interactive, Setup;
    USHORT DoImport, DoExport, DoPack, DoNews, DoTic, DoMail, DoNodelist;
    CHAR *p, Title[128], *Config, *Channel, *Device;
    ULONG Flags, Speed;
@@ -4025,7 +4440,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
    Modem = NULL;
    Events = NULL;
    Outbound = NULL;
-   Interactive = FALSE;
+   Interactive = Setup = FALSE;
    DoImport = DoExport = DoPack = DoNews = DoTic = DoMail = DoNodelist = FALSE;
    Config = Channel = Device = NULL;
    Speed = 0L;
@@ -4069,6 +4484,9 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
          else if (!stricmp (p, "NODELIST")) {
             DoNodelist = TRUE;
             Interactive = TRUE;
+         }
+         else if (!stricmp (p, "SETUP")) {
+            Setup = TRUE;
          }
          else if (!strncmp (p, "-p", 2)) {
             Device = &p[2];
@@ -4120,7 +4538,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
       wc.cbClsExtra    = 0;
       wc.cbWndExtra    = 0;
       wc.hInstance     = hinstCurrent;
-      wc.hIcon         = NULL;
+      wc.hIcon         = LoadIcon (NULL, "100");
       wc.hCursor       = LoadCursor (NULL, IDC_ARROW);
       wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
       wc.lpszMenuName  = "MENU_1";
@@ -4150,9 +4568,13 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
       ShowWindow (hwndMainClient, nCmdShow);
 
       if (Interactive == FALSE) {
-         Status = 0;
-         SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-         _beginthread (BackgroundThread, NULL, 8192, NULL);
+         if (Setup == FALSE) {
+            Status = 0;
+            SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
+            _beginthread (BackgroundThread, NULL, 8192, NULL);
+         }
+         else
+            Status = 99;
       }
       else {
          if (DoNodelist == TRUE)

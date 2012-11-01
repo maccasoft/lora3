@@ -4,130 +4,140 @@
 #include "windows.h"
 #include "commctrl.h"
 
+1 ICON "nt\\modem.ico"
+"100" ICON "nt\\modem.ico"
+
 MENU_1 MENU
 BEGIN
-    POPUP "System"
-    BEGIN
-        MENUITEM "Forced poll\tAlt-M" 109
-        MENUITEM "Request file(s)\tAlt-R" 107
-        MENUITEM "Send file(s)\tAlt-S" 108
-        POPUP "Mail"
+   POPUP "File"
         BEGIN
-            MENUITEM "Import mail\tAlt-I" 101
-            MENUITEM "Pack netmail" 103
-            MENUITEM "Import from bad msgs." 120
-            MENUITEM SEPARATOR
-            MENUITEM "Process NEWSgroups", 116
-            MENUITEM "Process E-Mail" 118
-            MENUITEM SEPARATOR
-            MENUITEM "Rebuild outbound" 106
+      MENUITEM "&Request file(s)\tAlt-R" 107
+      MENUITEM "&Send file(s)\tAlt-S" 108
+                MENUITEM SEPARATOR
+      MENUITEM "Rebuild outbound\tAlt-Q" 106
+                MENUITEM SEPARATOR
+      MENUITEM "Write &AREAS.BBS" 117
+      MENUITEM "Import A&REAS.BBS" 121
         END
 
-        POPUP "ECHOmail"
+   POPUP "Utility"
         BEGIN
-            MENUITEM "Process ECHOmail\tAlt-P" 104
-            MENUITEM "Export echomail" 102
-            MENUITEM SEPARATOR
-            MENUITEM "Request ECHOmail link" 111, GRAYED
-            MENUITEM "New ECHOmail link" 112
-            MENUITEM "Rescan ECHOmail" 113
-            MENUITEM SEPARATOR
-            MENUITEM "Write AREAS.BBS" 117
+      MENUITEM "Forced &poll\tAlt-M" 109
+                MENUITEM SEPARATOR
+      MENUITEM "&Request ECHOmail link" 111, GRAYED
+      MENUITEM "&New ECHOmail link" 112
+      MENUITEM "Re&scan ECHOmail" 113
+                MENUITEM SEPARATOR
+      MENUITEM "New TIC &file link" 114, GRAYED
+                MENUITEM SEPARATOR
+      MENUITEM "&Build nodelist index" 119
         END
 
-        POPUP "TIC"
+   POPUP "Mail"
         BEGIN
-            MENUITEM "Process TIC files" 105
-            MENUITEM "New TIC file link" 114, GRAYED
+      MENUITEM "&Import mail\tAlt-I" 101
+      MENUITEM "&Export echomail" 102
+      MENUITEM "&Pack netmail" 103
+                MENUITEM SEPARATOR
+      MENUITEM "Process &ECHOmail\tAlt-P" 104
+                MENUITEM SEPARATOR
+      MENUITEM "Process &NEWSgroups" 116
+      MENUITEM "Process E-&Mail" 118
+      MENUITEM "Process &TIC files" 105
+                MENUITEM SEPARATOR
+      MENUITEM "&Import from bad msgs." 120
         END
 
-        MENUITEM "Local login\tAlt-K" 115
-        MENUITEM "Build nodelist index" 119
-    END
+   POPUP "Configure"
+        BEGIN
+      POPUP "Global"
+                BEGIN
+         MENUITEM "&General Options" 201
+         MENUITEM "&Site Information" 202
+         MENUITEM "&Addresses" 204
+         MENUITEM "&Directory / Paths" 208
+         MENUITEM "&Time Adjustment" 205, GRAYED
+         MENUITEM "&Internet Options" 206
+         MENUITEM "&Fax Options" 207
+                END
 
-    POPUP "Global"
-    BEGIN
-        MENUITEM "General Options" 201
-        MENUITEM "Site Information" 202
-        MENUITEM "Addresses" 204
-        MENUITEM "Directory / Paths" 208
-        MENUITEM "Time Adjustment" 205, GRAYED
-        MENUITEM "Internet Options" 206
-        MENUITEM "Fax Options" 207
-    END
+      POPUP "Mailer"
+                BEGIN
+         MENUITEM "&Miscellaneous" 308
+         MENUITEM "&Mail Processing" 302
+         MENUITEM "&Areafix" 303
+         MENUITEM "&TIC Processor" 304, GRAYED
+         MENUITEM "&File Requests" 305
+         MENUITEM "&External Processing" 306
+                END
 
-    POPUP "Mailer"
-    BEGIN
-        MENUITEM "Miscellaneous" 308
-        MENUITEM "Mail Processing" 302
-        MENUITEM "Areafix" 303
-        MENUITEM "TIC Processor" 304, GRAYED
-        MENUITEM "File Requests" 305, GRAYED
-        MENUITEM "External Processing" 306
+      POPUP "BBS"
+                BEGIN
+         MENUITEM "&Message Areas" 402
+         MENUITEM "&File Areas" 403
+         MENUITEM "&General Options" 411
+         MENUITEM "&Offline Reader" 404
+         MENUITEM "&New Users" 405
+         MENUITEM "&User Limits" 406
+         MENUITEM "&Paging Hours" 407, GRAYED
+         MENUITEM "&External Protocols" 409
+                END
+
+      POPUP "Modem"
+                BEGIN
+         MENUITEM "&Hardware" 501
+         MENUITEM "&Command Strings" 502
+         MENUITEM "&Answer Control" 504
+         MENUITEM "&Nodelist Flags" 505
+                END
+
+                MENUITEM SEPARATOR
+      MENUITEM "&Event Scheduler" 601
+      MENUITEM "N&odelist" 606
+      MENUITEM "&Compressors" 602
+      MENUITEM "&Nodes" 604
+      MENUITEM "Me&nu Files" 603
+      MENUITEM "&User Editor" 605
+      MENUITEM "&Origin Lines" 607
+        END
+
+   POPUP "BBS"
+        BEGIN
+      MENUITEM "&Local login\tAlt-K" 115
+                MENUITEM SEPARATOR
+      MENUITEM "Answer &Now\tAlt-A" 507
+      MENUITEM "&Hangup\tAlt-H" 506
+        END
+
+   POPUP "Help"
+        BEGIN
+      MENUITEM "Help &contents..." 901
+      MENUITEM "&General help..." 902
+      MENUITEM "&Using help..." 903
+      MENUITEM "&Keys help..." 904
+                MENUITEM SEPARATOR
+      MENUITEM "&Product information..." 905
    END
-
-    POPUP "BBS"
-   BEGIN
-        MENUITEM "Message Areas" 402
-        MENUITEM "File Areas" 403
-        MENUITEM "General Options" 411
-        MENUITEM "Offline Reader" 404
-        MENUITEM "New Users" 405
-        MENUITEM "User Limits" 406
-        MENUITEM "Paging Hours" 407, GRAYED
-        MENUITEM "External Protocols" 409
-   END
-
-    POPUP "Modem"
-   BEGIN
-        MENUITEM "Hardware" 501
-        MENUITEM "Command Strings" 502
-        MENUITEM "Answer Control" 504
-        MENUITEM "Nodelist Flags" 505, GRAYED
-      MENUITEM SEPARATOR
-        MENUITEM "Answer Now\tAlt-A" 507
-        MENUITEM "Hangup\tAlt-H" 506
-   END
-
-    POPUP "Manager"
-   BEGIN
-        MENUITEM "Event Scheduler" 601
-        MENUITEM "Nodelist" 606
-        MENUITEM "Compressors", 602
-        MENUITEM "Nodes" 604
-        MENUITEM "Menu Files" 603
-        MENUITEM "User Editor" 605
-   END
-
-    POPUP "Help"
-   BEGIN
-        MENUITEM "Help index..." 901, GRAYED
-        MENUITEM "General help..." 902, GRAYED
-        MENUITEM "Using help..." 903, GRAYED
-        MENUITEM "Keys help..." 904, GRAYED
-      MENUITEM SEPARATOR
-        MENUITEM "Product information..." 905
-    END
 END
 
 ACCELERATOR_1 ACCELERATORS
 BEGIN
    "a", 507, ALT
-	"A", 507, ALT
-	"h", 506, ALT
-	"H", 506, ALT
-	"i", 101, ALT
-	"I", 101, ALT
-	"k", 115, ALT
-	"K", 115, ALT
-	"m", 109, ALT
-	"M", 109, ALT
-	"p", 104, ALT
-	"P", 104, ALT
+        "A", 507, ALT
+        "h", 506, ALT
+        "H", 506, ALT
+        "i", 101, ALT
+        "I", 101, ALT
+        "k", 115, ALT
+        "K", 115, ALT
+        "m", 109, ALT
+        "M", 109, ALT
+        "p", 104, ALT
+        "P", 104, ALT
    "q", 106, ALT
    "Q", 106, ALT
    "r", 107, ALT
-	"R", 107, ALT
+        "R", 107, ALT
    "s", 108, ALT
    "S", 108, ALT
 END
@@ -180,6 +190,13 @@ END
 #include "47.dlg"
 #include "48.dlg"
 #include "49.dlg"
+#include "50.dlg"
+#include "51.dlg"
 #include "52.dlg"
+#include "53.dlg"
+#include "54.dlg"
+#include "55.dlg"
+#include "56.dlg"
+#include "57.dlg"
 #include "100.dlg"
 

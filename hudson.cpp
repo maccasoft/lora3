@@ -218,7 +218,7 @@ USHORT HUDSON::Add (class TCollection &MsgText)
    }
    if (fdTxt != -1) {
       lseek (fdTxt, 0L, SEEK_END);
-      msgHdr.StartBlock = (USHORT)(tell (fd) / 256L);
+      msgHdr.StartBlock = (USHORT)(tell (fdTxt) / 256L);
       inblock = 0;
       if ((pszText = (PSZ)MsgText.First ()) != NULL)
          do {
@@ -234,6 +234,7 @@ USHORT HUDSON::Add (class TCollection &MsgText)
                   szBuff[0] = 255;
                   write (fdTxt, szBuff, 256);
                   msgHdr.NumBlocks++;
+                  pszText += (255 - inblock);
                   len -= (255 - inblock);
                   inblock = 0;
                }
@@ -292,8 +293,8 @@ USHORT HUDSON::Add (class TCollection &MsgText)
 
       sprintf (File, "%smsgidx.bbs", BaseName);
       if ((fd = open (File, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE)) != -1) {
-         if ((msgIdx = (HMSGIDX *)malloc (filelength (fd))) != NULL)
-            read (fd, msgIdx, filelength (fd));
+         if ((msgIdx = (HMSGIDX *)malloc ((size_t)filelength (fd))) != NULL)
+            read (fd, msgIdx, (unsigned)filelength (fd));
          close (fd);
       }
 
@@ -338,13 +339,13 @@ USHORT HUDSON::Delete (ULONG ulMsg)
       if (TotalMsgs != 0) {
          sprintf (File, "%smsgidx.bbs", BaseName);
          if ((fd = open (File, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE)) != -1) {
-            if ((msgIdx = (HMSGIDX *)malloc (filelength (fd))) != NULL) {
-               read (fd, msgIdx, filelength (fd));
+            if ((msgIdx = (HMSGIDX *)malloc ((size_t)filelength (fd))) != NULL) {
+               read (fd, msgIdx, (unsigned)filelength (fd));
                for (i = 0; i < msgInfo.TotalMsgs; i++) {
                   if (msgIdx[i].Board == BoardNum && msgIdx[i].MsgNum == ulMsg) {
                      msgIdx[i].MsgNum = 0xFFFFU;
                      lseek (fd, 0L, SEEK_SET);
-                     write (fd, msgIdx, filelength (fd));
+                     write (fd, msgIdx, (unsigned)filelength (fd));
                      RetVal = TRUE;
                      break;
                   }
@@ -422,8 +423,8 @@ USHORT HUDSON::Lock (ULONG ulTimeout)
 
          sprintf (File, "%smsgidx.bbs", BaseName);
          if ((fd = open (File, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE)) != -1) {
-            if ((msgIdx = (HMSGIDX *)malloc (filelength (fd) + 5000 * sizeof (HMSGIDX))) != NULL)
-               read (fd, msgIdx, filelength (fd));
+            if ((msgIdx = (HMSGIDX *)malloc ((size_t)filelength (fd) + 5000 * sizeof (HMSGIDX))) != NULL)
+               read (fd, msgIdx, (unsigned)filelength (fd));
             close (fd);
          }
 
@@ -538,8 +539,8 @@ USHORT HUDSON::Open (PSZ pszName, UCHAR board)
       //////////////////////////////////////////////////////////////////////////////
       sprintf (File, "%smsgidx.bbs", BaseName);
       if ((fd = open (File, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE)) != -1) {
-         if ((msgIdx = (HMSGIDX *)malloc (filelength (fd))) != NULL)
-            read (fd, msgIdx, filelength (fd));
+         if ((msgIdx = (HMSGIDX *)malloc ((size_t)filelength (fd))) != NULL)
+            read (fd, msgIdx, (unsigned)filelength (fd));
          close (fd);
       }
 

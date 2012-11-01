@@ -54,6 +54,7 @@ void main (int argc, char *argv[])
    printf ("\nLUSER; %s v%s - User maintenance utility\n", NAME, VERSION);
    printf ("       Copyright (c) 1991-96 by Marco Maccaferri. All Rights Reserved.\n\n");
 
+/*
    if (ValidateKey ("bbs", NULL, NULL) == KEY_UNREGISTERED) {
       printf ("* * *     WARNING: No license key found    * * *\n");
       if ((i = CheckExpiration ()) == 0) {
@@ -63,6 +64,7 @@ void main (int argc, char *argv[])
       else
          printf ("* * * You have %2d days left for evaluation * * * \n\a\n", i);
    }
+*/
 
    if (argc <= 1) {
       printf (" * Command-line parameters:\n\n");

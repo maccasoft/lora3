@@ -48,13 +48,13 @@ VOID TConfig::Default (VOID)
    NewUserFlags = 0L;
    NewUserDenyFlags = 0L;
    NewUserLimits[0] = '\0';
-   CheckAnsi = YES;
-   RealName = REQUIRED;
-   CompanyName = YES;
-   Address = YES;
-   City = REQUIRED;
-   PhoneNumber = YES;
-   Gender = REQUIRED;
+   UseAnsi = YES;
+   AskAlias = REQUIRED;
+   AskCompanyName = YES;
+   AskAddress = YES;
+   AskCity = REQUIRED;
+   AskPhoneNumber = YES;
+   AskGender = REQUIRED;
 #if defined(__LINUX__)
    strcpy (SystemPath, "./");
    strcpy (UserFile, "users");
@@ -113,6 +113,7 @@ VOID TConfig::Default (VOID)
    SeparateNetMail = TRUE;
    ZModemTelnet = FALSE;
    strcpy (OLRPacketName, "offline");
+   TextPasswords = TRUE;
 
    MailAddress.Load (SystemPath);
 }
@@ -188,6 +189,7 @@ VOID TConfig::NewChannel (VOID)
    ManualAnswer = TRUE;
    LimitedHours = FALSE;
    StartTime = EndTime = 0;
+   CallIf[0] = DontCallIf[0] = '\0';
 }
 
 VOID TConfig::New (VOID)
@@ -249,6 +251,8 @@ USHORT TConfig::Reload (VOID)
                LimitedHours = Ch->LimitedHours;
                StartTime = Ch->StartTime;
                EndTime = Ch->EndTime;
+               strcpy (CallIf, Ch->CallIf);
+               strcpy (DontCallIf, Ch->DontCallIf);
                break;
             }
          }
@@ -289,13 +293,13 @@ VOID TConfig::Struct2Class (CONFIG *Cfg)
    NewUserFlags = Cfg->NewUserFlags;
    NewUserDenyFlags = Cfg->NewUserDenyFlags;
    strcpy (NewUserLimits, Cfg->NewUserLimits);
-   CheckAnsi = Cfg->CheckAnsi;
-   RealName = Cfg->RealName;
-   CompanyName = Cfg->CompanyName;
-   Address = Cfg->Address;
-   City = Cfg->City;
-   PhoneNumber = Cfg->PhoneNumber;
-   Gender = Cfg->Gender;
+   UseAnsi = Cfg->UseAnsi;
+   AskAlias = Cfg->AskAlias;
+   AskCompanyName = Cfg->AskCompanyName;
+   AskAddress = Cfg->AskAddress;
+   AskCity = Cfg->AskCity;
+   AskPhoneNumber = Cfg->AskPhoneNumber;
+   AskGender = Cfg->AskGender;
    strcpy (SystemPath, FixPath (Cfg->SystemPath));
    strcpy (UserFile, AdjustPath (Cfg->UserFile));
    strcpy (NormalInbound, FixPath (Cfg->NormalInbound));
@@ -396,14 +400,14 @@ VOID TConfig::Struct2Class (CONFIG *Cfg)
    ReloadLog = Cfg->ReloadLog;
    MakeProcessLog = Cfg->MakeProcessLog;
    RetriveMaxMessages = Cfg->RetriveMaxMessages;
-   CheckAvatar = Cfg->CheckAvatar;
-   CheckColor = Cfg->CheckColor;
-   CheckFullScreen = Cfg->CheckFullScreen;
-   CheckHotKey = Cfg->CheckHotKey;
-   CheckIBMChars = Cfg->CheckIBMChars;
+   UseAvatar = Cfg->UseAvatar;
+   UseColor = Cfg->UseColor;
+   UseFullScreenEditor = Cfg->UseFullScreenEditor;
+   UseHotKey = Cfg->UseHotKey;
+   UseIBMChars = Cfg->UseIBMChars;
    AskLines = Cfg->AskLines;
-   AskPause = Cfg->AskPause;
-   AskScreenClear = Cfg->AskScreenClear;
+   UsePause = Cfg->UsePause;
+   UseScreenClear = Cfg->UseScreenClear;
    AskBirthDate = Cfg->AskBirthDate;
    AskMailCheck = Cfg->AskMailCheck;
    AskFileCheck = Cfg->AskFileCheck;
@@ -415,14 +419,29 @@ VOID TConfig::Struct2Class (CONFIG *Cfg)
    DupeBoard = Cfg->DupeBoard;
    MailBoard = Cfg->MailBoard;
    NetMailBoard = Cfg->NetMailBoard;
+   UseFullScreenReader = Cfg->UseFullScreenReader;
+   UseFullScreenLists = Cfg->UseFullScreenLists;
+   UseFullScreenAreaLists = Cfg->UseFullScreenAreaLists;
+   AreafixActive = Cfg->AreafixActive;
+   AllowRescan = Cfg->AllowRescan;
+   CheckZones = Cfg->CheckZones;
+   RaidActive = Cfg->RaidActive;
+   strcpy (AreafixNames, Cfg->AreafixNames);
+   strcpy (AreafixHelp, Cfg->AreafixHelp);
+   strcpy (RaidNames, Cfg->RaidNames);
+   strcpy (RaidHelp, Cfg->RaidHelp);
+   strcpy (NewTicPath, FixPath (Cfg->NewTicPath));
+   TextPasswords = Cfg->TextPasswords;
 }
 
 PSZ TConfig::FixPath (PSZ path)
 {
    PSZ p;
 
-   if (path[strlen (path) - 1] != '\\' && path[strlen (path) - 1] != '/')
-      strcat (path, "\\");
+   if (path[0] != '\0') {
+      if (path[strlen (path) - 1] != '\\' && path[strlen (path) - 1] != '/')
+         strcat (path, "\\");
+   }
 
 #if defined(__LINUX__)
    while ((p = strchr (path, '\\')) != NULL)
@@ -472,6 +491,7 @@ USHORT TConfig::Save (PSZ pszConfig, PSZ pszChannel)
       memset (Cfg, 0, sizeof (CONFIG));
       RetVal = TRUE;
 
+      Cfg->Version = CONFIG_VERSION;
       Cfg->Speed = Speed;
       sprintf (Cfg->Device, Device);
       strcpy (Cfg->Initialize[0], Initialize[0]);
@@ -497,13 +517,13 @@ USHORT TConfig::Save (PSZ pszConfig, PSZ pszChannel)
       Cfg->NewUserFlags = NewUserFlags;
       Cfg->NewUserDenyFlags = NewUserDenyFlags;
       strcpy (Cfg->NewUserLimits, NewUserLimits);
-      Cfg->CheckAnsi = CheckAnsi;
-      Cfg->RealName = RealName;
-      Cfg->CompanyName = CompanyName;
-      Cfg->Address = Address;
-      Cfg->City = City;
-      Cfg->PhoneNumber = PhoneNumber;
-      Cfg->Gender = Gender;
+      Cfg->UseAnsi = UseAnsi;
+      Cfg->AskAlias = AskAlias;
+      Cfg->AskCompanyName = AskCompanyName;
+      Cfg->AskAddress = AskAddress;
+      Cfg->AskCity = AskCity;
+      Cfg->AskPhoneNumber = AskPhoneNumber;
+      Cfg->AskGender = AskGender;
       strcpy (Cfg->SystemPath, SystemPath);
       strcpy (Cfg->UserFile, UserFile);
       strcpy (Cfg->NormalInbound, NormalInbound);
@@ -592,14 +612,14 @@ USHORT TConfig::Save (PSZ pszConfig, PSZ pszChannel)
       Cfg->ReloadLog = ReloadLog;
       Cfg->MakeProcessLog = MakeProcessLog;
       Cfg->RetriveMaxMessages = RetriveMaxMessages;
-      Cfg->CheckAvatar = CheckAvatar;
-      Cfg->CheckColor = CheckColor;
-      Cfg->CheckFullScreen = CheckFullScreen;
-      Cfg->CheckHotKey = CheckHotKey;
-      Cfg->CheckIBMChars = CheckIBMChars;
+      Cfg->UseAvatar = UseAvatar;
+      Cfg->UseColor = UseColor;
+      Cfg->UseFullScreenEditor = UseFullScreenEditor;
+      Cfg->UseHotKey = UseHotKey;
+      Cfg->UseIBMChars = UseIBMChars;
       Cfg->AskLines = AskLines;
-      Cfg->AskPause = AskPause;
-      Cfg->AskScreenClear = AskScreenClear;
+      Cfg->UsePause = UsePause;
+      Cfg->UseScreenClear = UseScreenClear;
       Cfg->AskBirthDate = AskBirthDate;
       Cfg->AskMailCheck = AskMailCheck;
       Cfg->AskFileCheck = AskFileCheck;
@@ -611,6 +631,19 @@ USHORT TConfig::Save (PSZ pszConfig, PSZ pszChannel)
       Cfg->DupeBoard = DupeBoard;
       Cfg->MailBoard = MailBoard;
       Cfg->NetMailBoard = NetMailBoard;
+      Cfg->UseFullScreenReader = UseFullScreenReader;
+      Cfg->UseFullScreenLists = UseFullScreenLists;
+      Cfg->UseFullScreenAreaLists = UseFullScreenAreaLists;
+      Cfg->AreafixActive = AreafixActive;
+      Cfg->AllowRescan = AllowRescan;
+      Cfg->CheckZones = CheckZones;
+      Cfg->RaidActive = RaidActive;
+      strcpy (Cfg->AreafixNames, AreafixNames);
+      strcpy (Cfg->AreafixHelp, AreafixHelp);
+      strcpy (Cfg->RaidNames, RaidNames);
+      strcpy (Cfg->RaidHelp, RaidHelp);
+      strcpy (Cfg->NewTicPath, Cfg->NewTicPath);
+      Cfg->TextPasswords = TextPasswords;
 
       write (fd, Cfg, sizeof (CONFIG));
       close (fd);
@@ -652,6 +685,8 @@ USHORT TConfig::Save (PSZ pszConfig, PSZ pszChannel)
                Ch->LimitedHours = LimitedHours;
                Ch->StartTime = StartTime;
                Ch->EndTime = EndTime;
+               strcpy (Ch->CallIf, CallIf);
+               strcpy (Ch->DontCallIf, DontCallIf);
 
                lseek (fd, tell (fd) - sizeof (CHANNEL), SEEK_SET);
                write (fd, Ch, sizeof (CHANNEL));
@@ -680,6 +715,8 @@ USHORT TConfig::Save (PSZ pszConfig, PSZ pszChannel)
             strcpy (Ch->SchedulerFile, SchedulerFile);
             strcpy (Ch->MainMenu, MainMenu);
             strcpy (Ch->Ring, Ring);
+            strcpy (Ch->CallIf, CallIf);
+            strcpy (Ch->DontCallIf, DontCallIf);
 
             write (fd, Ch, sizeof (CHANNEL));
          }

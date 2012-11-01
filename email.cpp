@@ -562,8 +562,6 @@ VOID TEMail::DisplayCurrent (VOID)
 
    if (Msg != NULL) {
       Msgn = Msg->UidToMsgn (Msg->Current);
-      if (Log != NULL && Pause == FALSE)
-         Log->Write (":Display E-Mail Msg. #%lu (%lu)", Msgn, Msg->Current);
 
       if ((p = (CHAR *)Msg->Text.First ()) != NULL)
          do {
@@ -698,11 +696,34 @@ VOID TEMail::DisplayCurrent (VOID)
    }
 }
 
-VOID TEMail::Write (VOID)
+VOID TEMail::Write (USHORT Type, PSZ Argument)
 {
+   char *v, *p;
    class TMailEditor *Editor;
 
    if ((Editor = new TMailEditor) != NULL) {
+      if (Argument != NULL) {
+         while ((p = strchr (Argument, '/')) != NULL) {
+            if (!strnicmp (p, "/T=\"", 4)) {
+               if ((v = strchr (&p[4], '"')) != NULL)
+                  *v = '\0';
+               strcpy (Editor->To, (char *)&p[4]);
+               if (v != NULL)
+                  *v = '"';
+            }
+            else if (!strnicmp (p, "/S=\"", 4)) {
+               if ((v = strchr (&p[4], '"')) != NULL)
+                  *v = '\0';
+               strcpy (Editor->Subject, (char *)&p[4]);
+               if (v != NULL)
+                  *v = '"';
+            }
+
+            Argument = p + 1;
+         }
+      }
+
+      Editor->Type = Type;
       Editor->Cfg = Cfg;
       Editor->Embedded = Embedded;
       Editor->Log = Log;
@@ -720,30 +741,83 @@ VOID TEMail::Write (VOID)
    }
 }
 
-VOID TEMail::Reply (VOID)
+VOID TEMail::Reply (USHORT ToCurrent /* = FALSE*/)
 {
+   USHORT gotFrom = FALSE, gotTo = FALSE;
+   CHAR *p;
+   ULONG Number;
    class TMailEditor *Editor;
 
-   if ((Editor = new TMailEditor) != NULL) {
-      Editor->Cfg = Cfg;
-      Editor->Embedded = Embedded;
-      Editor->Log = Log;
-      Editor->Language = Language;
-      Editor->Width = User->ScreenWidth;
-      Editor->Height = User->ScreenHeight;
-      strcpy (Editor->UserName, User->Name);
-      Editor->Msg = Msg;
-      if (Cfg->MailAddress.First () == TRUE)
-         strcpy (Editor->Address, Cfg->MailAddress.String);
-      if (User->FullEd == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE))
-         Editor->UseFullScreen = TRUE;
-      if (Editor->Reply () == TRUE)
-         Editor->Menu ();
-      delete Editor;
+   if (ToCurrent == FALSE) {
+      Msg = NULL;
+      if (Storage == ST_JAM)
+         Msg = new JAM (BasePath);
+      else if (Storage == ST_SQUISH)
+         Msg = new SQUISH (BasePath);
+      else if (Storage == ST_FIDO)
+         Msg = new FIDOSDM (BasePath);
+      else if (Storage == ST_ADEPT)
+         Msg = new ADEPT (BasePath);
+      else
+         Log->Write ("!Invalid e-mail storage type");
+
+      if (User != NULL) {
+         if (User->MsgTag->Read ("EMail") == TRUE)
+            Number = User->MsgTag->LastRead;
+      }
+   }
+   else
+      Number = Msg->Current;
+
+   if (Msg != NULL) {
+      if (Msg->Read (Number) == TRUE) {
+         if ((p = (CHAR *)Msg->Text.First ()) != NULL)
+            do {
+               if (!strncmp (p, "\001From: ", 7)) {
+                  Msg->FromAddress[0] = '\0';
+                  if (gotTo == FALSE)
+                     Msg->ToAddress[0] = '\0';
+                  ParseAddress (&p[7], Msg->From, Msg->FromAddress);
+                  gotFrom = TRUE;
+               }
+               else if (!strncmp (p, "\001To: ", 5)) {
+                  if (gotFrom == FALSE)
+                     Msg->FromAddress[0] = '\0';
+                  Msg->ToAddress[0] = '\0';
+                  ParseAddress (&p[5], Msg->To, Msg->ToAddress);
+                  gotTo = TRUE;
+               }
+               if (gotFrom == TRUE && gotTo == TRUE)
+                  break;
+            } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
+
+         if ((Editor = new TMailEditor) != NULL) {
+            Editor->Cfg = Cfg;
+            Editor->Embedded = Embedded;
+            Editor->Log = Log;
+            Editor->Language = Language;
+            Editor->Width = User->ScreenWidth;
+            Editor->Height = User->ScreenHeight;
+            strcpy (Editor->UserName, User->Name);
+            Editor->Msg = Msg;
+            if (Cfg->MailAddress.First () == TRUE)
+               strcpy (Editor->Address, Cfg->MailAddress.String);
+            if (User->FullEd == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE))
+               Editor->UseFullScreen = TRUE;
+            if (Editor->Reply () == TRUE)
+               Editor->Menu ();
+            delete Editor;
+         }
+      }
+
+      if (ToCurrent == FALSE) {
+         delete Msg;
+         Msg = NULL;
+      }
    }
 }
 
-VOID TEMail::ReadMessages (VOID)
+VOID TEMail::ReadMessages (USHORT fUnreaded)
 {
    USHORT Found;
    CHAR Cmd, DoRead, Temp[40];
@@ -766,9 +840,11 @@ VOID TEMail::ReadMessages (VOID)
       Number = Msg->Lowest ();
       do {
          if (Msg->ReadHeader (Number) == TRUE) {
-            if (Msg->Received == FALSE && (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName))) {
-               Found = TRUE;
-               break;
+            if (Msg->Received == FALSE || fUnreaded == TRUE) {
+               if ((!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName))) {
+                  Found = TRUE;
+                  break;
+               }
             }
          }
          if (Msg->Next (Number) == FALSE)
@@ -797,10 +873,12 @@ VOID TEMail::ReadMessages (VOID)
                if (Msg->Next (Number) == TRUE)
                   do {
                      if (Msg->ReadHeader (Number) == TRUE) {
-                        if (Msg->Received == FALSE && (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName))) {
-                           Found = TRUE;
-                           DoRead = TRUE;
-                           break;
+                        if (Msg->Received == FALSE || fUnreaded == TRUE) {
+                           if ((!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName))) {
+                              Found = TRUE;
+                              DoRead = TRUE;
+                              break;
+                           }
                         }
                      }
                      if (Msg->Next (Number) == FALSE)
@@ -822,7 +900,7 @@ VOID TEMail::ReadMessages (VOID)
                }
             }
             else if (Cmd == 'R')
-               Reply ();
+               Reply (TRUE);
             else if (Cmd == '!') {
                ShowKludges = (ShowKludges == TRUE) ? FALSE : TRUE;
                DoRead = TRUE;
@@ -855,7 +933,7 @@ VOID TEMail::ReadMessages (VOID)
          }
       }
       else
-         Embedded->Printf ("\n\026\001\014Sorry, you have no mail waiting.\n");
+         Embedded->Printf ("\n\026\001\014Sorry, you have no mail waiting.\n\006\007\006\007");
 
       delete Msg;
       Msg = NULL;
@@ -888,6 +966,290 @@ VOID TEMail::StartMessageQuestion (ULONG ulFirst, ULONG ulLast, ULONG &ulMsg, US
    else if (isdigit (Cmd)) {
       if ((ulMsg = atol (Temp)) > 0L)
          ulMsg--;
+   }
+}
+
+VOID TEMail::ReadNext (VOID)
+{
+   USHORT DoRead = FALSE;
+   ULONG Number = 0L;
+
+   Msg = NULL;
+   if (Storage == ST_JAM)
+      Msg = new JAM (BasePath);
+   else if (Storage == ST_SQUISH)
+      Msg = new SQUISH (BasePath);
+   else if (Storage == ST_FIDO)
+      Msg = new FIDOSDM (BasePath);
+   else if (Storage == ST_ADEPT)
+      Msg = new ADEPT (BasePath);
+   else
+      Log->Write ("!Invalid e-mail storage type");
+
+   if (User != NULL) {
+      if (User->MsgTag->Read ("EMail") == TRUE)
+         Number = User->MsgTag->LastRead;
+   }
+
+   if (Msg != NULL) {
+      if (Msg->Next (Number) == TRUE)
+         do {
+            Msg->ReadHeader (Number);
+            if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+               DoRead = TRUE;
+               break;
+            }
+         } while (Msg->Next (Number) == TRUE);
+
+      if (DoRead == TRUE) {
+         Msg->Read (Number);
+         DisplayCurrent ();
+
+         if (User != NULL) {
+            if (User->MsgTag->Read ("EMail") == TRUE) {
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Update ();
+            }
+            else {
+               User->MsgTag->New ();
+               strcpy (User->MsgTag->Area, "EMail");
+               User->MsgTag->Tagged = FALSE;
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Add ();
+            }
+         }
+      }
+      else
+         Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
+
+      delete Msg;
+      Msg = NULL;
+   }
+}
+
+VOID TEMail::ReadPrevious (VOID)
+{
+   USHORT DoRead = FALSE;
+   ULONG Number = 0L;
+
+   Msg = NULL;
+   if (Storage == ST_JAM)
+      Msg = new JAM (BasePath);
+   else if (Storage == ST_SQUISH)
+      Msg = new SQUISH (BasePath);
+   else if (Storage == ST_FIDO)
+      Msg = new FIDOSDM (BasePath);
+   else if (Storage == ST_ADEPT)
+      Msg = new ADEPT (BasePath);
+   else
+      Log->Write ("!Invalid e-mail storage type");
+
+   if (User != NULL) {
+      if (User->MsgTag->Read ("EMail") == TRUE)
+         Number = User->MsgTag->LastRead;
+   }
+
+   if (Msg != NULL) {
+      if (Msg->Previous (Number) == TRUE)
+         do {
+            Msg->ReadHeader (Number);
+            if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+               DoRead = TRUE;
+               break;
+            }
+         } while (Msg->Previous (Number) == TRUE);
+
+      if (DoRead == TRUE) {
+         Msg->Read (Number);
+         DisplayCurrent ();
+
+         if (User != NULL) {
+            if (User->MsgTag->Read ("EMail") == TRUE) {
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Update ();
+            }
+            else {
+               User->MsgTag->New ();
+               strcpy (User->MsgTag->Area, "EMail");
+               User->MsgTag->Tagged = FALSE;
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Add ();
+            }
+         }
+      }
+      else
+         Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
+
+      delete Msg;
+      Msg = NULL;
+   }
+}
+
+VOID TEMail::Read (ULONG Number)
+{
+   USHORT DoRead = FALSE;
+
+   Msg = NULL;
+   if (Storage == ST_JAM)
+      Msg = new JAM (BasePath);
+   else if (Storage == ST_SQUISH)
+      Msg = new SQUISH (BasePath);
+   else if (Storage == ST_FIDO)
+      Msg = new FIDOSDM (BasePath);
+   else if (Storage == ST_ADEPT)
+      Msg = new ADEPT (BasePath);
+   else
+      Log->Write ("!Invalid e-mail storage type");
+
+   if (Msg != NULL) {
+      Number = Msg->MsgnToUid (Number);
+
+      do {
+         Msg->ReadHeader (Number);
+         if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+            DoRead = TRUE;
+            break;
+         }
+      } while (Msg->Next (Number) == TRUE);
+
+      if (DoRead == TRUE) {
+         Msg->Read (Number);
+         DisplayCurrent ();
+
+         if (User != NULL) {
+            if (User->MsgTag->Read ("EMail") == TRUE) {
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Update ();
+            }
+            else {
+               User->MsgTag->New ();
+               strcpy (User->MsgTag->Area, "EMail");
+               User->MsgTag->Tagged = FALSE;
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Add ();
+            }
+         }
+      }
+      else
+         Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
+
+      delete Msg;
+      Msg = NULL;
+   }
+}
+
+VOID TEMail::DisplayText (VOID)
+{
+   USHORT gotFrom = FALSE, gotTo = FALSE;
+   CHAR *Text, Temp[96], Flags[96];
+   ULONG Msgn;
+
+   if (Msg != NULL) {
+      Msgn = Msg->UidToMsgn (Msg->Current);
+
+      Flags[0] = '\0';
+      if (Msg->Received == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_RCV));
+      if (Msg->Sent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_SNT));
+      if (Msg->Private == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_PVT));
+      if (Msg->Crash == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_CRA));
+      if (Msg->KillSent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_KS));
+      if (Msg->Local == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_LOC));
+      if (Msg->Hold == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_HLD));
+      if (Msg->FileAttach == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_ATT));
+      if (Msg->FileRequest == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_FRQ));
+      if (Msg->Intransit == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_TRS));
+      Embedded->BufferedPrintf ("\n");
+      Embedded->BufferedPrintf ("\026\001\003From:    \026\001\016%-36.36s \026\001\017%-.33s\n", Msg->From, Flags);
+
+      BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+      Embedded->BufferedPrintf ("\026\001\003To:      \026\001\016%-36.36s \026\001\012Msg #%lu, %-.23s\n", Msg->To, Msgn, Temp);
+
+      if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+         Embedded->BufferedPrintf ("\026\001\003File(s): \026\001\016%-.70s\n", Msg->Subject);
+      else
+         Embedded->BufferedPrintf ("\026\001\003Subject: \026\001\016%-.70s\n\n", Msg->Subject);
+
+      if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
+         do {
+            if (ShowKludges == TRUE || (strncmp (Text, "SEEN-BY: ", 9) && Text[0] != 1)) {
+               if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1) {
+                  if (Text[0] == 1)
+                     Text++;
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEKLUDGE), Text);
+               }
+               else if (!strncmp (Text, " * Origin", 9) || !strncmp (Text, "---", 3))
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEORIGIN), Text);
+               else if (strchr (Text, '>') != NULL)
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEQUOTE), Text);
+               else
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGETEXT), Text);
+            }
+         } while ((Text = (CHAR *)Msg->Text.Next ()) != NULL && Embedded->AbortSession () == FALSE);
+
+      Embedded->UnbufferBytes ();
+   }
+}
+
+VOID TEMail::ReadNonStop (VOID)
+{
+   ULONG Number;
+
+   Msg = NULL;
+   if (Storage == ST_JAM)
+      Msg = new JAM (BasePath);
+   else if (Storage == ST_SQUISH)
+      Msg = new SQUISH (BasePath);
+   else if (Storage == ST_FIDO)
+      Msg = new FIDOSDM (BasePath);
+   else if (Storage == ST_ADEPT)
+      Msg = new ADEPT (BasePath);
+   else
+      Log->Write ("!Invalid e-mail storage type");
+
+   if (Msg != NULL) {
+      Number = 0L;
+      if (User != NULL) {
+         if (User->MsgTag->Read ("EMail") == TRUE)
+            Number = User->MsgTag->LastRead;
+      }
+
+      Embedded->BufferedPrintf ("\x0C");
+
+      if (Msg->Number () > 0L && Number < Msg->Highest ()) {
+         while (Embedded->AbortSession () == FALSE && Msg->Next (Number) == TRUE) {
+            if (Msg->Read (Number) == TRUE) {
+               if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+                  DisplayText ();
+                  if (User != NULL) {
+                     if (User->MsgTag->Read ("EMail") == TRUE) {
+                        User->MsgTag->LastRead = Msg->Current;
+                        User->MsgTag->Update ();
+                     }
+                     else {
+                        User->MsgTag->New ();
+                        strcpy (User->MsgTag->Area, "EMail");
+                        User->MsgTag->Tagged = FALSE;
+                        User->MsgTag->LastRead = Msg->Current;
+                        User->MsgTag->Add ();
+                     }
+                  }
+               }
+            }
+         }
+      }
+
+      delete Msg;
+      Msg = NULL;
    }
 }
 

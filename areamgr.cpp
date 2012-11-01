@@ -20,6 +20,7 @@ TAreaManager::TAreaManager (void)
 {
    Log = NULL;
    EchoLink = NULL;
+   Status = NULL;
 }
 
 TAreaManager::~TAreaManager (void)
@@ -91,11 +92,141 @@ USHORT TAreaManager::SetPacker (PSZ Cmd)
    return (RetVal);
 }
 
+VOID TAreaManager::ImportAreasBBS (VOID)
+{
+   #define MAX_LINECHAR 2048
+   int i, counter, existing;
+   FILE *fp = fopen (Cfg->AreasBBS, "rt");
+   CHAR *lpTemp = (CHAR *)malloc (MAX_LINECHAR + 1);
+   CHAR *lpPath, *lpTag, *lpLink, Name[16];
+   class TMsgData *MsgData = new TMsgData (Cfg->SystemPath);
+   class TEchoLink *EchoLink = new TEchoLink (Cfg->SystemPath);
+
+   counter = 0;
+   existing = 0;
+   if (Log != NULL)
+      Log->Write ("+Import areas from %s", Cfg->AreasBBS);
+
+   if (fp != NULL && lpTemp != NULL && MsgData != NULL && EchoLink != NULL) {
+      fgets (lpTemp, MAX_LINECHAR, fp);
+      while (fgets (lpTemp, MAX_LINECHAR, fp) != NULL) {
+         lpTemp[strlen (lpTemp) - 1] = '\0';
+         if (lpTemp[0] == ';' || lpTemp[0] == '\0')
+            continue;
+         if ((lpPath = strtok (lpTemp, " ")) != NULL) {
+            if ((lpTag = strtok (NULL, " ")) != NULL) {
+               if (MsgData->ReadEcho (lpTag) == FALSE) {
+                  i = 1;
+                  do {
+                     sprintf (Name, "newarea%d", i++);
+                  } while (MsgData->Read (Name) == TRUE);
+
+                  MsgData->New ();
+                  strcpy (MsgData->Key, Name);
+                  sprintf (MsgData->Display, "Imported area %s", lpTag);
+                  strcpy (MsgData->EchoTag, lpTag);
+                  if (lpPath[0] == '$') {
+                     MsgData->Storage = ST_SQUISH;
+                     lpPath++;
+                  }
+                  else if (lpPath[0] == '!') {
+                     MsgData->Storage = ST_JAM;
+                     lpPath++;
+                  }
+                  else if (lpPath[0] == '=') {
+                     MsgData->Storage = ST_SQUISH;
+                     lpPath++;
+                  }
+                  else if (isdigit (lpPath[0]))
+                     MsgData->Storage = ST_HUDSON;
+                  else
+                     MsgData->Storage = ST_FIDO;
+                  MsgData->EchoMail = TRUE;
+                  MsgData->Add ();
+               }
+               else
+                  existing++;
+
+               EchoLink->Load (lpTag);
+               EchoLink->Clear ();
+               if ((lpLink = strtok (NULL, "")) != NULL)
+                  EchoLink->AddString (lpLink);
+               EchoLink->Save ();
+
+               counter++;
+            }
+         }
+      }
+   }
+
+   if (Log != NULL)
+      Log->Write (":%d area(s) readed, %d new", counter, counter - existing);
+
+   if (EchoLink != NULL)
+      delete EchoLink;
+   if (MsgData != NULL)
+      delete MsgData;
+   if (lpTemp != NULL)
+      free (lpTemp);
+   if (fp != NULL)
+      fclose (fp);
+}
+
+VOID TAreaManager::ImportDescriptions (PSZ pszFile)
+{
+   #define MAX_LINECHAR 2048
+   int counter, existing;
+   FILE *fp = fopen (pszFile, "rt");
+   CHAR *lpTemp = (CHAR *)malloc (MAX_LINECHAR + 1);
+   CHAR *lpTag, *lpDescription;
+   class TMsgData *MsgData = new TMsgData (Cfg->SystemPath);
+
+   counter = 0;
+   existing = 0;
+   if (Log != NULL)
+      Log->Write ("+Import descriptions from %s", pszFile);
+
+   if (fp != NULL && lpTemp != NULL && MsgData != NULL) {
+      while (fgets (lpTemp, MAX_LINECHAR, fp) != NULL) {
+         lpTemp[strlen (lpTemp) - 1] = '\0';
+         if (lpTemp[0] == ';' || lpTemp[0] == '\0')
+            continue;
+         if ((lpTag = strtok (lpTemp, " ")) != NULL) {
+            if ((lpDescription = strtok (NULL, "")) != NULL) {
+               while (*lpDescription == ' ' || *lpDescription == 0x09)
+                  lpDescription++;
+               if (MsgData->ReadEcho (lpTag) == TRUE) {
+                  strcpy (MsgData->Display, lpDescription);
+                  MsgData->Update ();
+                  existing++;
+               }
+
+               counter++;
+            }
+         }
+      }
+   }
+
+   if (Log != NULL)
+      Log->Write (":%d area(s) readed, %d updated", counter, existing);
+
+   if (MsgData != NULL)
+      delete MsgData;
+   if (lpTemp != NULL)
+      free (lpTemp);
+   if (fp != NULL)
+      fclose (fp);
+}
+
 VOID TAreaManager::UpdateAreasBBS (VOID)
 {
    FILE *fp;
+   int counter = 0;
    class TMsgData *MsgData;
    class TEchoLink *EchoLink;
+
+   if (Log != NULL)
+      Log->Write ("+Updating %s", Cfg->AreasBBS);
 
    if ((fp = fopen (Cfg->AreasBBS, "wt")) != NULL) {
       fprintf (fp, "%s ! %s\n;\n", Cfg->SystemName, Cfg->SysopName);
@@ -111,9 +242,9 @@ VOID TAreaManager::UpdateAreasBBS (VOID)
                      else if (MsgData->Storage == ST_ADEPT)
                         fprintf (fp, "=%-30s", MsgData->Path);
                      else if (MsgData->Storage == ST_FIDO)
-                        fprintf (fp, "%-30s", MsgData->Path);
+                        fprintf (fp, "%-30s ", MsgData->Path);
                      else if (MsgData->Storage == ST_HUDSON)
-                        fprintf (fp, "%-30d", MsgData->Board);
+                        fprintf (fp, "%-30d ", MsgData->Board);
                      EchoLink->Load (MsgData->EchoTag);
                      fprintf (fp, " %-30s", MsgData->EchoTag);
                      if (EchoLink->First () == TRUE)
@@ -121,6 +252,7 @@ VOID TAreaManager::UpdateAreasBBS (VOID)
                            fprintf (fp, " %s", EchoLink->Address);
                         } while (EchoLink->Next () == TRUE);
                      fprintf (fp, "\n");
+                     counter++;
                   }
                } while (MsgData->Next () == TRUE);
             delete MsgData;
@@ -130,6 +262,36 @@ VOID TAreaManager::UpdateAreasBBS (VOID)
       fprintf (fp, ";\n");
       fclose (fp);
    }
+
+   if (Log != NULL)
+      Log->Write (":%d area(s) exported", counter);
+}
+
+VOID TAreaManager::ExportDescriptions (PSZ pszFile)
+{
+   FILE *fp;
+   int counter = 0;
+   class TMsgData *MsgData;
+
+   if (Log != NULL)
+      Log->Write ("+Updating %s", pszFile);
+
+   if ((fp = fopen (pszFile, "wt")) != NULL) {
+      if ((MsgData = new TMsgData (Cfg->SystemPath)) != NULL) {
+         if (MsgData->First () == TRUE)
+            do {
+               if (MsgData->EchoMail == TRUE && MsgData->EchoTag[0] != '\0') {
+                  fprintf (fp, "%-24s %s\n", MsgData->EchoTag, MsgData->Display);
+                  counter++;
+               }
+            } while (MsgData->Next () == TRUE);
+         delete MsgData;
+      }
+      fclose (fp);
+   }
+
+   if (Log != NULL)
+      Log->Write (":%d description(s) exported", counter);
 }
 
 USHORT TAreaManager::Passive (PSZ address, USHORT flag)
@@ -302,6 +464,32 @@ USHORT TAreaManager::SetOutPacketPwd (PSZ address, PSZ pwd)
 USHORT TAreaManager::AddArea (PSZ address, PSZ area)
 {
    USHORT RetVal = FALSE, DoDelete = FALSE;
+   class TNodes *Nodes;
+   class TMsgData *Data;
+
+   if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+      if (Nodes->Read (Msg->FromAddress) == TRUE) {
+         if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+            if (Data->ReadEcho (area) == TRUE) {
+               if (Nodes->Level < Data->Level)
+                  RetVal = NOT_FOUND;
+               if ((Nodes->AccessFlags & Data->Flags) != Data->Flags)
+                  RetVal = NOT_FOUND;
+               if ((Nodes->DenyFlags & Data->DenyFlags) != Data->DenyFlags && Data->DenyFlags != 0L)
+                  RetVal = NOT_FOUND;
+               if (Log != NULL && RetVal == NOT_FOUND)
+                  Log->Write ("!Area %s not accessible to node", area);
+            }
+            else
+               RetVal = NOT_FOUND;
+            delete Data;
+         }
+      }
+      delete Nodes;
+   }
+
+   if (RetVal == NOT_FOUND)
+      return (RetVal);
 
    ///////////////////////////////////////////////////////////////////////////////
    // Si assicura che la classe EchoLink sia accessibile                        //
@@ -375,17 +563,127 @@ USHORT TAreaManager::RemoveArea (PSZ address, PSZ area)
    return (RetVal);
 }
 
+VOID TAreaManager::DoAreaListings (PSZ Address, USHORT Type, USHORT Level, ULONG AccessFlags, ULONG DenyFlags)
+{
+   CHAR Temp[96];
+   ULONG Total = 0L;
+
+   Text.Clear ();
+   MsgHeader ();
+
+   if (Type == 1) {
+      Total = 0L;
+      strcpy (Msg->Subject, "List of available echomail areas");
+
+      sprintf (Temp, "Area(s) available to %s:", Address);
+      Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+      Text.Add ("");
+      if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+         if (Data->First () == TRUE)
+            do {
+               if (Level < Data->Level)
+                  continue;
+               if ((AccessFlags & Data->Flags) != Data->Flags)
+                  continue;
+               if ((DenyFlags & Data->DenyFlags) != Data->DenyFlags && Data->DenyFlags != 0L)
+                  continue;
+               if (Data->EchoMail == TRUE && Data->EchoTag[0] != '\0') {
+                  sprintf (Temp, "%-30.30s %.48s", Data->EchoTag, Data->Display);
+                  Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                  Total++;
+               }
+            } while (Data->Next () == TRUE);
+         delete Data;
+      }
+      Text.Add ("");
+      sprintf (Temp, "%lu available area(s).", Total);
+      Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+   }
+   else if (Type == 2) {
+      strcpy (Msg->Subject, "List of linked echomail areas");
+
+      sprintf (Temp, "%s is now linked to the following area(s):", Address);
+      Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+      Text.Add ("");
+      Total = 0L;
+      if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+         EchoLink = new TEchoLink (Cfg->SystemPath);
+         if (Data->First () == TRUE)
+            do {
+               if (Data->EchoMail == TRUE && Data->EchoTag[0] != '\0' && EchoLink != NULL) {
+                  EchoLink->Load (Data->EchoTag);
+                  if (EchoLink->Check (Address) == TRUE) {
+                     if (EchoLink->Passive == TRUE)
+                        sprintf (Temp, "%-30.30s (P) %.44s", Data->EchoTag, Data->Display);
+                     else
+                        sprintf (Temp, "%-30.30s %.48s", Data->EchoTag, Data->Display);
+                     Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                     Total++;
+                  }
+               }
+            } while (Data->Next () == TRUE);
+         if (EchoLink != NULL)
+            delete EchoLink;
+         delete Data;
+      }
+      Text.Add ("");
+      sprintf (Temp, "%lu linked area(s).", Total);
+      Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+   }
+   else if (Type == 3) {
+      strcpy (Msg->Subject, "List of unlinked echomail areas");
+
+      sprintf (Temp, "Area(s) not linked to %s:", Address);
+      Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+      Text.Add ("");
+      Total = 0L;
+      if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+         EchoLink = new TEchoLink (Cfg->SystemPath);
+         if (Data->First () == TRUE)
+            do {
+               if (Level < Data->Level)
+                  continue;
+               if ((AccessFlags & Data->Flags) != Data->Flags)
+                  continue;
+               if ((DenyFlags & Data->DenyFlags) != Data->DenyFlags && Data->DenyFlags != 0L)
+                  continue;
+               if (Data->EchoMail == TRUE && Data->EchoTag[0] != '\0' && EchoLink != NULL) {
+                  EchoLink->Load (Data->EchoTag);
+                  if (EchoLink->Check (Address) == FALSE) {
+                     sprintf (Temp, "%-30.30s %.48s", Data->EchoTag, Data->Display);
+                     Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                     Total++;
+                  }
+               }
+            } while (Data->Next () == TRUE);
+         if (EchoLink != NULL)
+            delete EchoLink;
+         delete Data;
+      }
+      Text.Add ("");
+      sprintf (Temp, "%lu unlinked area(s).", Total);
+      Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+   }
+
+   MsgFooter ();
+   Msg->Add (Text);
+}
+
 VOID TAreaManager::ProcessAreafix (VOID)
 {
    FILE *fp;
-   USHORT i, Ok, DoList, DoRescan, DoLinked, DoUnlinked;
-   USHORT DoListPacker, DoReport, DoHelp;
-   CHAR Temp[96], *Password, *p;
-   ULONG Total;
+   USHORT i, Ok, DoList, DoRescan, DoLinked, DoUnlinked, CanMaint;
+   USHORT DoListPacker, DoReport, DoHelp, Level, CanRename, MaxMsgs, Changed;
+   ULONG AccessFlags, DenyFlags;
+   CHAR Address[48], Temp[96], *Password, *p;
 //   class TPacker *Packer;
 
+   CanMaint = FALSE;
+   Changed = FALSE;
+
+   strcpy (Address, Msg->FromAddress);
    if (Log != NULL)
-      Log->Write ("#Process AreaMgr requests for %s", Msg->FromAddress);
+      Log->Write ("#  Process AreaMgr requests for %s", Address);
 
    strcpy (Temp, Msg->Subject);
    if ((Password = strtok (Temp, " ")) == NULL)
@@ -393,7 +691,12 @@ VOID TAreaManager::ProcessAreafix (VOID)
 
    Ok = FALSE;
    if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
-      if (Nodes->Read (Msg->FromAddress) == TRUE) {
+      if (Nodes->Read (Address) == TRUE) {
+         Level = Nodes->Level;
+         AccessFlags = Nodes->AccessFlags;
+         DenyFlags = Nodes->DenyFlags;
+         CanMaint = Nodes->EchoMaint;
+         CanRename = Nodes->ChangeEchoTag;
          if (!stricmp (Password, Nodes->AreaMgrPwd))
             Ok = TRUE;
       }
@@ -404,6 +707,7 @@ VOID TAreaManager::ProcessAreafix (VOID)
       DoList = DoRescan = DoLinked = DoUnlinked = FALSE;
       DoHelp = DoListPacker = FALSE;
       DoReport = FALSE;
+      MaxMsgs = 0;
 
       strcpy (Temp, Msg->Subject);
       if ((p = strtok (Temp, " ")) != NULL) {
@@ -422,6 +726,12 @@ VOID TAreaManager::ProcessAreafix (VOID)
       Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
       Text.Add ("");
 
+      strcpy (Temp, Msg->FromAddress);
+      strcpy (Msg->FromAddress, Msg->ToAddress);
+      strcpy (Msg->ToAddress, Temp);
+      strcpy (Msg->To, Msg->From);
+      strcpy (Msg->From, "EchoMail Manager");
+
       if ((EchoLink = new TEchoLink (Cfg->SystemPath)) != NULL) {
          if ((p = (CHAR *)Msg->Text.First ()) != NULL)
             do {
@@ -429,14 +739,37 @@ VOID TAreaManager::ProcessAreafix (VOID)
                   if (*p == '%') {
                      if (!stricmp (p, "%rescan"))
                         DoRescan = TRUE;
+                     else if (!stricmp (p, "%msgs")) {
+                        if ((p = strtok (NULL, " ")) != NULL)
+                           MaxMsgs = (USHORT)atoi (p);
+                     }
                      else if (!stricmp (p, "%help"))
                         DoHelp = TRUE;
                      else if (!stricmp (p, "%list"))
                         DoList = TRUE;
                      else if (!stricmp (p, "%unlinked"))
                         DoUnlinked = TRUE;
-                     else if (!stricmp (p, "%linked"))
+                     else if (!stricmp (p, "%linked") || !stricmp (p, "%query"))
                         DoLinked = TRUE;
+                     else if (!stricmp (p, "%from")) {
+                        if (CanMaint == TRUE) {
+                           if (Changed == TRUE) {
+                              if (DoList == TRUE)
+                                 DoAreaListings (Address, 1, Level, AccessFlags, DenyFlags);
+                              if (DoLinked == TRUE)
+                                 DoAreaListings (Address, 2, Level, AccessFlags, DenyFlags);
+                              if (DoUnlinked == TRUE)
+                                 DoAreaListings (Address, 3, Level, AccessFlags, DenyFlags);
+                           }
+                           strcpy (Address, &p[6]);
+                           if (Log != NULL)
+                              Log->Write ("#Remote maintenance for %s", Address);
+                           sprintf (Temp, "Remote maintenance for %s", Address);
+                        }
+                        else
+                           sprintf (Temp, "Remote maintenance not allowed");
+                        Text.Add (Temp);
+                     }
                      else if (!stricmp (p, "%packer")) {
                         if ((p = strtok (NULL, " ")) != NULL)
                            SetPacker (p);
@@ -444,125 +777,101 @@ VOID TAreaManager::ProcessAreafix (VOID)
                            DoListPacker = TRUE;
                      }
                      else if (!stricmp (p, "%passive")) {
-                        if (Passive (Msg->FromAddress, TRUE) == TRUE)
+                        if (Passive (Address, TRUE) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%active")) {
-                        if (Passive (Msg->FromAddress, FALSE) == TRUE)
+                        if (Passive (Address, FALSE) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%-all")) {
-                        if (RemoveAll (Msg->FromAddress) == TRUE)
+                        if (RemoveAll (Address) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%pwd")) {
                         if ((p = strtok (NULL, " ")) != NULL) {
-                           if (SetPwd (Msg->FromAddress, p) == TRUE)
+                           if (SetPwd (Address, p) == TRUE)
                               DoReport = TRUE;
                         }
                      }
                      else if (!stricmp (p, "%sessionpwd")) {
                         if ((p = strtok (NULL, " ")) != NULL) {
-                           if (SetSessionPwd (Msg->FromAddress, p) == TRUE)
+                           if (SetSessionPwd (Address, p) == TRUE)
                               DoReport = TRUE;
                         }
                      }
                      else if (!stricmp (p, "%pktpwd")) {
                         p = strtok (NULL, " ");
-                        if (SetPacketPwd (Msg->FromAddress, p) == TRUE)
+                        if (SetPacketPwd (Address, p) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%inpktpwd")) {
                         p = strtok (NULL, " ");
-                        if (SetInPacketPwd (Msg->FromAddress, p) == TRUE)
+                        if (SetInPacketPwd (Address, p) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%outpktpwd")) {
                         p = strtok (NULL, " ");
-                        if (SetOutPacketPwd (Msg->FromAddress, p) == TRUE)
+                        if (SetOutPacketPwd (Address, p) == TRUE)
                            DoReport = TRUE;
                      }
                   }
+                  else if (*p == '#') {
+                     if (CanRename == TRUE) {
+                        if ((p = strtok (NULL, " :")) != NULL) {
+                           if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+                              if (Data->ReadEcho (p) == TRUE) {
+                                 if ((p = strtok (NULL, " :")) != NULL) {
+                                    if (Log != NULL)
+                                       Log->Write ("#Area %s changed to %s", Data->EchoTag, p);
+                                    sprintf (Temp, "Area %s changed to %s", Data->EchoTag, p);
+                                    Text.Add (Temp);
+                                    // Cambia il tag nel file dei forward
+                                    EchoLink->Change (Data->EchoTag, p);
+                                    // Cambia il tag nella configurazione dell'area
+                                    strcpy (Data->EchoTag, p);
+                                    Data->Update ();
+                                 }
+                              }
+                              delete Data;
+                           }
+                        }
+                     }
+                     else
+                        Text.Add ("Remote maintenance not allowed");
+                  }
                   else if (*p == '-' && strcmp (p, "---")) {
                      p++;
-                     if (RemoveArea (Msg->FromAddress, p) == FALSE)
+                     if (RemoveArea (Address, p) == FALSE)
                         sprintf (Temp, "Area %s never linked.", strupr (p));
                      else
                         sprintf (Temp, "Area %s has been removed.", strupr (p));
                      Text.Add (Temp);
-                     DoReport = TRUE;
-/*
-                     EchoLink->Load (p);
-                     if (EchoLink->First () == TRUE) {
-                        if (EchoLink->Check (Msg->FromAddress) == TRUE) {
-                           EchoLink->Delete ();
-                           EchoLink->Save ();
-                           sprintf (Temp, "Area %s has been removed.", strupr (p));
-                        }
-                        else
-                           sprintf (Temp, "Area %s never linked.", strupr (p));
-                     }
-                     else
-                        sprintf (Temp, "Area %s never linked.", strupr (p));
-                     Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-                     DoReport = TRUE;
-*/
+                     Changed = DoReport = TRUE;
                   }
                   else if (*p != '\0' && strcmp (p, "---") && *p != '\001') {
                      if (*p == '+')
                         p++;
-                     if ((i = AddArea (Msg->FromAddress, p)) == TRUE)
-                        sprintf (Temp, "Area %s has been added.\n", strupr (p));
+                     if ((i = AddArea (Address, p)) == TRUE)
+                        sprintf (Temp, "Area %s has been added%s.\n", strupr (p), (DoRescan == TRUE) ? ", and rescanned" : "");
                      else if (i == NOT_FOUND)
                         sprintf (Temp, "Area %s not found.\n", strupr (p));
                      else if (i == ALREADY_LINKED)
-                        sprintf (Temp, "Area %s already linked.\n", strupr (p));
+                        sprintf (Temp, "Area %s already linked%s.\n", strupr (p), (DoRescan == TRUE) ? ", rescanned" : "");
                      Text.Add (Temp);
-                     DoReport = TRUE;
-/*
-                     EchoLink->Load (p);
-                     if (EchoLink->First () == TRUE) {
-                        if (EchoLink->Check (Msg->FromAddress) == TRUE)
-                           sprintf (Temp, "Area %s already linked.\n", strupr (p));
-                        else {
-                           EchoLink->AddString (Msg->FromAddress);
-                           EchoLink->Save ();
-                           sprintf (Temp, "Area %s has been added.\n", strupr (p));
+                     Changed = DoReport = TRUE;
+
+                     if (i != NOT_FOUND && DoRescan == TRUE) {
+                        if ((fp = fopen ("rescan.log", "at")) != NULL) {
+                           fprintf (fp, "%s %s %d\n", p, Address, MaxMsgs);
+                           fclose (fp);
                         }
-                        if (DoRescan == TRUE)
-                           Rescan (p, Msg->FromAddress);
                      }
-                     else {
-                        Found = FALSE;
-                        if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
-                           if (Data->ReadEcho (p) == TRUE) {
-                              EchoLink->Load (Data->EchoTag);
-                              EchoLink->AddString (Msg->FromAddress);
-                              EchoLink->Save ();
-                              sprintf (Temp, "Area %s has been added.\n", strupr (p));
-                              Found = TRUE;
-                           }
-                           delete Data;
-                        }
-                        if (Found == FALSE)
-                           sprintf (Temp, "Area %s not found.\n", strupr (p));
-                        else if (DoRescan == TRUE)
-                           Rescan (p, Msg->FromAddress);
-                     }
-                     Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-                     DoReport = TRUE;
-*/
                   }
                }
             } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
          delete EchoLink;
       }
-
-      strcpy (Temp, Msg->FromAddress);
-      strcpy (Msg->FromAddress, Msg->ToAddress);
-      strcpy (Msg->ToAddress, Temp);
-      strcpy (Msg->To, Msg->From);
-      strcpy (Msg->From, "Area Manager");
 
       if (DoReport == TRUE) {
          MsgFooter ();
@@ -573,112 +882,44 @@ VOID TAreaManager::ProcessAreafix (VOID)
          Msg->Sent = FALSE;
          Msg->Add (Text);
 
+         // Invia le notifiche dei cambiamenti ai nodi indicati
+         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+            strcpy (Temp, Msg->ToAddress);
+            if (Nodes->First () == TRUE)
+               do {
+                  if (Nodes->NotifyAreafix == TRUE && stricmp (Temp, Nodes->Address)) {
+                     strcpy (Msg->To, Nodes->SysopName);
+                     if (Msg->To[0] == '\0')
+                        strcpy (Msg->To, "Sysop");
+                     strcpy (Msg->ToAddress, Nodes->Address);
+                     Msg->Add (Text);
+                     if (Log != NULL)
+                        Log->Write ("-Sent notification to %s (%s)", Msg->To, Msg->ToAddress);
+                  }
+               } while (Nodes->Next () == TRUE);
+            delete Nodes;
+         }
+
          if (Cfg->UpdateAreasBBS == TRUE)
             UpdateAreasBBS ();
       }
 
-      if (DoList == TRUE) {
-         Total = 0L;
-         strcpy (Msg->Subject, "List of available echomail areas");
-         Text.Clear ();
-         MsgHeader ();
-
-         sprintf (Temp, "Area(s) available to %s:", Msg->ToAddress);
-         Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-         Text.Add ("");
-         if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
-            if (Data->First () == TRUE)
-               do {
-                  if (Data->EchoMail == TRUE && Data->EchoTag[0] != '\0') {
-                     sprintf (Temp, "%-30.30s %.48s", Data->EchoTag, Data->Display);
-                     Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-                     Total++;
-                  }
-               } while (Data->Next () == TRUE);
-            delete Data;
-         }
-         Text.Add ("");
-         sprintf (Temp, "%lu available area(s).", Total);
-         Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-
-         MsgFooter ();
-         Msg->Add (Text);
-      }
-
-      if (DoLinked == TRUE) {
-         strcpy (Msg->Subject, "List of linked echomail areas");
-         Text.Clear ();
-         MsgHeader ();
-
-         sprintf (Temp, "%s is now linked to the following area(s):", Msg->ToAddress);
-         Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-         Text.Add ("");
-         Total = 0L;
-         if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
-            EchoLink = new TEchoLink (Cfg->SystemPath);
-            if (Data->First () == TRUE)
-               do {
-                  if (Data->EchoMail == TRUE && Data->EchoTag[0] != '\0' && EchoLink != NULL) {
-                     EchoLink->Load (Data->EchoTag);
-                     if (EchoLink->Check (Msg->ToAddress) == TRUE) {
-                        sprintf (Temp, "%-30.30s %.48s", Data->EchoTag, Data->Display);
-                        Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-                        Total++;
-                     }
-                  }
-               } while (Data->Next () == TRUE);
-            if (EchoLink != NULL)
-               delete EchoLink;
-            delete Data;
-         }
-         Text.Add ("");
-         sprintf (Temp, "%lu linked area(s).", Total);
-         Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-
-         MsgFooter ();
-         Msg->Add (Text);
-      }
-
-      if (DoUnlinked == TRUE) {
-         strcpy (Msg->Subject, "List of unlinked echomail areas");
-         Text.Clear ();
-         MsgHeader ();
-
-         sprintf (Temp, "Area(s) not linked to %s:", Msg->ToAddress);
-         Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-         Text.Add ("");
-         Total = 0L;
-         if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
-            EchoLink = new TEchoLink (Cfg->SystemPath);
-            if (Data->First () == TRUE)
-               do {
-                  if (Data->EchoMail == TRUE && Data->EchoTag[0] != '\0' && EchoLink != NULL) {
-                     EchoLink->Load (Data->EchoTag);
-                     if (EchoLink->Check (Msg->ToAddress) == FALSE) {
-                        sprintf (Temp, "%-30.30s %.48s", Data->EchoTag, Data->Display);
-                        Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-                        Total++;
-                     }
-                  }
-               } while (Data->Next () == TRUE);
-            if (EchoLink != NULL)
-               delete EchoLink;
-            delete Data;
-         }
-         Text.Add ("");
-         sprintf (Temp, "%lu unlinked area(s).", Total);
-         Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-         MsgFooter ();
-
-         Msg->Add (Text);
-      }
+      if (DoList == TRUE)
+         DoAreaListings (Address, 1, Level, AccessFlags, DenyFlags);
+      if (DoLinked == TRUE)
+         DoAreaListings (Address, 2, Level, AccessFlags, DenyFlags);
+      if (DoUnlinked == TRUE)
+         DoAreaListings (Address, 3, Level, AccessFlags, DenyFlags);
 
       if (DoHelp == TRUE) {
          strcpy (Msg->Subject, "Areafix help");
          Text.Clear ();
          MsgHeader ();
 
-         sprintf (Temp, "%safxhelp.txt", Cfg->SystemPath);
+         if (Cfg->AreafixHelp[0] != '\0')
+            strcpy (Temp, Cfg->AreafixHelp);
+         else
+            sprintf (Temp, "%safxhelp.txt", Cfg->SystemPath);
          if ((fp = fopen (Temp, "rt")) != NULL) {
             while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
                Temp[strlen (Temp) - 1] = '\0';
@@ -700,6 +941,9 @@ VOID TAreaManager::ProcessAreafix (VOID)
       Text.Clear ();
       MsgHeader ();
 
+      if (Log != NULL)
+         Log->Write ("!Node %s is not authorized for echomanager", Msg->FromAddress);
+
       Text.Add ("");
       sprintf (Temp, "Node %s isn't authorized to use areafix at %s", Msg->FromAddress, Msg->ToAddress);
       Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
@@ -709,7 +953,7 @@ VOID TAreaManager::ProcessAreafix (VOID)
       strcpy (Msg->FromAddress, Msg->ToAddress);
       strcpy (Msg->ToAddress, Temp);
       strcpy (Msg->To, Msg->From);
-      strcpy (Msg->From, "Area Manager");
+      strcpy (Msg->From, "Echo Manager");
       strcpy (Msg->Subject, "EchoMail changes report");
       Msg->Text.Clear ();
       Msg->Local = TRUE;
@@ -717,6 +961,24 @@ VOID TAreaManager::ProcessAreafix (VOID)
 
       MsgFooter ();
       Msg->Add (Text);
+
+      // Invia le notifiche dei cambiamenti ai nodi indicati
+      if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+         strcpy (Temp, Msg->ToAddress);
+         if (Nodes->First () == TRUE)
+            do {
+               if (Nodes->NotifyAreafix == TRUE && stricmp (Temp, Nodes->Address)) {
+                  strcpy (Msg->To, Nodes->SysopName);
+                  if (Msg->To[0] == '\0')
+                     strcpy (Msg->To, "Sysop");
+                  strcpy (Msg->ToAddress, Nodes->Address);
+                  Msg->Add (Text);
+                  if (Log != NULL)
+                     Log->Write ("-Sent notification to %s (%s)", Msg->To, Msg->ToAddress);
+               }
+            } while (Nodes->Next () == TRUE);
+         delete Nodes;
+      }
    }
 }
 
@@ -779,20 +1041,26 @@ VOID TAreaManager::ProcessRaid (VOID)
 {
    FILE *fp;
    USHORT Ok, DoList, DoLinked, DoUnlinked, Found;
-   USHORT DoReport, DoHelp;
-   CHAR Temp[96], *Password, *p;
+   USHORT DoReport, DoHelp, CanMaint, CanRename;
+   CHAR Address[48], Temp[96], *Password, *p;
    ULONG Total;
 
    if (Log != NULL)
       Log->Write ("#Process Raid requests for %s", Msg->FromAddress);
+   strcpy (Address, Msg->FromAddress);
 
    strcpy (Temp, Msg->Subject);
    if ((Password = strtok (Temp, " ")) == NULL)
       Password = "";
 
+   CanMaint = FALSE;
+   CanRename = FALSE;
+
    Ok = FALSE;
    if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
-      if (Nodes->Read (Msg->FromAddress) == TRUE) {
+      if (Nodes->Read (Address) == TRUE) {
+         CanMaint = Nodes->TicMaint;
+         CanRename = Nodes->ChangeTicTag;
          if (!stricmp (Password, Nodes->AreaMgrPwd))
             Ok = TRUE;
       }
@@ -818,6 +1086,12 @@ VOID TAreaManager::ProcessRaid (VOID)
       Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
       Text.Add ("");
 
+      strcpy (Temp, Msg->FromAddress);
+      strcpy (Msg->FromAddress, Msg->ToAddress);
+      strcpy (Msg->ToAddress, Temp);
+      strcpy (Msg->To, Msg->From);
+      strcpy (Msg->From, "Tic Manager");
+
       if ((FileEchoLink = new TFilechoLink (Cfg->SystemPath)) != NULL) {
          if ((p = (CHAR *)Msg->Text.First ()) != NULL)
             do {
@@ -831,51 +1105,86 @@ VOID TAreaManager::ProcessRaid (VOID)
                         DoLinked = TRUE;
                      else if (!stricmp (p, "%help"))
                         DoHelp = TRUE;
+                     else if (!stricmp (p, "%from")) {
+                        if (CanMaint == TRUE) {
+                           strcpy (Address, &p[6]);
+                           if (Log != NULL)
+                              Log->Write ("#Remote maintenance for %s", Address);
+                           sprintf (Temp, "Remote maintenance for %s", Address);
+                        }
+                        else
+                           sprintf (Temp, "Remote maintenance not allowed");
+                        Text.Add (Temp);
+                     }
                      else if (!stricmp (p, "%passive")) {
-                        if (FilePassive (Msg->FromAddress, TRUE) == TRUE)
+                        if (FilePassive (Address, TRUE) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%active")) {
-                        if (FilePassive (Msg->FromAddress, FALSE) == TRUE)
+                        if (FilePassive (Address, FALSE) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%-all")) {
-                        if (FileRemoveAll (Msg->FromAddress) == TRUE)
+                        if (FileRemoveAll (Address) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%pwd")) {
                         if ((p = strtok (NULL, " ")) != NULL) {
-                           if (SetPwd (Msg->FromAddress, p) == TRUE)
+                           if (SetPwd (Address, p) == TRUE)
                               DoReport = TRUE;
                         }
                      }
                      else if (!stricmp (p, "%sessionpwd")) {
                         if ((p = strtok (NULL, " ")) != NULL) {
-                           if (SetSessionPwd (Msg->FromAddress, p) == TRUE)
+                           if (SetSessionPwd (Address, p) == TRUE)
                               DoReport = TRUE;
                         }
                      }
                      else if (!stricmp (p, "%pktpwd")) {
                         p = strtok (NULL, " ");
-                        if (SetPacketPwd (Msg->FromAddress, p) == TRUE)
+                        if (SetPacketPwd (Address, p) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%inpktpwd")) {
                         p = strtok (NULL, " ");
-                        if (SetInPacketPwd (Msg->FromAddress, p) == TRUE)
+                        if (SetInPacketPwd (Address, p) == TRUE)
                            DoReport = TRUE;
                      }
                      else if (!stricmp (p, "%outpktpwd")) {
                         p = strtok (NULL, " ");
-                        if (SetOutPacketPwd (Msg->FromAddress, p) == TRUE)
+                        if (SetOutPacketPwd (Address, p) == TRUE)
                            DoReport = TRUE;
                      }
+                  }
+                  else if (*p == '#') {
+                     if (CanRename == TRUE) {
+                        if ((p = strtok (NULL, " :")) != NULL) {
+                           if ((FileData = new TFileData (Cfg->SystemPath)) != NULL) {
+                              if (FileData->ReadEcho (p) == TRUE) {
+                                 if ((p = strtok (NULL, " :")) != NULL) {
+                                    if (Log != NULL)
+                                       Log->Write ("#Area %s changed to %s", FileData->EchoTag, p);
+                                    sprintf (Temp, "Area %s changed to %s", FileData->EchoTag, p);
+                                    Text.Add (Temp);
+                                    // Cambia il tag nel file dei forward
+                                    FileEchoLink->Change (FileData->EchoTag, p);
+                                    // Cambia il tag nella configurazione dell'area
+                                    strcpy (FileData->EchoTag, p);
+                                    FileData->Update ();
+                                 }
+                              }
+                              delete FileData;
+                           }
+                        }
+                     }
+                     else
+                        Text.Add ("Remote maintenance not allowed");
                   }
                   else if (*p == '-' && strcmp (p, "---")) {
                      p++;
                      FileEchoLink->Load (p);
                      if (FileEchoLink->First () == TRUE) {
-                        if (FileEchoLink->Check (Msg->FromAddress) == TRUE) {
+                        if (FileEchoLink->Check (Address) == TRUE) {
                            FileEchoLink->Delete ();
                            FileEchoLink->Save ();
                            sprintf (Temp, "Area %s has been removed.", strupr (p));
@@ -893,10 +1202,10 @@ VOID TAreaManager::ProcessRaid (VOID)
                         p++;
                      FileEchoLink->Load (p);
                      if (FileEchoLink->First () == TRUE) {
-                        if (FileEchoLink->Check (Msg->FromAddress) == TRUE)
+                        if (FileEchoLink->Check (Address) == TRUE)
                            sprintf (Temp, "Area %s already linked.\n", strupr (p));
                         else {
-                           FileEchoLink->AddString (Msg->FromAddress);
+                           FileEchoLink->AddString (Address);
                            FileEchoLink->Save ();
                            sprintf (Temp, "Area %s has been added.\n", strupr (p));
                         }
@@ -906,7 +1215,7 @@ VOID TAreaManager::ProcessRaid (VOID)
                         if ((FileData = new TFileData (Cfg->SystemPath)) != NULL) {
                            if (FileData->ReadEcho (p) == TRUE) {
                               FileEchoLink->Load (FileData->EchoTag);
-                              FileEchoLink->AddString (Msg->FromAddress);
+                              FileEchoLink->AddString (Address);
                               FileEchoLink->Save ();
                               sprintf (Temp, "Area %s has been added.\n", strupr (p));
                               Found = TRUE;
@@ -924,15 +1233,9 @@ VOID TAreaManager::ProcessRaid (VOID)
          delete FileEchoLink;
       }
 
-      strcpy (Temp, Msg->FromAddress);
-      strcpy (Msg->FromAddress, Msg->ToAddress);
-      strcpy (Msg->ToAddress, Temp);
-      strcpy (Msg->To, Msg->From);
-      strcpy (Msg->From, "File Area Manager");
-
       if (DoReport == TRUE) {
          MsgFooter ();
-         strcpy (Msg->Subject, "FileEcho changes report");
+         strcpy (Msg->Subject, "Tic changes report");
          Msg->Text.Clear ();
          Msg->Local = TRUE;
          Msg->Crash = Msg->Direct = Msg->Hold = FALSE;
@@ -942,7 +1245,7 @@ VOID TAreaManager::ProcessRaid (VOID)
 
       if (DoList == TRUE) {
          Total = 0L;
-         strcpy (Msg->Subject, "List of available file areas");
+         strcpy (Msg->Subject, "List of available Tic areas");
          Text.Clear ();
          MsgHeader ();
 
@@ -969,7 +1272,7 @@ VOID TAreaManager::ProcessRaid (VOID)
       }
 
       if (DoLinked == TRUE) {
-         strcpy (Msg->Subject, "List of linked file areas");
+         strcpy (Msg->Subject, "List of linked Tic areas");
          Text.Clear ();
          MsgHeader ();
 
@@ -1003,7 +1306,7 @@ VOID TAreaManager::ProcessRaid (VOID)
       }
 
       if (DoUnlinked == TRUE) {
-         strcpy (Msg->Subject, "List of unlinked file areas");
+         strcpy (Msg->Subject, "List of unlinked Tic areas");
          Text.Clear ();
          MsgHeader ();
 
@@ -1037,11 +1340,14 @@ VOID TAreaManager::ProcessRaid (VOID)
       }
 
       if (DoHelp == TRUE) {
-         strcpy (Msg->Subject, "Raid help");
+         strcpy (Msg->Subject, "TIC Manager help");
          Text.Clear ();
          MsgHeader ();
 
-         sprintf (Temp, "%sraidhelp.txt", Cfg->SystemPath);
+         if (Cfg->RaidHelp[0] != '\0')
+            strcpy (Temp, Cfg->RaidHelp);
+         else
+            sprintf (Temp, "%sraidhelp.txt", Cfg->SystemPath);
          if ((fp = fopen (Temp, "rt")) != NULL) {
             while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
                Temp[strlen (Temp) - 1] = '\0';
@@ -1064,7 +1370,7 @@ VOID TAreaManager::ProcessRaid (VOID)
       MsgHeader ();
 
       Text.Add ("");
-      sprintf (Temp, "Node %s isn't authorized to use raid at %s", Msg->FromAddress, Msg->ToAddress);
+      sprintf (Temp, "Node %s isn't authorized to use raid at %s", Address, Msg->ToAddress);
       Text.Add (Temp);
       Text.Add ("");
 
@@ -1072,8 +1378,8 @@ VOID TAreaManager::ProcessRaid (VOID)
       strcpy (Msg->FromAddress, Msg->ToAddress);
       strcpy (Msg->ToAddress, Temp);
       strcpy (Msg->To, Msg->From);
-      strcpy (Msg->From, "File Area Manager");
-      strcpy (Msg->Subject, "FileEcho changes report");
+      strcpy (Msg->From, "Tic Manager");
+      strcpy (Msg->Subject, "Tic changes report");
       Msg->Text.Clear ();
       Msg->Local = TRUE;
       Msg->Crash = Msg->Direct = Msg->Hold = FALSE;
@@ -1083,7 +1389,7 @@ VOID TAreaManager::ProcessRaid (VOID)
    }
 }
 
-VOID TAreaManager::Rescan (PSZ pszEchoTag, PSZ pszAddress)
+VOID TAreaManager::Rescan (PSZ pszEchoTag, PSZ pszAddress, USHORT MaxMsgs)
 {
    CHAR Temp[128], Outbound[64], *Text;
    ULONG Number;
@@ -1093,6 +1399,9 @@ VOID TAreaManager::Rescan (PSZ pszEchoTag, PSZ pszAddress)
    class TAddress Forward;
    class PACKET *Packet;
    class TKludges *SeenBy, *Path;
+
+   if (Status != NULL)
+      Status->SetLine (0, "Scanning %s", pszEchoTag);
 
    strcpy (Outbound, Cfg->Outbound);
    Outbound[strlen (Outbound) - 1] = '\0';
@@ -1186,14 +1495,23 @@ VOID TAreaManager::Rescan (PSZ pszEchoTag, PSZ pszAddress)
                   }
                }
 
+               if (Log != NULL)
+                  Log->Write ("#Rescan area %s for %s (%lu messages)", pszEchoTag, pszAddress, Msg->Number ());
+
                if (Packet->Open (Temp, FALSE) == TRUE) {
                   Number = Msg->Lowest ();
+                  // Se e' stato specificato un numero massimo di messaggi per il
+                  // rescan, limita il rescan agli ultimi MaxMsgs messaggi.
+                  if (Msg->Number () > MaxMsgs && MaxMsgs != 0)
+                     Number = Msg->MsgnToUid (Msg->Number () - MaxMsgs);
                   // Evita di esportare il messaggio #1 delle basi Fido (l'high water mark)
                   if (Number == 1L && Data->Storage == ST_FIDO) {
                      if (Msg->Next (Number) == FALSE)
                         Number = 0L;
                   }
                   do {
+                     if (Status != NULL)
+                        Status->SetLine (1, "   %lu / %lu", Msg->UidToMsgn (Number), Msg->Number ());
                      if (Msg->Read (Number) == TRUE) {
                         sprintf (Temp, "AREA:%s", Data->EchoTag);
                         if ((Text = (PSZ)Msg->Text.First ()) != NULL) {
@@ -1286,6 +1604,7 @@ VOID TAreaManager::Rescan (PSZ pszEchoTag, PSZ pszAddress)
                         if (SeenBy != NULL)
                            delete SeenBy;
 
+                        strcpy (Msg->ToAddress, Forward.String);
                         Packet->Add (Msg);
                      }
                   } while (Msg->Next (Number) == TRUE);

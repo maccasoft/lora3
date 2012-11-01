@@ -71,6 +71,8 @@ TJanus::TJanus (void)
    IsOutbound = FALSE;
    LastPktName = 0L;
    RxTempSize = 0;
+   MakeRequests = TRUE;
+   AllowRequests = TRUE;
 
    TimeoutSecs = 10;
    Speed = 19200L;
@@ -407,23 +409,27 @@ VOID TJanus::GetNextFile (VOID)
    if (TxFileName[0] == '\0' && Outbound != NULL) {
       IsOutbound = TRUE;
       while (Outbound->First () == TRUE) {
-         if ((TxFile = sopen (Outbound->Complete, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
-            strcpy (TxFileName, Outbound->Complete);
+         if (Outbound->Poll == FALSE && (Outbound->Request == FALSE || MakeRequests == TRUE)) {
+            if ((TxFile = sopen (Outbound->Complete, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+               strcpy (TxFileName, Outbound->Complete);
 
-            if (Outbound->MailPKT == TRUE) {
-               while (time (NULL) == LastPktName)
-                  ;
-               sprintf ((PSZ)TxBuffer, "%08lx.pkt", time (NULL));
+               if (Outbound->MailPKT == TRUE) {
+                  while (time (NULL) == LastPktName)
+                     ;
+                  sprintf ((PSZ)TxBuffer, "%08lx.pkt", time (NULL));
+               }
+               else
+                  strcpy ((PSZ)TxBuffer, Outbound->Name);
+
+               q = strchr ((PSZ)TxBuffer, '\0') + 1;
+               fstat (TxFile, &f);
+               sprintf (q, "%lu %lo %o", f.st_size, f.st_mtime, f.st_mode);
+
+               Log->Write (" Sending %s; %ldb, %d min.", Outbound->Name, f.st_size, (int)((f.st_size * 10 / Speed + 53) / 54));
+               break;
             }
             else
-               strcpy ((PSZ)TxBuffer, Outbound->Name);
-
-            q = strchr ((PSZ)TxBuffer, '\0') + 1;
-            fstat (TxFile, &f);
-            sprintf (q, "%lu %lo %o", f.st_size, f.st_mtime, f.st_mode);
-
-            Log->Write (" Sending %s; %ldb, %d min.", Outbound->Name, f.st_size, (int)((f.st_size * 10 / Speed + 53) / 54));
-            break;
+               Outbound->Remove ();
          }
          else
             Outbound->Remove ();

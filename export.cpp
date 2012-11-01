@@ -457,6 +457,9 @@ USHORT TMailProcessor::ExportEchoMail (ULONG Number, PSZ pszEchoTag)
                            }
                         }
 
+                        strcpy (Msg->FromAddress, Packet->FromAddress);
+                        strcpy (Msg->ToAddress, Packet->ToAddress);
+
                         Cfg->MailAddress.First ();
                         if (Cfg->MailAddress.Zone == Forward->Zone) {
                            if (Forward->Point != 0) {
@@ -539,6 +542,341 @@ USHORT TMailProcessor::ExportEchoMail (ULONG Number, PSZ pszEchoTag)
    return (SentArea);
 }
 
+VOID TMailProcessor::ExportNetMail (VOID)
+{
+   FILE *fp;
+   USHORT Process;
+   CHAR *Base, Found, PktFile[128], Attach[128], *p;
+   ULONG Number, Sent, Msgn;
+   struct stat statbuf;
+   class TNodes *Nodes;
+   class TAddress Address, ToAddress, PktAddress;
+#if !defined(__POINT__)
+   class TAreaManager *AreaMgr;
+#endif
+
+   if (Output != NULL)
+      Output->Clear ();
+
+   strcpy (Outbound, Cfg->Outbound);
+   if (Outbound[strlen (Outbound) - 1] == '\\' || Outbound[strlen (Outbound) - 1] == '/')
+      Outbound[strlen (Outbound) - 1] = '\0';
+
+   switch (Cfg->NetMailStorage) {
+      case ST_JAM:
+         Msg = new JAM (Cfg->NetMailPath);
+         Base = "JAM";
+         break;
+      case ST_SQUISH:
+         Msg = new SQUISH (Cfg->NetMailPath);
+         Base = "Squish<tm>";
+         break;
+      case ST_FIDO:
+         Msg = new FIDOSDM (Cfg->NetMailPath);
+         Base = "Fido *.MSG";
+         break;
+      case ST_ADEPT:
+         Msg = new ADEPT (Cfg->NetMailPath);
+         Base = "AdeptXBBS";
+         break;
+      case ST_HUDSON:
+         Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->NetMailBoard);
+         Base = "Hudson";
+         break;
+      default:
+         Msg = NULL;
+         Base = "???";
+         break;
+   }
+
+#if !defined(__POINT__)
+   if ((AreaMgr = new TAreaManager) != NULL) {
+      AreaMgr->Cfg = Cfg;
+      AreaMgr->Log = Log;
+   }
+#endif
+
+   if (Msg != NULL) {
+      Msg->Lock (0L);
+      Sent = 0L;
+
+      if (Log != NULL)
+         Log->Write ("#Packing from %s (%lu msgs)", Cfg->NetMailPath, Msg->Number ());
+
+      if (Status != NULL) {
+         Status->Clear ();
+         Status->SetLine (0, "Exporting from %s", Cfg->NetMailPath);
+      }
+
+      Number = Msg->Lowest ();
+      do {
+         if (Msg->Read (Number, MAX_LINE_LENGTH) == TRUE) {
+            Msgn = Msg->UidToMsgn (Number);
+            if (Status != NULL && (Msgn % 10L) == 0L)
+               Status->SetLine (1, "   %lu / %lu", Msgn, Msg->Number ());
+
+            // Effettua il parsing dell'indirizzo di destinazione in una classe
+            // piu' maneggevole.
+            Address.Parse (Msg->ToAddress);
+            Cfg->MailAddress.First ();
+            if (Address.Zone == 0)
+               Address.Zone = Cfg->MailAddress.Zone;
+
+            // Verifica se il messaggio e' indirizzato ad uno dei nostri aka.
+            Found = FALSE;
+            if (Cfg->MailAddress.First () == TRUE)
+               do {
+                  if (Cfg->MailAddress.Zone == Address.Zone && Cfg->MailAddress.Net == Address.Net && Cfg->MailAddress.Node == Address.Node && Cfg->MailAddress.Point == Address.Point) {
+                     // Se il messaggio e' per noi, flagga il messaggio come gia'
+                     // inviato. Il flag non viene salvato.
+                     Found = TRUE;
+                     break;
+                  }
+               } while (Cfg->MailAddress.Next () == TRUE);
+
+            // Se si tratta di un messaggio indirizzato a noi (Found == TRUE) verifica
+            // se e' gia' stato ricevuto, in caso contrario verifica se il destinatario
+            // e' uno dei robot di manutenzione automatica.
+            if (Found == TRUE && Msg->Received == FALSE) {
+               if (Cfg->AreafixActive == TRUE) {
+                  Process = FALSE;
+                  if (!stricmp (Msg->To, "Areafix") || !stricmp (Msg->To, "AreaMgr"))
+                     Process = TRUE;
+                  strcpy (Attach, Cfg->AreafixNames);
+                  if ((p = strtok (Attach, " ")) != NULL)
+                     do {
+                        if (!stricmp (Msg->To, p)) {
+                           Process = TRUE;
+                           break;
+                        }
+                     } while ((p = strtok (NULL, " ")) != NULL);
+
+                  if (AreaMgr != NULL && Process == TRUE) {
+                     Msg->Received = TRUE;
+                     Msg->WriteHeader (Number);
+                     AreaMgr->Msg = Msg;
+                     AreaMgr->ProcessAreafix ();
+                     Msg->Sent = TRUE;
+                  }
+               }
+               if (Cfg->RaidActive == TRUE) {
+                  Process = FALSE;
+                  if (!stricmp (Msg->To, "Raid"))
+                     Process = TRUE;
+                  strcpy (Attach, Cfg->RaidNames);
+                  if ((p = strtok (Attach, " ")) != NULL)
+                     do {
+                        if (!stricmp (Msg->To, p)) {
+                           Process = TRUE;
+                           break;
+                        }
+                     } while ((p = strtok (NULL, " ")) != NULL);
+
+                  if (AreaMgr != NULL && Process == TRUE) {
+                     Msg->Received = TRUE;
+                     Msg->WriteHeader (Number);
+                     AreaMgr->Msg = Msg;
+                     AreaMgr->ProcessRaid ();
+                     Msg->Sent = TRUE;
+                  }
+               }
+            }
+
+            if (Found == TRUE && Msg->Sent == FALSE) {
+               Msg->Sent = TRUE;
+               if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+                  if (Nodes->First () == TRUE)
+                     do {
+                        if (!stricmp (Nodes->SysopName, Msg->To) && Nodes->RemapMail == TRUE) {
+                           if (Log != NULL)
+                              Log->Write ("+Remapping #%lu from %s to %s", Msg->UidToMsgn (Number), Msg->ToAddress, Nodes->Address);
+                           strcpy (Msg->ToAddress, Nodes->Address);
+                           Msg->Sent = FALSE;
+                           break;
+                        }
+                     } while (Nodes->Next () == TRUE);
+                  delete Nodes;
+               }
+            }
+
+            if (Msg->Sent == FALSE) {
+               // Se necessario facciamo prima un po' di output a video per far sapere
+               // che siamo ancora vivi.
+               if (Output != NULL) {
+                  sprintf (Display, "%6lu %-22.22s %-12.12s ", Msgn, "Netmail", Base);
+                  strcat (Display, Msg->ToAddress);
+                  Output->Add (Display);
+               }
+
+               // Analizza l'indirizzo di destinazione per l'adattamento degli indirizzi.
+               Found = FALSE;
+               if (Cfg->MailAddress.First () == TRUE) {
+                  // Al primo passaggio cerca di trovare la corrispondenza con zona
+                  // net e nodo (nel caso di un point su un sistema multilinea).
+                  do {
+                     if (Cfg->MailAddress.Zone == Address.Zone && Cfg->MailAddress.Net == Address.Net && Cfg->MailAddress.Node == Address.Node) {
+                        PktAddress.Parse (Cfg->MailAddress.String);
+                        Found = TRUE;
+                        break;
+                     }
+                  } while (Cfg->MailAddress.Next () == TRUE);
+
+                  // Al secondo passaggio cerca la corrispondenza semplicemente con
+                  // il numero di zona.
+                  if (Found == FALSE) {
+                     Cfg->MailAddress.First ();
+                     do {
+                        if (Cfg->MailAddress.Zone == Address.Zone) {
+                           PktAddress.Parse (Cfg->MailAddress.String);
+                           Found = TRUE;
+                           break;
+                        }
+                     } while (Cfg->MailAddress.Next () == TRUE);
+                  }
+
+                  if (Found == FALSE) {
+                     // Nessuna corrispondenza, usiamo l'indirizzo di default (il primo
+                     // che compare nell'elenco).
+                     Cfg->MailAddress.First ();
+                     PktAddress.Parse (Cfg->MailAddress.String);
+                  }
+
+                  if ((Packet = new PACKET) != NULL) {
+                     strcpy (Packet->FromAddress, PktAddress.String);
+                     strcpy (Packet->ToAddress, Msg->ToAddress);
+
+                     // Rende piu' maneggevole l'indirizzo di destinazione e inserisce
+                     // la zona di default se l'indirizzo ne e' sprovvisto.
+                     Cfg->MailAddress.First ();
+                     ToAddress.Parse (Msg->ToAddress);
+                     if (ToAddress.Zone == 0)
+                        ToAddress.Zone = Cfg->MailAddress.Zone;
+
+                     // Verifica se il messaggio e' indirizzato ad uno dei nostri point
+                     // verificando la presenza del numero di point e la presenza dello
+                     // stesso numero di zona, net e nodo di un nostro aka.
+                     if (Cfg->MailAddress.First () == TRUE && ToAddress.Point != 0) {
+                        Found = FALSE;
+                        do {
+                           if (Cfg->MailAddress.Zone == ToAddress.Zone && Cfg->MailAddress.Net == ToAddress.Net && Cfg->MailAddress.Node == ToAddress.Node) {
+                              Found = TRUE;
+                              break;
+                           }
+                        } while (Cfg->MailAddress.Next () == TRUE);
+
+                        // Se non e' un nostro point (Found == FALSE) azzera il numero
+                        // di point per inviare il messaggio direttamente al boss.
+                        if (Found == FALSE)
+                           ToAddress.Point = 0;
+                     }
+
+                     // Bisogna sempre avere l'indirizzo primario prima di creare
+                     // qualsiasi cosa nell'outbound.
+                     Cfg->MailAddress.First ();
+#if defined(__LINUX__)
+#else
+                     // Costruisce il nome file .xpr da creare nell'outbound opportuna.
+                     if (ToAddress.Zone == 0 || Cfg->MailAddress.Zone == ToAddress.Zone) {
+                        if (ToAddress.Point != 0) {
+                           sprintf (PktFile, "%s\\%04x%04x.pnt", Outbound, ToAddress.Net, ToAddress.Node);
+                           mkdir (PktFile);
+                           sprintf (PktFile, "%s\\%04x%04x.pnt\\%08x.xpr", Outbound, ToAddress.Net, ToAddress.Node, ToAddress.Point);
+                        }
+                        else
+                           sprintf (PktFile, "%s\\%04x%04x.xpr", Outbound, ToAddress.Net, ToAddress.Node);
+                     }
+                     else {
+                        sprintf (PktFile, "%s.%03x", Outbound, ToAddress.Zone);
+                        mkdir (PktFile);
+                        if (ToAddress.Point != 0) {
+                           sprintf (PktFile, "%s.%03x\\%04x%04x.pnt", Outbound, ToAddress.Zone, ToAddress.Net, ToAddress.Node);
+                           mkdir (PktFile);
+                           sprintf (PktFile, "%s.%03x\\%04x%04x.pnt\\%08x.xpr", Outbound, ToAddress.Zone, ToAddress.Net, ToAddress.Node, ToAddress.Point);
+                        }
+                        else
+                           sprintf (PktFile, "%s.%03x\\%04x%04x.xpr", Outbound, ToAddress.Zone, ToAddress.Net, ToAddress.Node);
+                     }
+#endif
+                     strcpy (Attach, PktFile);
+
+                     if (Msg->Crash == TRUE) {
+                        strcpy (&PktFile[strlen (PktFile) - 3], "cut");
+                        strcpy (&Attach[strlen (Attach) - 3], "clo");
+                     }
+                     else if (Msg->Direct == TRUE) {
+                        strcpy (&PktFile[strlen (PktFile) - 3], "dut");
+                        strcpy (&Attach[strlen (Attach) - 3], "dlo");
+                     }
+                     else if (Msg->Hold == TRUE) {
+                        strcpy (&PktFile[strlen (PktFile) - 3], "hut");
+                        strcpy (&Attach[strlen (Attach) - 3], "hlo");
+                     }
+                     else
+                        strcpy (&Attach[strlen (Attach) - 3], "flo");
+
+                     // Se il file non esiste, allora cerca la password di pacchetto
+                     // definita per il nodo di destinazione
+                     if (stat (Temp, &statbuf) != 0) {
+                        if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+                           if (Nodes->Read (Packet->ToAddress) == TRUE)
+                              strcpy (Packet->Password, Nodes->OutPktPwd);
+                           delete Nodes;
+                           Nodes = NULL;
+                        }
+                     }
+
+                     // Apre il pacchetto .xpr senza effettuare lo scan dei messaggi
+                     // e aggiunge il messaggio in coda.
+                     if (Packet->Open (PktFile, FALSE) == TRUE) {
+                        Packet->Add (Msg);
+                        Sent++;
+                     }
+
+                     if (Msg->FileAttach == TRUE) {
+                        if ((fp = fopen (AdjustPath (Attach), "at")) != NULL) {
+                           strcpy (PktFile, Msg->Subject);
+                           if ((p = strtok (PktFile, " ,;")) != NULL)
+                              do {
+                                 fprintf (fp, "%s\n", p);
+                                 if (Log != NULL)
+                                    Log->Write ("+  Sending attach %s to %s", p, Packet->ToAddress);
+                              } while ((p = strtok (NULL, " ,;")) != NULL);
+                           fclose (fp);
+                        }
+                     }
+
+                     delete Packet;
+                  }
+               }
+
+               if (Msg->KillSent == TRUE)
+                  Msg->Delete (Number);
+               else {
+                  Msg->Sent = TRUE;
+                  Msg->WriteHeader (Number);
+               }
+            }
+         }
+      } while (Msg->Next (Number) == TRUE);
+
+      if (Log != NULL)
+         Log->Write (":  Packed=%lu", Sent);
+
+      if (Status != NULL)
+         Status->Clear ();
+
+      Msg->UnLock ();
+      delete Msg;
+      Msg = NULL;
+   }
+
+#if !defined(__POINT__)
+   if (AreaMgr != NULL)
+      delete AreaMgr;
+#endif
+}
+
+/*
 VOID TMailProcessor::ExportNetMail (VOID)
 {
    FILE *fp;
@@ -898,6 +1236,7 @@ VOID TMailProcessor::ExportNetMail (VOID)
       delete AreaMgr;
 #endif
 }
+*/
 
 VOID TMailProcessor::Change (VOID)
 {
@@ -1282,13 +1621,21 @@ VOID TMailProcessor::RouteTo (VOID)
                   AdjustPath (Temp);
                   if ((fd = sopen (Temp, O_RDWR|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
                      if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
-                        if (Nodes->Read (Zone, Net, Node, Point) == TRUE) {
+                        // Azzera il campo password per evitare di propagare verso un altro
+                        // nodo una password errata.
+                        memset (pktHdr.Password, 0, sizeof (pktHdr.Password));
+                        if (Nodes->Read (DestAddr.Zone, DestAddr.Net, DestAddr.Node, DestAddr.Point) == TRUE) {
                            read (fd, &pktHdr, sizeof (pktHdr));
                            pktHdr.DestZone = pktHdr.DestZone2 = DestAddr.Zone;
                            pktHdr.DestNet = DestAddr.Net;
                            pktHdr.DestNode = DestAddr.Node;
                            pktHdr.DestPoint = DestAddr.Point;
-                           memcpy (pktHdr.Password, Nodes->OutPktPwd, strlen (Nodes->OutPktPwd));
+                           // Copia la password nuova con un memcpy per evitare di copiare anche
+                           // il terminatore che non e' ammesso. La verifica sulla lunghezza viene
+                           // fatta perche' e' probabile che un memcpy di 0 bytes copi in realta' 64k
+                           // di dati con certi compilatori.
+                           if (strlen (Nodes->OutPktPwd) > 0)
+                              memcpy (pktHdr.Password, Nodes->OutPktPwd, strlen (Nodes->OutPktPwd));
                            lseek (fd, 0L, SEEK_SET);
                            write (fd, &pktHdr, sizeof (pktHdr));
                         }
@@ -1346,13 +1693,15 @@ VOID TMailProcessor::RouteTo (VOID)
                      AdjustPath (Temp);
                      if ((fd = sopen (Temp, O_RDWR|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
                         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
-                           if (Nodes->Read (Zone, Net, Node, Point) == TRUE) {
+                           memset (pktHdr.Password, 0, sizeof (pktHdr.Password));
+                           if (Nodes->Read (DestAddr.Zone, DestAddr.Net, DestAddr.Node, DestAddr.Point) == TRUE) {
                               read (fd, &pktHdr, sizeof (pktHdr));
                               pktHdr.DestZone = pktHdr.DestZone2 = DestAddr.Zone;
                               pktHdr.DestNet = DestAddr.Net;
                               pktHdr.DestNode = DestAddr.Node;
                               pktHdr.DestPoint = DestAddr.Point;
-                              memcpy (pktHdr.Password, Nodes->OutPktPwd, strlen (Nodes->OutPktPwd));
+                              if (strlen (Nodes->OutPktPwd) > 0)
+                                 memcpy (pktHdr.Password, Nodes->OutPktPwd, strlen (Nodes->OutPktPwd));
                               lseek (fd, 0L, SEEK_SET);
                               write (fd, &pktHdr, sizeof (pktHdr));
                            }
@@ -1394,13 +1743,15 @@ VOID TMailProcessor::RouteTo (VOID)
          AdjustPath (Temp);
          if ((fd = sopen (Temp, O_RDWR|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
             if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
-               if (Nodes->Read (Zone, Net, Node, Point) == TRUE) {
+               memset (pktHdr.Password, 0, sizeof (pktHdr.Password));
+               if (Nodes->Read (DestAddr.Zone, DestAddr.Net, DestAddr.Node, DestAddr.Point) == TRUE) {
                   read (fd, &pktHdr, sizeof (pktHdr));
                   pktHdr.DestZone = pktHdr.DestZone2 = DestAddr.Zone;
                   pktHdr.DestNet = DestAddr.Net;
                   pktHdr.DestNode = DestAddr.Node;
                   pktHdr.DestPoint = DestAddr.Point;
-                  memcpy (pktHdr.Password, Nodes->OutPktPwd, strlen (Nodes->OutPktPwd));
+                  if (strlen (Nodes->OutPktPwd) > 0)
+                     memcpy (pktHdr.Password, Nodes->OutPktPwd, strlen (Nodes->OutPktPwd));
                   lseek (fd, 0L, SEEK_SET);
                   write (fd, &pktHdr, sizeof (pktHdr));
                }
@@ -1657,21 +2008,87 @@ VOID TMailProcessor::SendTo (VOID)
    }
 }
 
-VOID TMailProcessor::Pack (PSZ pszFile)
+VOID TMailProcessor::Poll (VOID)
+{
+   int fd;
+   USHORT Zone, Net, Node, Point;
+   CHAR *p, Flag;
+   class TAddress Addr;
+
+   Cfg->MailAddress.First ();
+   Zone = Cfg->MailAddress.Zone;
+   Net = Cfg->MailAddress.Net;
+   Node = Cfg->MailAddress.Node;
+   Point = 0;
+
+   Flag = 'H';
+   if ((p = strtok (NULL, " ")) != NULL) {
+      if (!stricmp (p, "hold") || !stricmp (p, "crash") || !stricmp (p, "direct") || !stricmp (p, "normal")) {
+         if ((Flag = (CHAR)toupper (*p)) == 'N')
+            Flag = 'F';
+      }
+   }
+
+   if ((p = strtok (NULL, "")) != NULL)
+      strcpy (Line, p);
+
+   while ((p = strtok (Line, " ")) != NULL) {
+      Addr.Parse (p);
+      if ((p = strtok (NULL, "")) != NULL)
+         strcpy (Line, p);
+      else
+         Line[0] = '\0';
+
+      if (Addr.Zone != 0)
+         Zone = Addr.Zone;
+      if (Addr.Net != 0)
+         Net = Addr.Net;
+      if (Addr.Node != 0)
+         Node = Addr.Node;
+      Point = Addr.Point;
+
+      if (Zone == 0 || Cfg->MailAddress.Zone == Zone) {
+         if (Point != 0)
+            sprintf (Temp, "%s\\%04x%04x.pnt\\%08x.%clo", Outbound, Net, Node, Point, tolower (Flag));
+         else
+            sprintf (Temp, "%s\\%04x%04x.%clo", Outbound, Net, Node, tolower (Flag));
+      }
+      else {
+         if (Point != 0)
+            sprintf (Temp, "%s.%03x\\%04x%04x.pnt\\%08x.%clo", Outbound, Zone, Net, Node, Point, tolower (Flag));
+         else
+            sprintf (Temp, "%s.%03x\\%04x%04x.%clo", Outbound, Zone, Net, Node, tolower (Flag));
+      }
+
+      if ((fd = sopen (AdjustPath (Temp), O_RDONLY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1)
+         close (fd);
+   }
+}
+
+VOID TMailProcessor::Pack (PSZ pszFile, PSZ pszTag /* = NULL*/)
 {
    FILE *fp;
-   USHORT LineNum, DoRoute;
-   CHAR *p;
+   USHORT LineNum, DoRoute, Process;
+   CHAR Tag[64], *p;
    class TPacker *Packer;
+
+   Process = TRUE;
+   DoRoute = FALSE;
+   Tag[0] = '\0';
 
    strcpy (Outbound, Cfg->Outbound);
    if (Outbound[strlen (Outbound) - 1] == '\\' || Outbound[strlen (Outbound) - 1] == '/')
       Outbound[strlen (Outbound) - 1] = '\0';
 
-   if (Log != NULL)
+   if (Log != NULL) {
       Log->Write (":Pack outbound mail (%s)", pszFile);
+      if (pszTag != NULL) {
+         if (pszTag[0] != '\0')
+            Log->Write (":Processing tag %s", pszTag);
+         strcpy (Tag, pszTag);
+      }
+   }
 
-   DoRoute = FALSE;
    if ((Packer = new TPacker (Cfg->SystemPath)) != NULL) {
       if (Packer->First () == TRUE)
          DoRoute = TRUE;
@@ -1685,12 +2102,30 @@ VOID TMailProcessor::Pack (PSZ pszFile)
             if ((p = strchr (Line, '\n')) != NULL)
                *p = '\0';
             if ((p = strtok (Line, " ")) != NULL) {
-               if (!stricmp (p, "send-to") || !stricmp (p, "send"))
-                  SendTo ();
-               else if (!stricmp (p, "route-to") || !stricmp (p, "route"))
-                  RouteTo ();
-               else if (!stricmp (p, "change"))
-                  Change ();
+               if (!stricmp (p, "send-to") || !stricmp (p, "send")) {
+                  if (Process == TRUE)
+                     SendTo ();
+               }
+               else if (!stricmp (p, "route-to") || !stricmp (p, "route")) {
+                  if (Process == TRUE)
+                     RouteTo ();
+               }
+               else if (!stricmp (p, "change")) {
+                  if (Process == TRUE)
+                     Change ();
+               }
+               else if (!stricmp (p, "poll")) {
+                  if (Process == TRUE)
+                     Poll ();
+               }
+               else if (!stricmp (p, "tag")) {
+                  if ((p = strtok (NULL, " ")) != NULL) {
+                     if (!stricmp (p, Tag))
+                        Process = TRUE;
+                     else
+                        Process = FALSE;
+                  }
+               }
                else if (*p != '\0' && *p != ';' && *p != '%')
                   Log->Write ("!Unknown keyword '%s' on line #%d", p, LineNum);
             }
@@ -1704,5 +2139,40 @@ VOID TMailProcessor::Pack (PSZ pszFile)
       if (Log != NULL)
          Log->Write ("!No compressor(s) defined");
    }
+}
+
+USHORT TMailProcessor::DoRescan (VOID)
+{
+   FILE *fp;
+   USHORT RetVal = FALSE;
+   CHAR Temp[128], *tag, *node, *maxmsgs;
+   class TAreaManager *Manager;
+
+   // Verifica ed esegue la procedura di rescan delle aree echomail richieste
+   // mediante messaggio ad areafix
+   if ((fp = fopen ("rescan.log", "rt")) != NULL) {
+      if ((Manager = new TAreaManager) != NULL) {
+         Manager->Log = Log;
+         Manager->Cfg = Cfg;
+         Manager->Status = Status;
+
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+            Temp[strlen (Temp) - 1] = '\0';
+            tag = strtok (Temp, " ");
+            node = strtok (NULL, " ");
+            maxmsgs = strtok (NULL, " ");
+            if (tag != NULL && node != NULL && maxmsgs != NULL)
+               Manager->Rescan (tag, node, (USHORT)atoi (maxmsgs));
+         }
+
+         RetVal = TRUE;
+         delete Manager;
+      }
+
+      fclose (fp);
+      unlink ("rescan.log");
+   }
+
+   return (RetVal);
 }
 

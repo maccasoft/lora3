@@ -59,6 +59,8 @@ USHORT PACKET::Add (class TMsgBase *MsgBase)
    strcpy (From, MsgBase->From);
    strcpy (To, MsgBase->To);
    strcpy (Subject, MsgBase->Subject);
+   strcpy (FromAddress, MsgBase->FromAddress);
+   strcpy (ToAddress, MsgBase->ToAddress);
 
    Written.Day = MsgBase->Written.Day;
    Written.Month = MsgBase->Written.Month;
@@ -110,6 +112,7 @@ USHORT PACKET::Add (class TCollection &MsgText)
    memset (&msgHdr, 0, sizeof (msgHdr));
    msgHdr.Version = 2;
 
+   f1 = f2 = f3 = f4 = 0;
    pszAddress = FromAddress;
    if (strchr (pszAddress, ':') != NULL) {
       f1 = atoi (pszAddress);
@@ -130,6 +133,7 @@ USHORT PACKET::Add (class TCollection &MsgText)
    msgHdr.OrigNet = (USHORT)f2;
    msgHdr.OrigNode = (USHORT)f3;
 
+   t1 = t2 = t3 = t4 = 0;
    pszAddress = ToAddress;
    if (strchr (pszAddress, ':') != NULL) {
       t1 = atoi (pszAddress);

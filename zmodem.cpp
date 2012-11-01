@@ -376,7 +376,7 @@ void TZModem::ZSendData (char *buf, short length, short frameend)
          crc = 0;
          for ( ; --length >= 0; buf++) {
             ZSendLine ((unsigned char)*buf);
-            crc = Crc16 ((unsigned char)*buf++, crc);
+            crc = Crc16 ((unsigned char)*buf, crc);
          }
          Com->BufferByte (ZDLE);
          Com->BufferByte ((unsigned char)frameend);
@@ -1067,6 +1067,7 @@ short TZModem::ZSendFile (char *file, char *name)
    unsigned long length;
    struct stat f;
 
+   AdjustPath (file);
    if ((fd = sopen (file, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) == -1)
       return (ZERROR);
 
@@ -1080,7 +1081,7 @@ short TZModem::ZSendFile (char *file, char *name)
       strcpy (buf, name);
       q = strchr (buf, '\0');
    }
-   *q++ = 0;
+   *q++ = '\0';
 
    fstat (fd, &f);
    sprintf (q, "%lu %lo %o", f.st_size, f.st_mtime, f.st_mode);
@@ -1108,7 +1109,7 @@ short TZModem::ZSendFile (char *file, char *name)
       Txhdr[ZF0] = LZCONV;    /* file conversion request */
       Txhdr[ZF1] = LZMANAG;   /* file management request */
       Txhdr[ZF2] = LZTRANS;   /* file transport request */
-      Txhdr[ZF3] = 3;
+      Txhdr[ZF3] = 0;
       ZSendBinaryHeader (ZFILE, Txhdr);
       ZSendData (buf, (short)(strlen (buf) + 1 + strlen (q)), ZCRCW);
 

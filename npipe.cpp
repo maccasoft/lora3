@@ -14,6 +14,7 @@ TPipe::TPipe (void)
 {
    EndRun = FALSE;
    TxBytes = 0;
+   CtlConnect = PipeConnect = FALSE;
 }
 
 TPipe::~TPipe (void)
@@ -22,11 +23,17 @@ TPipe::~TPipe (void)
    TimeLeft = Time = 0L;
 
 #if defined(__OS2__)
+   if (hFileCtl != NULL) {
+      DosDisConnectNPipe (hFileCtl);
+      DosClose (hFileCtl);
+   }
    if (hFile != NULL) {
       DosDisConnectNPipe (hFile);
       DosClose (hFile);
    }
 #elif defined(__NT__)
+   if (hFileCtl != INVALID_HANDLE_VALUE)
+      CloseHandle (hFileCtl);
    if (hFile != INVALID_HANDLE_VALUE)
       CloseHandle (hFile);
 #endif
@@ -131,7 +138,38 @@ USHORT TPipe::BytesReady (VOID)
 
 USHORT TPipe::Carrier (VOID)
 {
-   return (TRUE);
+   USHORT RetVal = TRUE;
+#if defined(__OS2__)
+   ULONG data, Temp, pipeState;
+   struct _AVAILDATA Available;
+
+   if (hFileCtl != NULLHANDLE) {
+      data = 0L;
+      DosPeekNPipe (hFileCtl, (PVOID)&Temp, sizeof (Temp), &data, &Available, &pipeState);
+      if (pipeState == NP_STATE_CLOSING)
+         RetVal = FALSE;
+   }
+   if (hFile != NULLHANDLE) {
+      data = 0L;
+      DosPeekNPipe (hFile, (PVOID)&Temp, sizeof (Temp), &data, &Available, &pipeState);
+      if (pipeState == NP_STATE_CLOSING)
+         RetVal = FALSE;
+   }
+
+#elif defined(__NT__)
+   ULONG Available;
+
+   if (hFileCtl != INVALID_HANDLE_VALUE) {
+      if (PeekNamedPipe (hFileCtl, NULL, 0L, NULL, &Available, NULL) == FALSE)
+         RetVal = FALSE;
+   }
+   if (hFile != INVALID_HANDLE_VALUE) {
+      if (PeekNamedPipe (hFile, NULL, 0L, NULL, &Available, NULL) == FALSE)
+         RetVal = FALSE;
+   }
+#endif
+
+   return (RetVal);
 }
 
 VOID TPipe::ClearInbound (VOID)
@@ -305,7 +343,9 @@ VOID TPipe::SendBytes (UCHAR *bytes, USHORT len)
 VOID TPipe::UnbufferBytes (VOID)
 {
    ULONG Written;
+#if defined(__NT__)
    UCHAR *p;
+#endif
 
 #if defined(__OS2__)
    if (hFile != NULLHANDLE && TxBytes > 0 && EndRun == FALSE) {

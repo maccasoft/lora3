@@ -758,6 +758,10 @@ USHORT SQUISH::Open (PSZ pszName)
       close (fd);
    }
 
+   sprintf (File, "%s.sqi", SqBase.Base);
+   if ((fd = sopen (strlwr (File), O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1)
+      close (fd);
+
    if (SqBase.NumMsg != 0L) {
       sprintf (File, "%s.sqi", SqBase.Base);
       if ((fpIdx = sh_fopen (File, "r+b", SH_DENYNO)) != NULL) {
@@ -916,7 +920,7 @@ USHORT SQUISH::Previous (ULONG &ulMsg)
          RetVal = TRUE;
       }
       else {
-         for (i = SqBase.NumMsg - 1; i >= 0; i--) {
+         for (i = (int)SqBase.NumMsg - 1; i >= 0; i--) {
             if (pSqIdx[i].MsgId != 0xFFFFFFFFL && pSqIdx[i].MsgId <= ulMsg) {
                if (pSqIdx[i].MsgId == ulMsg)
                   i--;
@@ -1178,19 +1182,20 @@ VOID SQUISH::SetHWM (ULONG ulMsg)
 
    if (Locked == FALSE) {
       sprintf (File, "%s.sqd", SqBase.Base);
-      if ((fpDat = sh_fopen (File, "r+b", SH_DENYNO)) != NULL) {
+      if ((fpDat = sh_fopen (File, "r+b", SH_DENYNO)) != NULL)
          fread (&SqBase, sizeof (SQBASE), 1, fpDat);
-      }
    }
 
    SqBase.HighWater = ulMsg;
 
-   fseek (fpDat, 0L, SEEK_SET);
-   fwrite (&SqBase, sizeof (SQBASE), 1, fpDat);
+   if (fpDat != NULL) {
+      fseek (fpDat, 0L, SEEK_SET);
+      fwrite (&SqBase, sizeof (SQBASE), 1, fpDat);
 
-   if (Locked == FALSE) {
-      fclose (fpDat);
-      fpDat = NULL;
+      if (Locked == FALSE) {
+         fclose (fpDat);
+         fpDat = NULL;
+      }
    }
 }
 

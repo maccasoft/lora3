@@ -58,6 +58,84 @@ TOffline::~TOffline (void)
    }
 }
 
+VOID TOffline::AddKludges (class TCollection &Text, class TMsgData *Data)
+{
+   FILE *fp;
+   int i, max;
+   CHAR Temp[128], Origin[128], *p;
+
+   strcpy (Origin, Cfg->SystemName);
+   if (Data->Origin[0] != '\0')
+      strcpy (Origin, Data->Origin);
+   else if (Data->OriginIndex == OIDX_DEFAULT)
+      strcpy (Origin, Cfg->SystemName);
+   else if (Data->OriginIndex == OIDX_RANDOM) {
+      srand ((unsigned int)time (NULL));
+      sprintf (Temp, "%sorigin.txt", Cfg->SystemPath);
+      if ((fp = fopen (Temp, "rt")) != NULL) {
+         max = 0;
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL)
+            max++;
+         while ((i = rand ()) > max)
+            ;
+         fseek (fp, 0L, SEEK_SET);
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+            if (i == 0) {
+               if (Temp[strlen (Temp) - 1] == '\n')
+                  Temp[strlen (Temp) - 1] = '\0';
+               strcpy (Origin, Temp);
+               break;
+            }
+            i--;
+         }
+         fclose (fp);
+      }
+   }
+   else {
+      i = 1;
+      sprintf (Temp, "%sorigin.txt", Cfg->SystemPath);
+      if ((fp = fopen (Temp, "rt")) != NULL) {
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+            if (i == Data->OriginIndex) {
+               if (Temp[strlen (Temp) - 1] == '\n')
+                  Temp[strlen (Temp) - 1] = '\0';
+               strcpy (Origin, Temp);
+               break;
+            }
+         }
+         fclose (fp);
+      }
+   }
+
+   if (Data->EchoMail == TRUE) {
+      if (Data->Address[0] == '\0') {
+         Cfg->MailAddress.First ();
+         sprintf (Temp, "\001MSGID: %s %08lx", Cfg->MailAddress.String, time (NULL));
+      }
+      else
+         sprintf (Temp, "\001MSGID: %s %08lx", Data->Address, time (NULL));
+      p = (PSZ)Text.First ();
+      Text.Insert (Temp);
+      if (p != NULL) {
+         Text.Insert (p, (USHORT)(strlen (p) + 1));
+         Text.First ();
+         Text.Remove ();
+      }
+
+      sprintf (Temp, "\001PID: %s", NAME_OS);
+      Text.Insert (Temp);
+
+      Text.Add ("");
+      sprintf (Temp, "--- %s v%s", NAME, VERSION);
+      Text.Add (Temp);
+      if (Data->Address[0] == '\0')
+         sprintf (Temp, " * Origin: %s (%s)", Origin, Cfg->MailAddress.String);
+      else
+         sprintf (Temp, " * Origin: %s (%s)", Origin, Data->Address);
+      Text.Add (Temp);
+   }
+}
+
 VOID TOffline::ManageTagged (VOID)
 {
    USHORT Line, Tagged;
@@ -724,8 +802,6 @@ VOID TOffline::Upload (VOID)
          if (Packer->CheckArc (File) == TRUE) {
             if (Log != NULL)
                Log->Write ("+Unpacking %s", File);
-            if (Log != NULL)
-               Log->Write ("#Executing %s", Packer->UnpackCmd);
             if (Packer->DoUnpack (File, Work, "*.*") == FALSE)
                Log->Write ("!  Command returned error: %s", Packer->Error);
             unlink (File);
@@ -734,8 +810,6 @@ VOID TOffline::Upload (VOID)
          if (Packer->CheckArc (File) == TRUE) {
             if (Log != NULL)
                Log->Write ("+Unpacking %s", File);
-            if (Log != NULL)
-               Log->Write ("#Executing %s", Packer->PackCmd);
             if (Packer->DoUnpack (File, Work, "*.*") == FALSE)
                Log->Write ("!  Command returned error: %s", Packer->Error);
             unlink (File);
@@ -748,8 +822,6 @@ VOID TOffline::Upload (VOID)
                      if (Packer->CheckArc (File) == TRUE) {
                         if (Log != NULL)
                            Log->Write ("+Unpacking %s", File);
-                        if (Log != NULL)
-                           Log->Write ("#Executing %s", Packer->PackCmd);
                         if (Packer->DoUnpack (File, Work, "*.*") == FALSE)
                            Log->Write ("!  Command returned error: %s", Packer->Error);
                         unlink (File);
@@ -1072,14 +1144,18 @@ USHORT TBlueWave::FetchReply (VOID)
                   }
                   fclose (fp);
 
+                  if (MsgArea->EchoMail == TRUE)
+                     AddKludges (Msg->Text, MsgArea);
+
                   Msg->Add ();
                   MsgArea->ActiveMsgs++;
                   MsgArea->Update ();
 
                   Number = Msg->Highest ();
-                  Log->Write (":Written message #%lu", Number);
-                  Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Number);
+                  Log->Write (":Written message #%lu (%lu)", Msg->UidToMsgn (Number), Number);
+                  Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Msg->UidToMsgn (Number));
                }
+
                Msg->Close ();
                delete Msg;
 
@@ -1406,6 +1482,8 @@ USHORT TQWK::FetchReply (VOID)
 
          MsgText.Clear ();
          nRec = (USHORT)atoi (StripSpaces ((PSZ)Qwk.Msgrecs, (USHORT)sizeof (Qwk.Msgrecs)));
+         pLine = szLine;
+         nCol = 0;
 
          for (r = 1; r < nRec; r++) {
             nReaded = (USHORT)read (fdh, Temp, 128);
@@ -1420,7 +1498,7 @@ USHORT TQWK::FetchReply (VOID)
             for (i = 0, pBuff = Temp; i < nReaded; i++, pBuff++) {
                if (*pBuff == '\r' || *pBuff == (CHAR)0xE3) {
                   *pLine = '\0';
-                  MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+                  MsgText.Add (szLine);
                   pLine = szLine;
                   nCol = 0;
                }
@@ -1439,7 +1517,7 @@ USHORT TQWK::FetchReply (VOID)
                         strcpy (szWrp, pLine);
                      }
                      *pLine = '\0';
-                     MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+                     MsgText.Add (szLine);
                      strcpy (szLine, szWrp);
                      pLine = strchr (szLine, '\0');
                      nCol = (SHORT)strlen (szLine);
@@ -1447,6 +1525,14 @@ USHORT TQWK::FetchReply (VOID)
                }
             }
          }
+
+         if (nCol > 0) {
+            *pLine = '\0';
+            MsgText.Add (szLine);
+         }
+
+         if (MsgArea->EchoMail == TRUE)
+            AddKludges (MsgText, MsgArea);
 
          if (Msg != NULL) {
             Msg->New ();
@@ -1485,8 +1571,8 @@ USHORT TQWK::FetchReply (VOID)
             MsgArea->Update ();
 
             Number = Msg->Highest ();
-            Log->Write (":Written message #%lu", Number);
-            Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Number);
+            Log->Write (":Written message #%lu (%lu)", Msg->UidToMsgn (Number), Number);
+            Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Msg->UidToMsgn (Number));
 
             Msg->Close ();
             delete Msg;
@@ -2085,7 +2171,13 @@ USHORT TPoint::FetchReply (VOID)
                                  }
                               }
 
+                              // Toglie la prima linea che contiene il kludge AREA:
                               Packet->Text.Remove ();
+
+                              // Nel caso di un'area echomail, aggiunge tutti i kludges
+                              // Necessari.
+                              if (MsgArea->EchoMail == TRUE)
+                                 AddKludges (Packet->Text, MsgArea);
 
                               if (Msg != NULL) {
                                  if (stricmp (Packet->From, User->Name) && stricmp (Packet->From, User->RealName))
@@ -2105,8 +2197,8 @@ USHORT TPoint::FetchReply (VOID)
                                  MsgArea->Update ();
 
                                  Written = Msg->Highest ();
-                                 Log->Write (":Written message #%lu", Written);
-                                 Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Written);
+                                 Log->Write (":Written message #%lu (%lu)", Msg->UidToMsgn (Number), Number);
+                                 Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Msg->UidToMsgn (Number));
                               }
                            }
                         }

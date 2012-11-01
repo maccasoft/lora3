@@ -1,0 +1,22 @@
+49 DIALOG FIXED IMPURE  30, 46, 221, 89
+STYLE DS_3DLOOK | WS_OVERLAPPED | WS_CAPTION | WS_VISIBLE | WS_SYSMENU | WS_THICKFRAME
+CAPTION "Send file(s)"
+FONT 8, "Helv"
+BEGIN
+	CONTROL "Arci Computer Club - LoraBBS Support", 102, "STATIC", SS_LEFT | WS_CHILD | WS_VISIBLE, 7, 4, 146, 8
+	CONTROL "2:332/402",                            103, "STATIC", SS_RIGHT | WS_CHILD | WS_VISIBLE, 158, 4, 55, 8
+	CONTROL "Bologna, Italy",                       109, "STATIC", SS_LEFT | WS_CHILD | WS_VISIBLE, 7, 14, 115, 8
+	CONTROL "Marco Maccaferri",                     104, "STATIC", SS_RIGHT | WS_CHILD | WS_VISIBLE, 129, 14, 84, 8
+	CONTROL "",                                     110, "BUTTON", BS_GROUPBOX | WS_CHILD | WS_VISIBLE, 5, 23, 210, 40
+	CONTROL "File (s)",                             111, "STATIC", SS_LEFT | WS_CHILD | WS_VISIBLE, 10, 34, 27, 8
+	CONTROL "",                                     112, "EDIT", ES_LEFT | ES_AUTOHSCROLL | WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP, 37, 32, 173, 12
+	CONTROL "Priority",                             101, "STATIC", SS_LEFT | WS_CHILD | WS_VISIBLE, 10, 50, 26, 8
+	CONTROL "Normal",                               108, "BUTTON", BS_AUTORADIOBUTTON | BS_LEFT | WS_CHILD | WS_VISIBLE, 47, 49, 38, 10
+	CONTROL "Crash",                                106, "BUTTON", BS_AUTORADIOBUTTON | BS_LEFT | WS_CHILD | WS_VISIBLE, 88, 49, 34, 10
+	CONTROL "Direct",                               107, "BUTTON", BS_AUTORADIOBUTTON | BS_LEFT | WS_CHILD | WS_VISIBLE, 125, 49, 37, 10
+	CONTROL "Hold",                                 105, "BUTTON", BS_AUTORADIOBUTTON | BS_LEFT | WS_CHILD | WS_VISIBLE, 163, 49, 48, 10
+	CONTROL "&Ok",                                  IDOK, "BUTTON", BS_DEFPUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 10, 70, 40, 14
+	CONTROL "&Cancel",                              IDCANCEL, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 55, 70, 40, 14
+	CONTROL "&Browse",                              113, "BUTTON", BS_PUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 170, 70, 40, 14
+END
+

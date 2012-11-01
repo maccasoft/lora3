@@ -4,6 +4,8 @@
 #include "windows.h"
 #include "commctrl.h"
 
+1 ICON "nt\\editor.ico"
+
 MENU_1 MENU
 BEGIN
     POPUP "&File"

@@ -31,12 +31,14 @@ public:
    VOID   Clear (VOID);
    PVOID  First (VOID);
    USHORT Insert (PVOID lpData);
+   USHORT Insert (PSZ lpData);
    USHORT Insert (PVOID lpData, USHORT usSize);
    PVOID  Last (VOID);
    PVOID  Next (VOID);
    PVOID  Previous (VOID);
    VOID   Remove (VOID);
    USHORT Replace (PVOID lpData);
+   USHORT Replace (PSZ lpData);
    USHORT Replace (PVOID lpData, USHORT usSize);
    PVOID  Value (VOID);
 

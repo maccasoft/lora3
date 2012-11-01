@@ -401,7 +401,7 @@ VOID TMessage::BriefList (VOID)
                }
             }
             else {
-               Line = 2;
+               Line = 1;
                Embedded->Printf ("\x0C");
                Embedded->Printf ("\026\001\017    #  From                    To                     Subject\n\031Ä\005  \031Ä\026  \031Ä\025  \031Ä\027\n");
 
@@ -459,6 +459,7 @@ VOID TMessage::Delete (VOID)
 
          Current->LastMessage = Msg->Highest ();
          Current->FirstMessage = Msg->Lowest ();
+         Current->ActiveMsgs = Msg->Number ();
       }
    }
 }

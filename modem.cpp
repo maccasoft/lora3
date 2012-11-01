@@ -212,6 +212,7 @@ VOID TModem::Poll (PSZ pszNode)
    CHAR Number[64], Temp[128], Traslated[128], *p;
    class TAddress Addr;
    class TNodes *Nodes;
+   class TNodeFlags *Flags;
 
    strcpy (DialCmd, Cfg->Dial);
    strcpy (Number, pszNode);
@@ -225,6 +226,15 @@ VOID TModem::Poll (PSZ pszNode)
             strcpy (Number, Nodes->Phone);
             if (Nodes->DialCmd[0] != '\0')
                strcpy (DialCmd, Nodes->DialCmd);
+            else {
+               if ((Flags = new TNodeFlags (Cfg->SystemPath)) != NULL) {
+                  if (Flags->Read (Nodes->Flags) == TRUE) {
+                     if (Flags->Cmd[0] != '\0')
+                        strcpy (DialCmd, Flags->Cmd);
+                  }
+                  delete Flags;
+               }
+            }
          }
          delete Nodes;
       }

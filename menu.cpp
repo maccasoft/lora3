@@ -142,12 +142,15 @@ VOID TMenu::Insert (VOID)
 //   }
 }
 
-USHORT TMenu::Load (PSZ pszName)
+USHORT TMenu::Load (PSZ pszName, USHORT fAppend)
 {
    int fd;
    USHORT RetVal = FALSE;
    CHAR Temp[128];
-   ITEM *Current;
+   ITEM *Current = NULL;
+
+   if (fAppend == TRUE)
+      Current = (ITEM *)Items.Value ();
 
    if (AltPath[0] != '\0') {
       sprintf (Temp, "%s%s", AltPath, pszName);
@@ -157,14 +160,20 @@ USHORT TMenu::Load (PSZ pszName)
       AdjustPath (Temp);
       if ((fd = sopen (strlwr (Temp), O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
          if (read (fd, &Hdr, sizeof (Hdr)) == sizeof (Hdr)) {
-            Items.Clear ();
-            New ();
-            strcpy (Name, Hdr.MenuName);
-            strcpy (Prompt, Hdr.Prompt);
-            PromptColor = Hdr.Color;
-            PromptHilight = Hdr.Hilight;
-            while (read (fd, &Item, sizeof (Item)) == sizeof (Item))
-               Items.Add (&Item, sizeof (Item));
+            if (fAppend == FALSE) {
+               Items.Clear ();
+               New ();
+               strcpy (Name, Hdr.MenuName);
+               strcpy (Prompt, Hdr.Prompt);
+               PromptColor = Hdr.Color;
+               PromptHilight = Hdr.Hilight;
+            }
+            while (read (fd, &Item, sizeof (Item)) == sizeof (Item)) {
+               if (fAppend == TRUE)
+                  Items.Insert (&Item, sizeof (Item));
+               else
+                  Items.Add (&Item, sizeof (Item));
+            }
             RetVal = TRUE;
          }
          close (fd);
@@ -179,32 +188,50 @@ USHORT TMenu::Load (PSZ pszName)
       AdjustPath (Temp);
       if ((fd = sopen (strlwr (Temp), O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
          if (read (fd, &Hdr, sizeof (Hdr)) == sizeof (Hdr)) {
-            Items.Clear ();
-            New ();
-            strcpy (Name, Hdr.MenuName);
-            strcpy (Prompt, Hdr.Prompt);
-            PromptColor = Hdr.Color;
-            PromptHilight = Hdr.Hilight;
-            while (read (fd, &Item, sizeof (Item)) == sizeof (Item))
-               Items.Add (&Item, sizeof (Item));
+            if (fAppend == FALSE) {
+               Items.Clear ();
+               New ();
+               strcpy (Name, Hdr.MenuName);
+               strcpy (Prompt, Hdr.Prompt);
+               PromptColor = Hdr.Color;
+               PromptHilight = Hdr.Hilight;
+            }
+            while (read (fd, &Item, sizeof (Item)) == sizeof (Item)) {
+               if (fAppend == TRUE)
+                  Items.Insert (&Item, sizeof (Item));
+               else
+                  Items.Add (&Item, sizeof (Item));
+            }
             RetVal = TRUE;
          }
          close (fd);
       }
    }
 
-   if (RetVal == TRUE && (Current = (ITEM *)Items.First ()) != NULL) {
-      strcpy (Display, Current->Display);
-      Color = Current->Color;
-      Hilight = Current->Hilight;
-      strcpy (Key, Current->Key);
-      Command = Current->Command;
-      strcpy (Argument, Current->Argument);
-      Level = Current->Level;
-      AccessFlags = Current->AccessFlags;
-      DenyFlags = Current->DenyFlags;
-      Automatic = Current->Automatic;
-      FirstTime = Current->FirstTime;
+   if (RetVal == TRUE) {
+      if (fAppend == TRUE) {
+         if (Items.First () != NULL)
+            do {
+               if (Items.Value () == Current)
+                  break;
+            } while (Items.Next () != NULL);
+      }
+      else
+         Current = (ITEM *)Items.First ();
+
+      if (Current != NULL) {
+         strcpy (Display, Current->Display);
+         Color = Current->Color;
+         Hilight = Current->Hilight;
+         strcpy (Key, Current->Key);
+         Command = Current->Command;
+         strcpy (Argument, Current->Argument);
+         Level = Current->Level;
+         AccessFlags = Current->AccessFlags;
+         DenyFlags = Current->DenyFlags;
+         Automatic = Current->Automatic;
+         FirstTime = Current->FirstTime;
+      }
    }
 
    return (RetVal);

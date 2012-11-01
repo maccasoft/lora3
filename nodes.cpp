@@ -68,6 +68,25 @@ VOID TNodes::Class2Struct (NODES &Nodes)
    Nodes.UseInetAddress = UseInetAddress;
    strcpy (Nodes.InetAddress, InetAddress);
    strcpy (Nodes.Pop3Pwd, Pop3Pwd);
+   Nodes.Level = Level;
+   Nodes.AccessFlags = AccessFlags;
+   Nodes.DenyFlags = DenyFlags;
+   Nodes.TicLevel = TicLevel;
+   Nodes.TicAccessFlags = TicAccessFlags;
+   Nodes.TicDenyFlags = TicDenyFlags;
+   Nodes.LinkNewEcho = LinkNewEcho;
+   Nodes.EchoMaint = EchoMaint;
+   Nodes.ChangeEchoTag = ChangeEchoTag;
+   Nodes.NotifyAreafix = NotifyAreafix;
+   Nodes.CreateNewTic = CreateNewTic;
+   Nodes.LinkNewTic = LinkNewTic;
+   Nodes.TicMaint = TicMaint;
+   Nodes.ChangeTicTag = ChangeTicTag;
+   Nodes.NotifyRaid = NotifyRaid;
+   strcpy (Nodes.MailerAka, MailerAka);
+   strcpy (Nodes.EchoAka, EchoAka);
+   strcpy (Nodes.TicAka, TicAka);
+   strcpy (Nodes.NewTicFilter, NewTicFilter);
 }
 
 VOID TNodes::Struct2Class (NODES &Nodes)
@@ -102,6 +121,25 @@ VOID TNodes::Struct2Class (NODES &Nodes)
    UseInetAddress = Nodes.UseInetAddress;
    strcpy (InetAddress, Nodes.InetAddress);
    strcpy (Pop3Pwd, Nodes.Pop3Pwd);
+   Level = Nodes.Level;
+   AccessFlags = Nodes.AccessFlags;
+   DenyFlags = Nodes.DenyFlags;
+   TicLevel = Nodes.TicLevel;
+   TicAccessFlags = Nodes.TicAccessFlags;
+   TicDenyFlags = Nodes.TicDenyFlags;
+   LinkNewEcho = Nodes.LinkNewEcho;
+   EchoMaint = Nodes.EchoMaint;
+   ChangeEchoTag = Nodes.ChangeEchoTag;
+   NotifyAreafix = Nodes.NotifyAreafix;
+   CreateNewTic = Nodes.CreateNewTic;
+   LinkNewTic = Nodes.LinkNewTic;
+   TicMaint = Nodes.TicMaint;
+   ChangeTicTag = Nodes.ChangeTicTag;
+   NotifyRaid = Nodes.NotifyRaid;
+   strcpy (MailerAka, Nodes.MailerAka);
+   strcpy (EchoAka, Nodes.EchoAka);
+   strcpy (TicAka, Nodes.TicAka);
+   strcpy (NewTicFilter, Nodes.NewTicFilter);
 }
 
 VOID TNodes::Add (VOID)
@@ -283,6 +321,25 @@ VOID TNodes::New (VOID)
    memset (InetAddress, 0, sizeof (InetAddress));
    memset (Pop3Pwd, 0, sizeof (Pop3Pwd));
    memset (Packer, 0, sizeof (Packer));
+   Level = 0;
+   AccessFlags = 0L;
+   DenyFlags = 0L;
+   TicLevel = 0;
+   TicAccessFlags = 0L;
+   TicDenyFlags = 0L;
+   LinkNewEcho = FALSE;
+   EchoMaint = FALSE;
+   ChangeEchoTag = FALSE;
+   NotifyAreafix = FALSE;
+   CreateNewTic = FALSE;
+   LinkNewTic = FALSE;
+   TicMaint = FALSE;
+   ChangeTicTag = FALSE;
+   NotifyRaid = FALSE;
+   memset (MailerAka, 0, sizeof (MailerAka));
+   memset (EchoAka, 0, sizeof (EchoAka));
+   memset (TicAka, 0, sizeof (TicAka));
+   memset (NewTicFilter, 0, sizeof (NewTicFilter));
 }
 
 USHORT TNodes::Next (VOID)
@@ -693,5 +750,147 @@ VOID TNodes::SaveNodelist (VOID)
 VOID TNodes::DeleteNodelist (VOID)
 {
    ListData.Remove ();
+}
+
+// ----------------------------------------------------------------------
+
+TNodeFlags::TNodeFlags (void)
+{
+   fdDat = -1;
+   strcpy (DataFile, "nodeflag.dat");
+}
+
+TNodeFlags::TNodeFlags (PSZ pszDataPath)
+{
+   fdDat = -1;
+   strcpy (DataFile, pszDataPath);
+   strcat (DataFile, "nodeflag.dat");
+   AdjustPath (strlwr (DataFile));
+   List.Clear ();
+
+   if ((fdDat = open (DataFile, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE)) != -1) {
+      while (read (fdDat, &nf, sizeof (nf)) == sizeof (nf))
+         List.Add (&nf, sizeof (nf));
+      close (fdDat);
+   }
+}
+
+TNodeFlags::~TNodeFlags (void)
+{
+}
+
+VOID TNodeFlags::Add (VOID)
+{
+   memset (&nf, 0, sizeof (nf));
+   nf.Size = sizeof (nf);
+   strcpy (nf.Flags, Flags);
+   strcpy (nf.Cmd, Cmd);
+
+   List.Add (&nf, sizeof (nf));
+}
+
+VOID TNodeFlags::Delete (VOID)
+{
+   NODEFLAGS *pnf;
+
+   List.Remove ();
+
+   if ((pnf = (NODEFLAGS *)List.Value ()) != NULL) {
+      strcpy (Flags, pnf->Flags);
+      strcpy (Cmd, pnf->Cmd);
+   }
+}
+
+VOID TNodeFlags::DeleteAll (VOID)
+{
+   while (List.First () != NULL)
+      List.Remove ();
+}
+
+USHORT TNodeFlags::First (VOID)
+{
+   USHORT RetVal = FALSE;
+   NODEFLAGS *pnf;
+
+   if ((pnf = (NODEFLAGS *)List.First ()) != NULL) {
+      strcpy (Flags, pnf->Flags);
+      strcpy (Cmd, pnf->Cmd);
+      RetVal = TRUE;
+   }
+
+   return (RetVal);
+}
+
+USHORT TNodeFlags::Next (VOID)
+{
+   USHORT RetVal = FALSE;
+   NODEFLAGS *pnf;
+
+   if ((pnf = (NODEFLAGS *)List.Next ()) != NULL) {
+      strcpy (Flags, pnf->Flags);
+      strcpy (Cmd, pnf->Cmd);
+      RetVal = TRUE;
+   }
+
+   return (RetVal);
+}
+
+USHORT TNodeFlags::Read (PSZ pszFlag)
+{
+   USHORT RetVal = FALSE;
+   CHAR Temp1[64], Temp2[64], *p;
+   NODEFLAGS *pnf;
+
+   if ((pnf = (NODEFLAGS *)List.First ()) != NULL) {
+      strcpy (Temp1, pszFlag);
+      strupr (Temp1);
+
+      do {
+         strcpy (Temp2, pnf->Flags);
+         if ((p = strtok (strupr (Temp2), " ,")) != NULL)
+            do {
+               if (strstr (Temp1, p) != NULL) {
+                  strcpy (Flags, pnf->Flags);
+                  strcpy (Cmd, pnf->Cmd);
+                  RetVal = TRUE;
+                  break;
+               }
+            } while ((p = strtok (NULL, " ,")) != NULL);
+      } while (RetVal == FALSE && (pnf = (NODEFLAGS *)List.Next ()) != NULL);
+   }
+
+   return (RetVal);
+}
+
+USHORT TNodeFlags::Read (USHORT)
+{
+   USHORT RetVal = FALSE;
+
+   return (RetVal);
+}
+
+VOID TNodeFlags::Update (VOID)
+{
+   NODEFLAGS *pnf;
+
+   if ((pnf = (NODEFLAGS *)List.Value ()) != NULL) {
+      memset (pnf, 0, sizeof (NODEFLAGS));
+      pnf->Size = sizeof (NODEFLAGS);
+      strcpy (pnf->Flags, Flags);
+      strcpy (pnf->Cmd, Cmd);
+   }
+}
+
+VOID TNodeFlags::Save (VOID)
+{
+   NODEFLAGS *pnf;
+
+   if ((fdDat = open (DataFile, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) != -1) {
+      if ((pnf = (NODEFLAGS *)List.First ()) != NULL)
+         do {
+            write (fdDat, pnf, sizeof (NODEFLAGS));
+         } while ((pnf = (NODEFLAGS *)List.Next ()) != NULL);
+      close (fdDat);
+   }
 }
 

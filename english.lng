@@ -165,7 +165,7 @@ FileListDescription1       = "\026\001\016Use your arrow keys or CTRL-X / CTRL-E
 FileListDescription2       = "\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.";
 FileListTagged             = "\026\001\016*%-12.12s*\026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n";
 FileListNormal             = "\026\001\016 %-12.12s \026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n";
-FileListMoreQuestion       = "\r\026\001\017More [Y,n,t,=]? \026\001\007";
+FileListMoreQuestion       = "\026\001\017More [Y,n,t,=]? \026\001\007";
 FileListDeleteMoreQuestion = "\r                  \r";
 FileListTageKey            = "T";
 FileListNoFilesFound       = "\n\x16\x01\015Sorry, no files are found to match your search/list parameters.\n\006\007\006\007";
@@ -177,6 +177,13 @@ FileListComment            = "                             \026\001\003%.50s\n";
 CurrentPassword = "\n\026\001\017Current password: ";
 WhyPassword     = "\nA password is a single word (no spaces).\nIt must be 4 to %d letters (or numbers) long.\n\n";
 WrongPassword   = "\n\026\001\014Wrong password!\n";
+
+; ---------
+; Multiline
+; ---------
+OnlineTitle  = "\x0C\n\026\001\017\031 \x14OnLine Users at %s\n\026\001\014\031 \x14\031Ä\x28\n\n";
+OnlineHeader = "\x16\x01\012Name                       Line  Speed  Status               Location\n\026\001\002\031Ä\x19  \031Ä\x04 \031Ä\x06  \031Ä\x13  \031Ä\x12\n";
+OnlineEntry  = "\026\001\013%-25.25s   \026\001\017%2u   %-5lu  \026\001\016%-19.19s  %-.18s\n";
 
 ; -------------
 ; Miscellaneous

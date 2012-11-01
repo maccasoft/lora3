@@ -129,6 +129,11 @@ USHORT TCollection::Insert (PVOID lpData)
    return (RetVal);
 }
 
+USHORT TCollection::Insert (PSZ lpData)
+{
+   return (Insert (lpData, (USHORT)(strlen (lpData) + 1)));
+}
+
 USHORT TCollection::Insert (PVOID lpData, USHORT usSize)
 {
    USHORT RetVal = 0;
@@ -241,6 +246,11 @@ USHORT TCollection::Replace (PVOID lpData)
    }
 
    return (RetVal);
+}
+
+USHORT TCollection::Replace (PSZ lpData)
+{
+   return (Replace (lpData, (USHORT)(strlen (lpData) + 1)));
 }
 
 USHORT TCollection::Replace (PVOID lpData, USHORT usSize)

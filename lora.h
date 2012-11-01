@@ -25,6 +25,7 @@
 #define INP_NOCOLOR     0x0010
 #define INP_HOTKEY      0x0020
 #define INP_NUMERIC     0x0040
+#define INP_NONUMHOT    0x0080
 
 #define ASK_DEFYES      0x0001
 #define ASK_DEFNO       0x0002
@@ -46,6 +47,7 @@ public:
    USHORT Ansi, Avatar, Color, Rip;
    USHORT HotKey, More, ScreenHeight;
    CHAR   Path[64], AltPath[64];
+   ULONG  CarrierSpeed;
    class  TCom *Com, *Snoop;
    class  TUser *User;
    class  TLanguage *Language;
@@ -93,8 +95,11 @@ private:
    FILE  *OpenFile (PSZ pszName, PSZ pszAccess = "rb");
    SHORT  PeekNextChar (VOID);
    VOID   ProcessControl (UCHAR ucControl);
-   VOID   ProcessControlF (UCHAR ucControl);
-   VOID   ProcessControlW (UCHAR ucControl);
+   VOID   ProcessControlF (VOID);
+   VOID   ProcessControlO (VOID);
+   VOID   ProcessControlP (VOID);
+   VOID   ProcessControlK (VOID);
+   VOID   ProcessControlW (VOID);
    VOID   TranslateKeyword (VOID);
 };
 
@@ -266,10 +271,15 @@ public:
    VOID   CheckUnread (VOID);
    VOID   Delete (VOID);
    VOID   DisplayCurrent (VOID);
-   VOID   ReadMessages (VOID);
-   VOID   Reply (VOID);
+   VOID   DisplayText (VOID);
+   VOID   Read (ULONG Number);
+   VOID   ReadMessages (USHORT fUnreaded = FALSE);
+   VOID   ReadNext (VOID);
+   VOID   ReadNonStop (VOID);
+   VOID   ReadPrevious (VOID);
+   VOID   Reply (USHORT ToCurrent = FALSE);
    VOID   StartMessageQuestion (ULONG ulFirst, ULONG ulLast, ULONG &ulMsg, USHORT &fForward);
-   VOID   Write (VOID);
+   VOID   Write (USHORT Type, PSZ Argument = NULL);
 };
 
 // ---------------------------------------------------------------------------
@@ -314,11 +324,12 @@ public:
    TBbs (void);
    ~TBbs (void);
 
-   USHORT Task, AutoDetect, TimeLimit, Remote;
+   USHORT Task, AutoDetect, TimeLimit, Remote, Local;
    USHORT FancyNames, Logoff;
    ULONG  Speed, StartCall;
    class  TCom *Com, *Snoop;
    class  TLog *Log;
+   class  TEvents *Events;
    class  TConfig *Cfg;
    class  TEmbedded *Embedded;
    class  TProgress *Progress;
@@ -345,9 +356,9 @@ private:
    class  TEMail *EMail;
 
    VOID   CheckBirthday (VOID);
-   VOID   ResetUseronRecord (VOID);
+   VOID   DisableUseronRecord (VOID);
    VOID   SetBirthDate (VOID);
-   VOID   SetUseronRecord (USHORT id, PSZ status = NULL, PSZ name = NULL);
+   VOID   SetUseronRecord (PSZ pszStatus);
    VOID   ToggleNoDisturb (VOID);
 };
 
@@ -378,6 +389,7 @@ public:
    ULONG  Speed;
    class  TAddress Address;
    class  TCom *Com;
+   class  TEvents *Events;
    class  TConfig *Cfg;
    class  TLog *Log;
    class  TProgress *Progress;
@@ -419,6 +431,7 @@ private:
 #define FINGER_PORT        79
 #define FTPDATA_PORT       2048
 #define VMODEM_PORT        3141
+#define IRC_PORT           6667
 
 class TInternet
 {
@@ -434,12 +447,14 @@ public:
 
    VOID   Finger (PSZ pszServer = NULL, USHORT usPort = FINGER_PORT);
    VOID   FTP (PSZ pszServer = NULL, USHORT usPort = FTP_PORT);
+   VOID   IRC (PSZ pszServer = NULL, PSZ pszNick = NULL, USHORT usPort = IRC_PORT);
    VOID   Telnet (PSZ pszServer = NULL, USHORT usPort = TELNET_PORT);
 
 private:
    USHORT Hash, Binary, DataPort;
    CHAR   Temp[128], Cmd[48], Host[32];
    UCHAR  Buffer[2048];
+   CHAR   *Tokens[256];
    class  TTcpip *Tcp;
    class  TTcpip *Data;
 
@@ -478,6 +493,7 @@ public:
 protected:
    USHORT cx, cy;
    CHAR   Wrap[128], *Buffer, *Cursor;
+   CHAR   ActualLine[128];
    ULONG  LineCrc[51];
    class  TCollection Text;
 
@@ -489,6 +505,7 @@ protected:
    VOID   MoveCursor (USHORT start);
    VOID   SetCursor (USHORT start);
    PSZ    StringReplace (PSZ pszStr, PSZ pszSearch, PSZ pszReplace);
+   VOID   UpdateLine (USHORT y, PSZ pszLine);
 };
 
 class TMsgEditor : public TEditor
@@ -539,18 +556,26 @@ public:
    USHORT Write (VOID);
 };
 
+#define MAIL_LOCAL         0
+#define MAIL_FIDONET       1
+#define MAIL_INTERNET      2
+
 class TMailEditor : public TEditor
 {
 public:
    TMailEditor (void);
    ~TMailEditor (void);
 
-   USHORT Storage;
+   USHORT Type, Storage;
+   UCHAR  Private;
    CHAR   BasePath[128];
    CHAR   UserName[48];
    CHAR   Origin[64];
    CHAR   Address[64];
    CHAR   AreaTitle[128];
+   CHAR   To[36];
+   CHAR   ToAddress[64];
+   CHAR   Subject[72];
    class  TConfig *Cfg;
    class  TLog *Log;
    class  TMsgBase *Msg;
@@ -568,9 +593,6 @@ public:
    USHORT Write (VOID);
 
 private:
-   CHAR   To[36];
-   CHAR   ToAddress[64];
-   CHAR   Subject[72];
    ULONG  Number;
    struct dosdate_t d_date;
    struct dostime_t d_time;
@@ -598,6 +620,7 @@ public:
    class  TProgress *Progress;
 
    virtual VOID   AddConference (VOID);
+   virtual VOID   AddKludges (class TCollection &Text, class TMsgData *Data);
    virtual USHORT Create (VOID);
    virtual USHORT Compress (PSZ pszPacket);
    virtual VOID   Display (VOID);

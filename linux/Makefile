@@ -9,10 +9,12 @@
 
 cc = gcc
 link = gcc
-copts = -c -D__LINUX__ -fPIC
+lib = ar
+copts = -c -D__LINUX__ -O2
+libopt = rcs
 
-all: comm.dll msgbase.dll lora_api.dll bbs.dll \
-     lc lfile lmsg luser lora
+all: libcomm.a libmsgbase.a liblora_api.a libbbs.a \
+     lfile lmsg luser lora reader
 
 
 # -----------------------------------------------------------------------------
@@ -21,7 +23,7 @@ all: comm.dll msgbase.dll lora_api.dll bbs.dll \
 
 comm = serial.o screen.o stdio.o tcpip.o
 
-msgbase = adept.o dupes.o fidosdm.o inetmail.o jam.o passthr.o squish.o \
+msgbase = adept.o dupes.o fidosdm.o hudson.o inetmail.o jam.o passthr.o squish.o \
           packet.o usenet.o
 
 bbs = bbs.o detect.o editor.o email.o embedded.o ftrans.o internet.o \
@@ -29,45 +31,45 @@ bbs = bbs.o detect.o editor.o email.o embedded.o ftrans.o internet.o \
 
 lora_api = address.o collect.o config.o events.o filebase.o filedata.o \
       language.o limits.o log.o menu.o \
-      misc.o msgdata.o nodes.o outbound.o packer.o protocol.o stats.o user.o
+      misc.o msgdata.o nodes.o okfile.o outbound.o packer.o protocol.o \
+      stats.o uulib.o user.o
 
 
 # -----------------------------------------------------------------------------
 # Dynamic link libraries (shared libraries)
 # -----------------------------------------------------------------------------
 
-comm.dll : $(comm)
-	$(link) -o comm.dll -shared $(comm)
+libcomm.a : $(comm)
+	$(lib) $(libopt) libcomm.a $(comm)
 
-msgbase.dll : $(msgbase)
-	$(link) -o msgbase.dll -shared $(msgbase)
+libmsgbase.a : $(msgbase)
+	$(lib) $(libopt) libmsgbase.a $(msgbase)
 
-lora_api.dll : $(lora_api)
-	$(link) -o lora_api.dll -shared $(lora_api)
+liblora_api.a : $(lora_api)
+	$(lib) $(libopt) liblora_api.a $(lora_api)
 
-bbs.dll : $(bbs)
-	$(link) -o bbs.dll -shared $(bbs)
+libbbs.a : $(bbs)
+	$(lib) $(libopt) libbbs.a $(bbs)
 
 
 # -----------------------------------------------------------------------------
 # Executables
 # -----------------------------------------------------------------------------
 
-lora : areamgr.o loratxt.o modem.o mailwin.o linux.o tic.o /sources/ncxl/linux/cxl.dll comm.dll msgbase.dll lora_api.dll bbs.dll
-	$(link) -o lora -L. areamgr.o loratxt.o modem.o mailwin.o /sources/ncxl/linux/cxl.dll tic.o linux.o comm.dll msgbase.dll lora_api.dll bbs.dll
+lora : areamgr.o import.o export.o lcfgtxt.o lcfgtxt2.o loratxt.o modem.o mailwin.o linux.o rcvfax.o tic.o
+	$(link) -o lora -L. areamgr.o import.o export.o lcfgtxt.o lcfgtxt2.o loratxt.o modem.o mailwin.o rcvfax.o tic.o linux.o -lcxl -lmsgbase -lbbs -llora_api -lncurses -lcomm
 
-luser : luser.o linux.o lora_api.dll
-	$(link) -o luser -L. luser.o linux.o lora_api.dll
+luser : luser.o linux.o
+	$(link) -o luser -L. luser.o linux.o -llora_api
 
-lmsg : lmsg.o linux.o msgbase.dll lora_api.dll
-	$(link) -o lmsg -L. lmsg.o linux.o /sources/ncxl/linux/cxl.dll comm.dll msgbase.dll lora_api.dll
+lmsg : lmsg.o linux.o
+	$(link) -o lmsg -L. lmsg.o linux.o -lcxl -lcomm -lmsgbase -llora_api
 
-lfile : lfile.o linux.o lora_api.dll
-	$(link) -o lfile -L. lfile.o linux.o lora_api.dll
+lfile : lfile.o linux.o liblora_api.a
+	$(link) -o lfile -L. lfile.o linux.o -llora_api
 
-lc : lc.o linux.o lora_api.dll
-	$(link) -o lc -L. lc.o linux.o lora_api.dll
-
+reader : readtxt.o linux.o libcomm.a libcxl.a liblora_api.a libmsgbase.a
+	$(link) -o reader -L. readtxt.o linux.o -lcxl -llora_api -lmsgbase -lncurses -lcomm
 
 # -----------------------------------------------------------------------------
 # Communication objects
@@ -98,6 +100,9 @@ dupes.o: ../dupes.cpp ../_ldefs.h ../msgbase.h ../collect.h ../combase.h ../jam.
 
 fidosdm.o: ../fidosdm.cpp ../_ldefs.h ../msgbase.h ../collect.h ../combase.h ../jam.h ../jamsys.h
 	$(cc) $(copts) ../fidosdm.cpp
+
+hudson.o: ../hudson.cpp ../_ldefs.h ../msgbase.h ../collect.h ../combase.h ../jam.h ../jamsys.h
+	$(cc) $(copts) ../hudson.cpp
 
 inetmail.o: ../inetmail.cpp ../_ldefs.h ../msgbase.h ../collect.h ../combase.h ../jam.h ../jamsys.h
 	$(cc) $(copts) ../inetmail.cpp
@@ -161,6 +166,9 @@ msgdata.o: ../msgdata.cpp ../_ldefs.h ../lora_api.h ../collect.h
 nodes.o : ../nodes.cpp ../_ldefs.h ../lora_api.h ../collect.h
 	$(cc) $(copts) ../nodes.cpp
 
+okfile.o : ../okfile.cpp ../_ldefs.h ../lora_api.h ../collect.h
+	$(cc) $(copts) ../okfile.cpp
+
 outbound.o : ../outbound.cpp ../_ldefs.h ../lora_api.h ../collect.h
 	$(cc) $(copts) ../outbound.cpp
 
@@ -172,6 +180,9 @@ protocol.o : ../protocol.cpp ../_ldefs.h ../lora_api.h ../collect.h
 
 stats.o : ../stats.cpp ../_ldefs.h ../lora_api.h ../collect.h
 	$(cc) $(copts) ../stats.cpp
+
+uulib.o : ../uulib.cpp ../_ldefs.h ../lora_api.h ../collect.h
+	$(cc) $(copts) ../uulib.cpp
 
 user.o : ../user.cpp ../_ldefs.h ../lora_api.h ../collect.h
 	$(cc) $(copts) ../user.cpp
@@ -245,6 +256,18 @@ luser.o: ../luser.cpp ../_ldefs.h ../lora_api.h ../collect.h
 areamgr.o: ../areamgr.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
 	$(cc) $(copts) ../areamgr.cpp
 
+import.o: ../import.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
+	$(cc) $(copts) ../import.cpp
+
+export.o: ../export.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
+	$(cc) $(copts) ../export.cpp
+
+lcfgtxt.o: ../lcfgtxt.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
+	$(cc) $(copts) ../lcfgtxt.cpp
+
+lcfgtxt2.o: ../lcfgtxt2.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
+	$(cc) $(copts) ../lcfgtxt2.cpp
+
 loratxt.o: ../loratxt.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
 	$(cc) $(copts) ../loratxt.cpp
 
@@ -254,7 +277,12 @@ mailwin.o: ../mailwin.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../co
 modem.o: ../modem.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
 	$(cc) $(copts) ../modem.cpp
 
+rcvfax.o: ../rcvfax.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
+	$(cc) $(copts) ../rcvfax.cpp
+
 tic.o: ../tic.cpp ../_ldefs.h ../lorawin.h ../combase.h ../lora_api.h ../collect.h
 	$(cc) $(copts) ../tic.cpp
 
+readtxt.o: ../readtxt.cpp ../_ldefs.h ../lora.h ../bluewave.h ../combase.h ../collect.h ../ftrans.h ../lora_api.h ../menu.h ../msgbase.h ../jam.h ../jamsys.h ../lorawin.h
+	$(cc) $(copts) ../readtxt.cpp
 

@@ -23,12 +23,206 @@ typedef struct {
 } USERCFG;
 
 // ----------------------------------------------------------------------
+// File requests
+// ----------------------------------------------------------------------
+
+BEGIN_MESSAGE_MAP (COkFileDlg, CDialog)
+   ON_COMMAND (106, Add)
+   ON_COMMAND (107, Remove)
+   ON_COMMAND (108, Change)
+#if defined(__OS2__)
+   ON_CONTROL (CN_EMPHASIS, 101, SelChanged)
+#elif defined(__NT__)
+   ON_NOTIFY (NM_CLICK, 101, SelChanged)
+#endif
+END_MESSAGE_MAP ()
+
+COkFileDlg::COkFileDlg (HWND p_hWnd) : CDialog ("53", p_hWnd)
+{
+}
+
+VOID COkFileDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 6);
+}
+
+USHORT COkFileDlg::OnInitDialog (VOID)
+{
+   CHAR Temp[16];
+   class TOkFile *Data;
+
+   Center ();
+
+   EM_SetTextLimit (103, sizeof (Data->Name) - 1);
+   EM_SetTextLimit (105, sizeof (Data->Path) - 1);
+   EM_SetTextLimit (114, sizeof (Data->Pwd) - 1);
+
+   LVM_AllocateColumns (101, 4);
+   LVM_InsertColumn (101, "File", LVC_LEFT);
+   LVM_InsertColumn (101, "Flags", LVC_LEFT);
+   LVM_InsertColumn (101, "Path", LVC_LEFT);
+   LVM_InsertColumn (101, "Password", LVC_LEFT);
+
+   if ((Data = new TOkFile (Cfg->SystemPath)) != NULL) {
+      if (Data->First () == TRUE)
+         do {
+            LVM_InsertItem (101);
+
+            LVM_SetItemText (101, 0, Data->Name);
+            Temp[0] = '\0';
+            if (Data->Normal == TRUE)
+               strcat (Temp, "N");
+            if (Data->Known == TRUE)
+               strcat (Temp, "K");
+            if (Data->Protected == TRUE)
+               strcat (Temp, "P");
+            LVM_SetItemText (101, 1, Temp);
+            LVM_SetItemText (101, 2, Data->Path);
+            LVM_SetItemText (101, 3, Data->Pwd);
+         } while (Data->Next () == TRUE);
+      delete Data;
+   }
+
+   LVM_InvalidateView (101);
+
+   return (TRUE);
+}
+
+VOID COkFileDlg::SelChanged (VOID)
+{
+   USHORT item;
+   CHAR Temp[128];
+
+   if ((item = (USHORT)LVM_QuerySelectedItem (101)) != (USHORT)-1) {
+      LVM_QueryItemText (101, item, 0, Temp);
+      SetDlgItemText (103, Temp);
+      LVM_QueryItemText (101, item, 1, Temp);
+      if (strchr (Temp, 'N') != NULL)
+         BM_SetCheck (110, TRUE);
+      else
+         BM_SetCheck (110, FALSE);
+      if (strchr (Temp, 'K') != NULL)
+         BM_SetCheck (111, TRUE);
+      else
+         BM_SetCheck (111, FALSE);
+      if (strchr (Temp, 'P') != NULL)
+         BM_SetCheck (112, TRUE);
+      else
+         BM_SetCheck (112, FALSE);
+      LVM_QueryItemText (101, item, 2, Temp);
+      SetDlgItemText (105, Temp);
+      LVM_QueryItemText (101, item, 3, Temp);
+      SetDlgItemText (114, Temp);
+   }
+   else {
+      // Se non e' stato selezionato un elemento, pulisce i campi della dialog.
+      SetDlgItemText (103, "");
+      BM_SetCheck (110, FALSE);
+      BM_SetCheck (111, FALSE);
+      BM_SetCheck (112, FALSE);
+      SetDlgItemText (105, "");
+      SetDlgItemText (114, "");
+   }
+}
+
+VOID COkFileDlg::OnOK (VOID)
+{
+   USHORT i, count;
+   CHAR Temp[128];
+   class TOkFile *Data;
+
+   if ((Data = new TOkFile (Cfg->SystemPath)) != NULL) {
+      Data->DeleteAll ();
+      count = (USHORT)LVM_QueryItemCount (101);
+      for (i = 0; i < count; i++) {
+         LVM_QueryItemText (101, i, 0, Temp);
+         strcpy (Data->Name, Temp);
+         LVM_QueryItemText (101, i, 1, Temp);
+         if (strchr (Temp, 'N') != NULL)
+            Data->Normal = TRUE;
+         if (strchr (Temp, 'K') != NULL)
+            Data->Known = TRUE;
+         if (strchr (Temp, 'P') != NULL)
+            Data->Protected = TRUE;
+         LVM_QueryItemText (101, i, 2, Temp);
+         strcpy (Data->Path, Temp);
+         LVM_QueryItemText (101, i, 3, Temp);
+         strcpy (Data->Pwd, Temp);
+         Data->Add ();
+      }
+      delete Data;
+   }
+
+   EndDialog (TRUE);
+}
+
+VOID COkFileDlg::Add (VOID)
+{
+   CHAR Temp[128];
+
+   LVM_InsertItem (101);
+
+   GetDlgItemText (103, GetDlgItemTextLength (103), Temp);
+   LVM_SetItemText (101, 0, Temp);
+   Temp[0] = '\0';
+   if (BM_QueryCheck (110) == TRUE)
+      strcat (Temp, "N");
+   if (BM_QueryCheck (111) == TRUE)
+      strcat (Temp, "K");
+   if (BM_QueryCheck (112) == TRUE)
+      strcat (Temp, "P");
+   LVM_SetItemText (101, 1, Temp);
+   GetDlgItemText (105, GetDlgItemTextLength (105), Temp);
+   LVM_SetItemText (101, 2, Temp);
+   GetDlgItemText (114, GetDlgItemTextLength (114), Temp);
+   LVM_SetItemText (101, 3, Temp);
+
+   LVM_InvalidateView (101);
+}
+
+VOID COkFileDlg::Change (VOID)
+{
+   USHORT item;
+   CHAR Temp[128];
+
+   if ((item = (USHORT)LVM_QuerySelectedItem (101)) != -1) {
+      GetDlgItemText (103, GetDlgItemTextLength (103), Temp);
+      LVM_SetItemText (101, item, 0, Temp);
+      Temp[0] = '\0';
+      if (BM_QueryCheck (110) == TRUE)
+         strcat (Temp, "N");
+      if (BM_QueryCheck (111) == TRUE)
+         strcat (Temp, "K");
+      if (BM_QueryCheck (112) == TRUE)
+         strcat (Temp, "P");
+      LVM_SetItemText (101, item, 1, Temp);
+      GetDlgItemText (105, GetDlgItemTextLength (105), Temp);
+      LVM_SetItemText (101, item, 2, Temp);
+      GetDlgItemText (114, GetDlgItemTextLength (114), Temp);
+      LVM_SetItemText (101, item, 3, Temp);
+
+      LVM_InvalidateView (101);
+   }
+}
+
+VOID COkFileDlg::Remove (VOID)
+{
+   LVM_DeleteItem (101, LVM_QuerySelectedItem (101));
+}
+
+// ----------------------------------------------------------------------
 // Mailer addresses
 // ----------------------------------------------------------------------
 
 BEGIN_MESSAGE_MAP (CAddressDlg, CDialog)
    ON_COMMAND (102, Add)
    ON_COMMAND (103, Remove)
+   ON_COMMAND (104, Change)
+#if defined(__OS2__)
+   ON_CONTROL (LN_SELECT, 101, SelChanged)
+#elif defined(__NT__)
+   ON_NOTIFY (LBN_SELCHANGE, 101, SelChanged)
+#endif
 END_MESSAGE_MAP ()
 
 CAddressDlg::CAddressDlg (HWND p_hWnd) : CDialog ("6", p_hWnd)
@@ -42,37 +236,62 @@ VOID CAddressDlg::OnHelp (VOID)
 
 USHORT CAddressDlg::OnInitDialog (VOID)
 {
-   CHAR Temp[16];
+   CHAR Temp[64];
 
    Center ();
 
    EM_SetTextLimit (108, sizeof (Cfg->MailAddress.String) - 1);
    if (Cfg->MailAddress.First () == TRUE)
       do {
-         LM_AddString (101, Cfg->MailAddress.String);
+         if (Cfg->MailAddress.FakeNet != 0)
+            sprintf (Temp, "%s (%u)", Cfg->MailAddress.String, Cfg->MailAddress.FakeNet);
+         else
+            strcpy (Temp, Cfg->MailAddress.String);
+         LM_AddString (101, Temp);
       } while (Cfg->MailAddress.Next () == TRUE);
 
-   sprintf (Temp, "%u", Cfg->FakeNet);
-   SetDlgItemText (109, Temp);
-
    return (TRUE);
+}
+
+VOID CAddressDlg::SelChanged (VOID)
+{
+   USHORT item;
+   CHAR Temp[64], Fake[32], *p;
+   class TAddress Addr;
+
+   if ((item = LM_QuerySelection (101)) >= 0) {
+      LM_QueryItemText (101, item, sizeof (Temp) - 1, Temp);
+      Addr.Parse (Temp);
+      SetDlgItemText (108, Addr.String);
+      if ((p = strchr (Temp, '(')) != NULL) {
+         sprintf (Fake, "%u", atoi (++p));
+         SetDlgItemText (109, Fake);
+      }
+      else
+         SetDlgItemText (109, "0");
+   }
+   else {
+      SetDlgItemText (108, "");
+      SetDlgItemText (109, "");
+   }
 }
 
 VOID CAddressDlg::OnOK (VOID)
 {
    USHORT i, Max;
-   CHAR Temp[64];
+   CHAR Temp[64], *p;
 
    Cfg->MailAddress.Clear ();
    if ((Max = LM_QueryItemCount (101)) > 0) {
       for (i = 0; i < Max; i++) {
          LM_QueryItemText (101, i, sizeof (Temp) - 1, Temp);
          Cfg->MailAddress.Add (Temp);
+         if ((p = strchr (Temp, '(')) != NULL) {
+            Cfg->MailAddress.FakeNet = (USHORT)atoi (++p);
+            Cfg->MailAddress.Update ();
+         }
       }
    }
-
-   GetDlgItemText (109, GetDlgItemTextLength (109), Temp);
-   Cfg->FakeNet = (USHORT)atoi (Temp);
 
    EndDialog (TRUE);
 }
@@ -80,20 +299,52 @@ VOID CAddressDlg::OnOK (VOID)
 VOID CAddressDlg::Add (VOID)
 {
    CHAR Temp[64];
+   class TAddress Addr;
 
    GetDlgItemText (108, GetDlgItemTextLength (108), Temp);
    if (Temp[0] != '\0') {
-      Cfg->MailAddress.Parse (Temp);
-      LM_AddString (101, Cfg->MailAddress.String);
+      Addr.Parse (Temp);
+      GetDlgItemText (109, GetDlgItemTextLength (109), Temp);
+      Addr.FakeNet = (USHORT)atoi (Temp);
+      if (Addr.FakeNet != 0)
+         sprintf (Temp, "%s (%u)", Addr.String, Addr.FakeNet);
+      else
+         strcpy (Temp, Addr.String);
+      LM_AddString (101, Temp);
    }
 
-   SetDlgItemText (108, "");
    SetFocus (108);
+   SelChanged ();
+}
+
+VOID CAddressDlg::Change (VOID)
+{
+   USHORT item;
+   CHAR Temp[64];
+   class TAddress Addr;
+
+   if ((item = LM_QuerySelection (101)) >= 0) {
+      GetDlgItemText (108, GetDlgItemTextLength (108), Temp);
+      if (Temp[0] != '\0') {
+         Addr.Parse (Temp);
+         GetDlgItemText (109, GetDlgItemTextLength (109), Temp);
+         Addr.FakeNet = (USHORT)atoi (Temp);
+         if (Addr.FakeNet != 0)
+            sprintf (Temp, "%s (%u)", Addr.String, Addr.FakeNet);
+         else
+            strcpy (Temp, Addr.String);
+         LM_SetItemText (101, item, Temp);
+      }
+
+      SelChanged ();
+      SetFocus (108);
+   }
 }
 
 VOID CAddressDlg::Remove (VOID)
 {
    LM_DeleteItem (101, LM_QuerySelection (101));
+   SelChanged ();
 }
 
 // ----------------------------------------------------------------------
@@ -850,7 +1101,32 @@ public:
    VOID   OnOK (VOID);
 };
 
+class CNodeEchoDlg : public CDialog
+{
+public:
+   CNodeEchoDlg (HWND p_hWnd);
+
+   class  TNodes *Nodes;
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+};
+
+class CNodeTicDlg : public CDialog
+{
+public:
+   CNodeTicDlg (HWND p_hWnd);
+
+   class  TNodes *Nodes;
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+};
+
 BEGIN_MESSAGE_MAP (CNodesDlg, CDialog)
+   ON_COMMAND (13,  Copy)
+   ON_COMMAND (14,  NodeTic)
+   ON_COMMAND (114, NodeEcho)
    ON_COMMAND (115, Add)
    ON_COMMAND (116, Delete)
    ON_COMMAND (117, List)
@@ -890,7 +1166,11 @@ USHORT CNodesDlg::OnInitDialog (VOID)
    EM_SetTextLimit (106, sizeof (Data->Location) - 1);
    EM_SetTextLimit (125, sizeof (Data->Phone) - 1);
    EM_SetTextLimit (127, sizeof (Data->Flags) - 1);
-   EM_SetTextLimit (111, sizeof (Data->NewAreasFilter) - 1);
+   EM_SetTextLimit (19,  sizeof (Data->SessionPwd) - 1);
+   EM_SetTextLimit (21,  sizeof (Data->InPktPwd) - 1);
+   EM_SetTextLimit (121, sizeof (Data->OutPktPwd) - 1);
+   EM_SetTextLimit (23,  sizeof (Data->AreaMgrPwd) - 1);
+   EM_SetTextLimit (25,  sizeof (Data->TicPwd) - 1);
 
    if ((Packer = new TPacker (Cfg->SystemPath)) != NULL) {
       if (Packer->First () == TRUE)
@@ -899,6 +1179,11 @@ USHORT CNodesDlg::OnInitDialog (VOID)
          } while (Packer->Next ());
       delete Packer;
    }
+
+   if (Cfg->MailAddress.First () == TRUE)
+      do {
+         CB_AddString (17, Cfg->MailAddress.String);
+      } while (Cfg->MailAddress.Next ());
 
    if (Data->First () == FALSE)
       Data->New ();
@@ -911,11 +1196,15 @@ USHORT CNodesDlg::OnInitDialog (VOID)
 VOID CNodesDlg::OnOK (VOID)
 {
    CHAR NewAddress[64];
+   class TNodes *Back;
 
    GetDlgItemText (102, GetDlgItemTextLength (102), NewAddress);
    if (stricmp (NewAddress, Data->Address)) {
-      Data->Delete ();
-      Data->New ();
+      if ((Back = new TNodes (Cfg->NodelistPath)) != NULL) {
+         Back->Read (Data->Address);
+         Back->Delete ();
+         delete Back;
+      }
       ReadData ();
       Data->Add ();
    }
@@ -936,8 +1225,13 @@ VOID CNodesDlg::DisplayData (VOID)
    SetDlgItemText (106, Data->Location);
    SetDlgItemText (125, Data->Phone);
    SetDlgItemText (127, Data->Flags);
-   BM_SetCheck (109, Data->CreateNewAreas);
-   SetDlgItemText (111, Data->NewAreasFilter);
+   SetDlgItemText (17,  Data->MailerAka);
+   SetDlgItemText (19,  Data->SessionPwd);
+   SetDlgItemText (21,  Data->InPktPwd);
+   SetDlgItemText (121, Data->OutPktPwd);
+   SetDlgItemText (23,  Data->AreaMgrPwd);
+   SetDlgItemText (25,  Data->TicPwd);
+   SetDlgItemText (27,  Data->DialCmd);
 
    if ((Packer = new TPacker (Cfg->SystemPath)) != NULL) {
       if (Packer->Read (Data->Packer) == TRUE)
@@ -958,8 +1252,13 @@ VOID CNodesDlg::ReadData (VOID)
    GetDlgItemText (106, GetDlgItemTextLength (106), Data->Location);
    GetDlgItemText (125, GetDlgItemTextLength (125), Data->Phone);
    GetDlgItemText (127, GetDlgItemTextLength (127), Data->Flags);
-   Data->CreateNewAreas = (UCHAR)BM_QueryCheck (109);
-   GetDlgItemText (111, GetDlgItemTextLength (111), Data->NewAreasFilter);
+   GetDlgItemText (17,  GetDlgItemTextLength (17),  Data->MailerAka);
+   GetDlgItemText (19,  GetDlgItemTextLength (19),  Data->SessionPwd);
+   GetDlgItemText (21,  GetDlgItemTextLength (21),  Data->InPktPwd);
+   GetDlgItemText (121, GetDlgItemTextLength (121), Data->OutPktPwd);
+   GetDlgItemText (23,  GetDlgItemTextLength (23),  Data->AreaMgrPwd);
+   GetDlgItemText (25,  GetDlgItemTextLength (25),  Data->TicPwd);
+   GetDlgItemText (27,  GetDlgItemTextLength (27),  Data->DialCmd);
 
    GetDlgItemText (112, GetDlgItemTextLength (112), Temp);
    if ((Packer = new TPacker (Cfg->SystemPath)) != NULL) {
@@ -991,6 +1290,22 @@ VOID CNodesDlg::Add (VOID)
    }
 }
 
+VOID CNodesDlg::Copy (VOID)
+{
+   class CAddNodeDlg *Dlg;
+
+   if ((Dlg = new CAddNodeDlg (m_hWnd)) != NULL) {
+      if (Dlg->DoModal () == TRUE) {
+         strcpy (Data->Address, Dlg->Address);
+         strcpy (Data->SystemName, Dlg->SystemName);
+         strcpy (Data->SysopName, Dlg->SysopName);
+         Data->Add ();
+         DisplayData ();
+      }
+      delete Dlg;
+   }
+}
+
 VOID CNodesDlg::Delete (VOID)
 {
    if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
@@ -1005,6 +1320,28 @@ VOID CNodesDlg::Other (VOID)
 
    if ((Dlg = new CNodeOtherDlg (m_hWnd)) != NULL) {
       Dlg->Data = Data;
+      Dlg->DoModal ();
+      delete Dlg;
+   }
+}
+
+VOID CNodesDlg::NodeEcho (VOID)
+{
+   class CNodeEchoDlg *Dlg;
+
+   if ((Dlg = new CNodeEchoDlg (m_hWnd)) != NULL) {
+      Dlg->Nodes = Data;
+      Dlg->DoModal ();
+      delete Dlg;
+   }
+}
+
+VOID CNodesDlg::NodeTic (VOID)
+{
+   class CNodeTicDlg *Dlg;
+
+   if ((Dlg = new CNodeTicDlg (m_hWnd)) != NULL) {
+      Dlg->Nodes = Data;
       Dlg->DoModal ();
       delete Dlg;
    }
@@ -1210,6 +1547,132 @@ VOID CNodeOtherDlg::OnOK (VOID)
    Data->ImportPOP3Mail = (UCHAR)BM_QueryCheck (103);
    Data->UseInetAddress = (UCHAR)BM_QueryCheck (104);
    GetDlgItemText (106, GetDlgItemTextLength (106), Data->Pop3Pwd);
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+
+CNodeEchoDlg::CNodeEchoDlg (HWND p_hWnd) : CDialog ("59", p_hWnd)
+{
+}
+
+USHORT CNodeEchoDlg::OnInitDialog (VOID)
+{
+   USHORT i;
+   ULONG Test;
+
+   Center ();
+
+   SPBM_SetLimits (103, 65535L, 0L);
+   EM_SetTextLimit (175, sizeof (Nodes->NewAreasFilter) - 1);
+
+   SPBM_SetCurrentValue (103, Nodes->Level);
+
+   for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
+      if (Nodes->AccessFlags & Test)
+         BM_SetCheck (i, TRUE);
+   }
+   for (i = 137, Test = 0x80000000L; i <= 168; i++, Test >>= 1) {
+      if (Nodes->DenyFlags & Test)
+         BM_SetCheck (i, TRUE);
+   }
+
+   SetDlgItemText (175, Nodes->NewAreasFilter);
+   BM_SetCheck (169, Nodes->CreateNewAreas);
+   BM_SetCheck (170, Nodes->LinkNewEcho);
+   BM_SetCheck (171, Nodes->EchoMaint);
+   BM_SetCheck (172, Nodes->ChangeEchoTag);
+
+   return (TRUE);
+}
+
+VOID CNodeEchoDlg::OnOK (VOID)
+{
+   USHORT i;
+   ULONG Test;
+
+   Nodes->Level = (USHORT)SPBM_QueryValue (103);
+
+   Nodes->AccessFlags = 0L;
+   for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
+      if (BM_QueryCheck (i) == TRUE)
+         Nodes->AccessFlags |= Test;
+   }
+   Nodes->DenyFlags = 0L;
+   for (i = 137, Test = 0x80000000L; i <= 168; i++, Test >>= 1) {
+      if (BM_QueryCheck (i) == TRUE)
+         Nodes->DenyFlags |= Test;
+   }
+
+   GetDlgItemText (175, GetDlgItemTextLength (175), Nodes->NewAreasFilter);
+   Nodes->CreateNewAreas = (UCHAR)BM_QueryCheck (169);
+   Nodes->LinkNewEcho = (UCHAR)BM_QueryCheck (170);
+   Nodes->EchoMaint = (UCHAR)BM_QueryCheck (171);
+   Nodes->ChangeEchoTag = (UCHAR)BM_QueryCheck (172);
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+
+CNodeTicDlg::CNodeTicDlg (HWND p_hWnd) : CDialog ("60", p_hWnd)
+{
+}
+
+USHORT CNodeTicDlg::OnInitDialog (VOID)
+{
+   USHORT i;
+   ULONG Test;
+
+   Center ();
+
+   SPBM_SetLimits (103, 65535L, 0L);
+   EM_SetTextLimit (175, sizeof (Nodes->NewTicFilter) - 1);
+
+   SPBM_SetCurrentValue (103, Nodes->TicLevel);
+
+   for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
+      if (Nodes->TicAccessFlags & Test)
+         BM_SetCheck (i, TRUE);
+   }
+   for (i = 137, Test = 0x80000000L; i <= 168; i++, Test >>= 1) {
+      if (Nodes->TicDenyFlags & Test)
+         BM_SetCheck (i, TRUE);
+   }
+
+   SetDlgItemText (175, Nodes->NewTicFilter);
+   BM_SetCheck (169, Nodes->CreateNewTic);
+   BM_SetCheck (170, Nodes->LinkNewTic);
+   BM_SetCheck (171, Nodes->TicMaint);
+   BM_SetCheck (172, Nodes->ChangeTicTag);
+
+   return (TRUE);
+}
+
+VOID CNodeTicDlg::OnOK (VOID)
+{
+   USHORT i;
+   ULONG Test;
+
+   Nodes->TicLevel = (USHORT)SPBM_QueryValue (103);
+
+   Nodes->TicAccessFlags = 0L;
+   for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
+      if (BM_QueryCheck (i) == TRUE)
+         Nodes->TicAccessFlags |= Test;
+   }
+   Nodes->TicDenyFlags = 0L;
+   for (i = 137, Test = 0x80000000L; i <= 168; i++, Test >>= 1) {
+      if (BM_QueryCheck (i) == TRUE)
+         Nodes->TicDenyFlags |= Test;
+   }
+
+   GetDlgItemText (175, GetDlgItemTextLength (175), Nodes->NewTicFilter);
+   Nodes->CreateNewTic = (UCHAR)BM_QueryCheck (169);
+   Nodes->LinkNewTic = (UCHAR)BM_QueryCheck (170);
+   Nodes->TicMaint = (UCHAR)BM_QueryCheck (171);
+   Nodes->ChangeTicTag = (UCHAR)BM_QueryCheck (172);
 
    EndDialog (TRUE);
 }
@@ -1908,14 +2371,21 @@ USHORT CAreafixDlg::OnInitDialog (VOID)
 
    EM_SetTextLimit (104, sizeof (Cfg->AreasBBS) - 1);
    EM_SetTextLimit (112, sizeof (Cfg->NewAreasPath) - 1);
+   EM_SetTextLimit (36, sizeof (Cfg->AreafixHelp) - 1);
+   EM_SetTextLimit (39, sizeof (Cfg->AreafixNames) - 1);
    CB_AddString (110, "Squish<tm>");
    CB_AddString (110, "JAM");
    CB_AddString (110, "Fido (*.msg)");
    CB_AddString (110, "AdeptXBBS");
 
    SetDlgItemText (104, Cfg->AreasBBS);
+   SetDlgItemText (36, Cfg->AreafixHelp);
+   SetDlgItemText (39, Cfg->AreafixNames);
    BM_SetCheck (101, Cfg->UseAreasBBS);
    BM_SetCheck (102, Cfg->UpdateAreasBBS);
+   BM_SetCheck (34, Cfg->AreafixActive);
+   BM_SetCheck (37, Cfg->AllowRescan);
+   BM_SetCheck (40, Cfg->CheckZones);
    switch (Cfg->NewAreasStorage) {
       case ST_SQUISH:
          CB_SelectItem (110, 0);
@@ -1938,8 +2408,13 @@ USHORT CAreafixDlg::OnInitDialog (VOID)
 VOID CAreafixDlg::OnOK (VOID)
 {
    GetDlgItemText (104, GetDlgItemTextLength (104), Cfg->AreasBBS);
+   GetDlgItemText (36, GetDlgItemTextLength (36), Cfg->AreafixHelp);
+   GetDlgItemText (39, GetDlgItemTextLength (39), Cfg->AreafixNames);
    Cfg->UseAreasBBS = (UCHAR)BM_QueryCheck (101);
    Cfg->UpdateAreasBBS = (UCHAR)BM_QueryCheck (102);
+   Cfg->AreafixActive = (UCHAR)BM_QueryCheck (34);
+   Cfg->AllowRescan = (UCHAR)BM_QueryCheck (37);
+   Cfg->CheckZones = (UCHAR)BM_QueryCheck (40);
    switch (CB_QuerySelection (110)) {
       case 0:
          Cfg->NewAreasStorage = ST_SQUISH;
@@ -1955,6 +2430,45 @@ VOID CAreafixDlg::OnOK (VOID)
          break;
    }
    GetDlgItemText (112, GetDlgItemTextLength (112), Cfg->NewAreasPath);
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+// TIC Manager (Raid)
+// ----------------------------------------------------------------------
+
+CRaidDlg::CRaidDlg (HWND p_hWnd) : CDialog ("58", p_hWnd)
+{
+}
+
+VOID CRaidDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 58);
+}
+
+USHORT CRaidDlg::OnInitDialog (VOID)
+{
+   Center ();
+
+   EM_SetTextLimit (112, sizeof (Cfg->NewTicPath) - 1);
+   EM_SetTextLimit (36, sizeof (Cfg->RaidHelp) - 1);
+   EM_SetTextLimit (39, sizeof (Cfg->RaidNames) - 1);
+
+   BM_SetCheck (34, Cfg->RaidActive);
+   SetDlgItemText (36, Cfg->RaidHelp);
+   SetDlgItemText (39, Cfg->RaidNames);
+   SetDlgItemText (112, Cfg->NewTicPath);
+
+   return (TRUE);
+}
+
+VOID CRaidDlg::OnOK (VOID)
+{
+   Cfg->RaidActive = (UCHAR)BM_QueryCheck (34);
+   GetDlgItemText (36, GetDlgItemTextLength (36), Cfg->RaidHelp);
+   GetDlgItemText (39, GetDlgItemTextLength (39), Cfg->RaidNames);
+   GetDlgItemText (112, GetDlgItemTextLength (112), Cfg->NewTicPath);
 
    EndDialog (TRUE);
 }
@@ -2142,6 +2656,8 @@ BEGIN_MESSAGE_MAP (COriginDlg, CDialog)
    ON_COMMAND (105, Remove)
 #if defined(__OS2__)
    ON_CONTROL (LN_SELECT, 107, ItemSelected)
+#elif defined(__NT__)
+   ON_NOTIFY (LBN_SELCHANGE, 107, ItemSelected)
 #endif
 END_MESSAGE_MAP ()
 
@@ -2229,5 +2745,237 @@ VOID COriginDlg::OnOK (VOID)
    EndDialog (TRUE);
 }
 
+// ----------------------------------------------------------------------
+// Nodelist flags
+// ----------------------------------------------------------------------
 
+class CModifyFlagsDlg : public CDialog
+{
+public:
+   CModifyFlagsDlg (HWND p_hWnd);
+
+   CHAR   Flags[64];
+   CHAR   Cmd[64];
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+};
+
+BEGIN_MESSAGE_MAP (CNodeFlagsDlg, CDialog)
+   ON_COMMAND (102, Add)
+   ON_COMMAND (104, Remove)
+   ON_COMMAND (103, Change)
+END_MESSAGE_MAP ()
+
+CNodeFlagsDlg::CNodeFlagsDlg (HWND p_hWnd) : CDialog ("55", p_hWnd)
+{
+}
+
+VOID CNodeFlagsDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 55);
+}
+
+USHORT CNodeFlagsDlg::OnInitDialog (VOID)
+{
+   Center ();
+   class TNodeFlags *Data;
+
+   EM_SetTextLimit (106, sizeof (Cfg->CallIf) - 1);
+   EM_SetTextLimit (108, sizeof (Cfg->DontCallIf) - 1);
+
+   LVM_AllocateColumns (101, 2);
+   LVM_InsertColumn (101, "Flags", LVC_LEFT);
+   LVM_InsertColumn (101, "Dial command", LVC_LEFT);
+
+   if ((Data = new TNodeFlags (Cfg->SystemPath)) != NULL) {
+      if (Data->First () == TRUE)
+         do {
+            LVM_InsertItem (101);
+
+            LVM_SetItemText (101, 0, Data->Flags);
+            LVM_SetItemText (101, 1, Data->Cmd);
+         } while (Data->Next () == TRUE);
+      delete Data;
+   }
+
+   LVM_InvalidateView (101);
+
+   SetDlgItemText (106, Cfg->CallIf);
+   SetDlgItemText (108, Cfg->DontCallIf);
+
+   return (TRUE);
+}
+
+VOID CNodeFlagsDlg::OnOK (VOID)
+{
+   USHORT i, count;
+   CHAR Temp[128];
+   class TNodeFlags *Data;
+
+   if ((Data = new TNodeFlags (Cfg->SystemPath)) != NULL) {
+      Data->DeleteAll ();
+      count = (USHORT)LVM_QueryItemCount (101);
+      for (i = 0; i < count; i++) {
+         LVM_QueryItemText (101, i, 0, Temp);
+         strcpy (Data->Flags, Temp);
+         LVM_QueryItemText (101, i, 1, Temp);
+         strcpy (Data->Cmd, Temp);
+         Data->Add ();
+      }
+      Data->Save ();
+      delete Data;
+   }
+
+   GetDlgItemText (106, Cfg->CallIf, GetDlgItemTextLength (106));
+   GetDlgItemText (108, Cfg->DontCallIf, GetDlgItemTextLength (108));
+
+   EndDialog (TRUE);
+}
+
+VOID CNodeFlagsDlg::Add (VOID)
+{
+   class CModifyFlagsDlg *Dlg;
+
+   if ((Dlg = new CModifyFlagsDlg (m_hWnd)) != NULL) {
+      if (Dlg->DoModal () == TRUE) {
+         LVM_InsertItem (101);
+         LVM_SetItemText (101, 0, Dlg->Flags);
+         LVM_SetItemText (101, 1, Dlg->Cmd);
+         LVM_InvalidateView (101);
+      }
+      delete Dlg;
+   }
+}
+
+VOID CNodeFlagsDlg::Change (VOID)
+{
+   USHORT item;
+   CHAR Temp[64];
+   class CModifyFlagsDlg *Dlg;
+
+   if ((item = (USHORT)LVM_QuerySelectedItem (101)) != -1) {
+      if ((Dlg = new CModifyFlagsDlg (m_hWnd)) != NULL) {
+         LVM_QueryItemText (101, item, 0, Temp);
+         strcpy (Dlg->Flags, Temp);
+         LVM_QueryItemText (101, item, 1, Temp);
+         strcpy (Dlg->Cmd, Temp);
+
+         if (Dlg->DoModal () == TRUE) {
+            LVM_SetItemText (101, item, 0, Dlg->Flags);
+            LVM_SetItemText (101, item, 1, Dlg->Cmd);
+            LVM_InvalidateView (101);
+         }
+         delete Dlg;
+      }
+   }
+}
+
+VOID CNodeFlagsDlg::Remove (VOID)
+{
+   LVM_DeleteItem (101, LVM_QuerySelectedItem (101));
+}
+
+// ----------------------------------------------------------------------
+
+CModifyFlagsDlg::CModifyFlagsDlg (HWND p_hWnd) : CDialog ("56", p_hWnd)
+{
+   Flags[0] = '\0';
+   Cmd[0] = '\0';
+}
+
+USHORT CModifyFlagsDlg::OnInitDialog (VOID)
+{
+   Center ();
+
+   EM_SetTextLimit (106, sizeof (Flags) - 1);
+   EM_SetTextLimit (102, sizeof (Cmd) - 1);
+
+   SetDlgItemText (106, Flags);
+   SetDlgItemText (102, Cmd);
+
+   return (TRUE);
+}
+
+VOID CModifyFlagsDlg::OnOK (VOID)
+{
+   GetDlgItemText (106, GetDlgItemTextLength (106), Flags);
+   GetDlgItemText (102, GetDlgItemTextLength (102), Cmd);
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+// Translation table
+// ----------------------------------------------------------------------
+
+BEGIN_MESSAGE_MAP (CTranslationDlg, CDialog)
+   ON_COMMAND (187, Add)
+   ON_COMMAND (188, Delete)
+   ON_COMMAND (189, List)
+   ON_COMMAND (190, Previous)
+   ON_COMMAND (191, Next)
+END_MESSAGE_MAP ()
+
+CTranslationDlg::CTranslationDlg (HWND p_hWnd) : CDialog ("61", p_hWnd)
+{
+   Data = NULL;
+}
+
+CTranslationDlg::~CTranslationDlg (void)
+{
+   if (Data != NULL)
+      delete Data;
+}
+
+VOID CTranslationDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 61);
+}
+
+USHORT CTranslationDlg::OnInitDialog (VOID)
+{
+   Center ();
+
+   return (TRUE);
+}
+
+VOID CTranslationDlg::OnOK (VOID)
+{
+}
+
+VOID CTranslationDlg::DisplayData (VOID)
+{
+}
+
+VOID CTranslationDlg::ReadData (VOID)
+{
+}
+
+VOID CTranslationDlg::Add (VOID)
+{
+}
+
+VOID CTranslationDlg::Copy (VOID)
+{
+}
+
+VOID CTranslationDlg::Delete (VOID)
+{
+   if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
+      DisplayData ();
+   }
+}
+
+VOID CTranslationDlg::List (VOID)
+{
+}
+
+VOID CTranslationDlg::Next (VOID)
+{
+}
+
+VOID CTranslationDlg::Previous (VOID)
+{
+}
 

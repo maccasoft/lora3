@@ -2,11 +2,14 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
+CHAR Symbol = '>';
+USHORT Column = 1;
 class TConfig *Cfg;
 
 VOID ExportFilesBBS (VOID)
 {
    FILE *fp;
+   USHORT i;
    CHAR Path[128], *p;
    ULONG Total;
    class TFileData *Data;
@@ -29,8 +32,11 @@ VOID ExportFilesBBS (VOID)
                         if ((p = (CHAR *)File->Description->First ()) == NULL)
                            p = "";
                         fprintf (fp, "%-12.12s (%3lu) %s\n", File->Name, File->DlTimes, p);
-                        while ((p = (CHAR *)File->Description->Next ()) != NULL)
-                           fprintf (fp, " >%s\n", p);
+                        while ((p = (CHAR *)File->Description->Next ()) != NULL) {
+                           for (i = 0; i < Column; i++)
+                              fputc (' ', fp);
+                           fprintf (fp, "%c%s\n", Symbol, p);
+                        }
                      } while (File->Next () == TRUE);
                   fclose (fp);
                }
@@ -70,7 +76,7 @@ VOID ImportFilesBBS (VOID)
                   while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
                      if ((p = strchr (Temp, 0x0A)) != NULL)
                         *p = '\0';
-                     if (Temp[0] != ' ') {
+                     if (Temp[0] != ' ' && Temp[0] != 0x09) {
                         if (PendingWrite == TRUE) {
                            File->Add ();
                            Total++;
@@ -123,7 +129,7 @@ VOID ImportFilesBBS (VOID)
                      }
                      else if (PendingWrite == TRUE) {
                         p = Temp;
-                        while (*p == ' ' || *p == '\t')
+                        while (*p == ' ' || *p == 0x09)
                            p++;
                         if (*p == '>' || *p == '|' || *p == '+') {
                            p++;
@@ -395,6 +401,7 @@ void main (int argc, char *argv[])
    cprintf ("\r\nLFILE; %s v%s - File maintenance utility\r\n", NAME, VERSION);
    cprintf ("       Copyright (c) 1991-96 by Marco Maccaferri. All Rights Reserved.\r\n\r\n");
 
+/*
    if (ValidateKey ("bbs", NULL, NULL) == KEY_UNREGISTERED) {
       cprintf ("* * *     WARNING: No license key found    * * *\r\n");
       if ((i = CheckExpiration ()) == 0) {
@@ -404,6 +411,7 @@ void main (int argc, char *argv[])
       else
          cprintf ("* * * You have %2d days left for evaluation * * * \r\n\a\r\n", i);
    }
+*/
 
    if (argc <= 1) {
       cprintf (" * Command-line parameters:\r\n\r\n");
@@ -414,8 +422,10 @@ void main (int argc, char *argv[])
       cprintf ("        -E        Export to FILES.BBS\r\n");
       cprintf ("        -P[K]     Pack (compress) file base\r\n");
       cprintf ("                  K=Purge\r\n");
-      cprintf ("        -K<d>     Purge files that area <d> days old\r\n");
+      cprintf ("        -K<d>     Purge files that are <d> days old\r\n");
       cprintf ("        -L        Create a list of available files\r\n");
+      cprintf ("        -C<n>     Multiline descriptions begin at column <n>\r\n");
+      cprintf ("        -S<c>     Use <c> as the identifier of a multiline description\r\n");
 
       cprintf ("\r\n * Please refer to the documentation for a more complete command summary\r\n\r\n");
    }
@@ -423,6 +433,9 @@ void main (int argc, char *argv[])
       for (i = 1; i < argc; i++) {
          if (argv[i][0] == '-' || argv[i][0] == '/') {
             switch (toupper (argv[i][1])) {
+               case 'C':
+                  Column = (USHORT)(atoi (&argv[i][2]));
+                  break;
                case 'I':
                   Import = TRUE;
                   break;
@@ -440,6 +453,9 @@ void main (int argc, char *argv[])
                   Pack = TRUE;
                   if (toupper (argv[i][2]) == 'K')
                      Purge = TRUE;
+                  break;
+               case 'S':
+                  Symbol = argv[i][2];
                   break;
                case 'U':
                   Update = TRUE;

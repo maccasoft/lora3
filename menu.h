@@ -82,10 +82,18 @@ typedef struct {
 #define MNU_TOGGLEMAILCHECK      45
 #define MNU_TOGGLEFILECHECK      46
 #define MNU_SETBIRTHDATE         47
+#define MNU_SETSCREENLENGTH      48
+#define MNU_TOGGLERIP            49
 #define MNU_TELNET               50
 #define MNU_FINGER               51
 #define MNU_FTP                  52
 #define MNU_GOPHER               53
+#define MNU_IRC                  54
+#define MNU_MAILNEXT             55
+#define MNU_MAILPREVIOUS         56
+#define MNU_MAILINDIVIDUAL       57
+#define MNU_MAILNONSTOP          58
+#define MNU_MAILREPLY            59
 #define MNU_OLRDOWNLOADASCII     60
 #define MNU_OLRDOWNLOADBW        61
 #define MNU_OLRDOWNLOADQWK       62
@@ -97,9 +105,11 @@ typedef struct {
 #define MNU_OLRRESTRICTDATE      68
 #define MNU_INQUIREPERSONAL      70
 #define MNU_INQUIRETEXT          71
+#define MNU_MAILWRITELOCAL       78
+#define MNU_MAILWRITEINTERNET    79
 #define MNU_MAILREAD             80
 #define MNU_MAILDELETE           81
-#define MNU_MAILWRITE            82
+#define MNU_MAILWRITEFIDONET     82
 #define MNU_MAILLIST             83
 #define MNU_MSGBACKWARD          84
 #define MNU_CLEARSTACK           85
@@ -133,6 +143,7 @@ typedef struct {
 #define MNU_SETPROTOCOL          113
 #define MNU_SETSIGNATURE         114
 #define MNU_SETVIDEOMODE         115
+#define MNU_APPENDMENU           116
 
 class DLL_EXPORT TMenu
 {
@@ -157,7 +168,7 @@ public:
    VOID   Delete (VOID);
    USHORT First (VOID);
    VOID   Insert (VOID);
-   USHORT Load (PSZ pszName);
+   USHORT Load (PSZ pszName, USHORT fAppend = FALSE);
    VOID   New (USHORT usNewPrompt = FALSE);
    USHORT Next (VOID);
    USHORT Previous (VOID);

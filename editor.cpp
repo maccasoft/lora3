@@ -17,7 +17,7 @@ TEditor::TEditor (void)
    Wrap[0] = '\0';
    StartCol = StartRow = 1;
    Width = 79;
-   Height = 25;
+   Height = 24;
    UseFullScreen = FALSE;
 }
 
@@ -29,7 +29,7 @@ TEditor::~TEditor (void)
 USHORT TEditor::AppendText (VOID)
 {
    Text.Last ();
-   Embedded->Printf ("\n\x16\x01\012Continue entering text. Type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself when you are\ndone. (Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+   Embedded->Printf ("\n\x16\x01\012Continue entering text. Type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself when you are\ndone. (Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
    return (InputText ());
 }
 
@@ -405,6 +405,30 @@ VOID TEditor::GotoXY (USHORT x, USHORT y)
    Embedded->Printf ("\x16\x08%c%c", y + StartRow - 1, x + StartCol - 1);
 }
 
+VOID TEditor::UpdateLine (USHORT y, PSZ pszLine)
+{
+   USHORT i;
+
+   if (strchr (pszLine, '>') != NULL)
+      Embedded->BufferedPrintf ("\026\001\017");
+   else
+      Embedded->BufferedPrintf ("\026\001\003");
+
+   if (cy == y) {
+      for (i = 0; i < strlen (pszLine); i++) {
+         if (ActualLine[i] != pszLine[i])
+            break;
+      }
+      GotoXY (i + 1, y);
+      Embedded->BufferedPrintf ("%s\x16\x07", &pszLine[i]);
+      strcpy (ActualLine, pszLine);
+   }
+   else {
+      GotoXY (1, y);
+      Embedded->BufferedPrintf ("\x16\x07%s", pszLine);
+   }
+}
+
 VOID TEditor::Display (USHORT start)
 {
    USHORT y, nCol, curLine;
@@ -436,8 +460,7 @@ VOID TEditor::Display (USHORT start)
                Crc = StringCrc32 (Line, 0xFFFFFFFFL);
                if (Crc != LineCrc[y] && y <= Height) {
                   LineCrc[y] = Crc;
-                  GotoXY (1, y);
-                  Embedded->BufferedPrintf ("\x16\x07%s", Line);
+                  UpdateLine (y, Line);
                }
                y++;
             }
@@ -465,8 +488,7 @@ VOID TEditor::Display (USHORT start)
                   Crc = StringCrc32 (Line, 0xFFFFFFFFL);
                   if (Crc != LineCrc[y] && y <= Height) {
                      LineCrc[y] = Crc;
-                     GotoXY (1, y);
-                     Embedded->BufferedPrintf ("\x16\x07%s", Line);
+                     UpdateLine (y, Line);
                   }
                   y++;
                }
@@ -957,8 +979,17 @@ USHORT TEditor::FullScreen (VOID)
 
             default:
                if (c >= 32 || c == 0x0D) {
-                  if (c == 0x0D)
+                  if (c == 0x0D) {
                      c = '\n';
+                     if (cy >= Height) {
+                        cy--;
+                        lineStart++;
+                        SetCursor (lineStart);
+                        Display (lineStart);
+                     }
+                     else
+                        SetCursor (lineStart);
+                  }
                   memmove (Cursor + 1, Cursor, strlen (Cursor) + 1);
                   *Cursor++ = (CHAR)c;
                   Display (lineStart);
@@ -1208,7 +1239,7 @@ USHORT TMsgEditor::Modify (VOID)
       strcpy (To, Msg->To);
       strcpy (Subject, Msg->Subject);
 
-      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
       if ((RetVal = InputText ()) == FALSE)
          Save ();
    }
@@ -1265,10 +1296,9 @@ VOID TMsgEditor::QuoteText (VOID)
 
 USHORT TMsgEditor::Reply (VOID)
 {
+   FILE *fp;
    USHORT RetVal = FALSE;
    CHAR Temp[128], Init[8], *p;
-
-   Text.Clear ();
 
    _dos_getdate (&d_date);
    _dos_gettime (&d_time);
@@ -1309,19 +1339,35 @@ USHORT TMsgEditor::Reply (VOID)
             p = (CHAR *)Msg->Text.Next ();
       } while (p != NULL);
 
+   Text.Clear ();
    if ((p = (CHAR *)Msg->Text.First ()) != NULL)
       do {
          sprintf (Temp, "%s%s", Init, p);
-         Msg->Text.Replace (Temp, (USHORT)(strlen (Temp) + 1));
+         if (UseFullScreen == TRUE)
+            Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+         else
+            Msg->Text.Replace (Temp, (USHORT)(strlen (Temp) + 1));
       } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
 
    if (UseFullScreen == TRUE) {
       Number = Msgn = Msg->Number () + 1L;
       if (Cfg->ExternalEditor == TRUE && Cfg->EditorCmd[0] != '\0') {
+         // Scrive il file msginf contenente le informazioni sul mittente e destinatario
+         // del messaggio che si sta scrivendo.
+         if ((fp = fopen ("msginf", "wt")) != NULL) {
+            fprintf (fp, "%s\n", UserName);
+            fprintf (fp, "%s\n", To);
+            fprintf (fp, "%s\n", Subject);
+            fprintf (fp, "%s\n", "1");
+            fprintf (fp, "%s\n", AreaTitle);
+            fprintf (fp, "%s\n", "NO");
+            fclose (fp);
+         }
          if (ExternalEditor (Cfg->EditorCmd) == TRUE)
             Save ();
          else
             Embedded->Printf ("\n\026\001\014Message aborted!\n");
+         unlink ("msginf");
       }
       else {
          if (FullScreen () == TRUE)
@@ -1331,7 +1377,7 @@ USHORT TMsgEditor::Reply (VOID)
       }
    }
    else {
-      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
       if ((RetVal = InputText ()) == FALSE)
          Save ();
    }
@@ -1341,6 +1387,7 @@ USHORT TMsgEditor::Reply (VOID)
 
 USHORT TMsgEditor::Write (VOID)
 {
+   FILE *fp;
    USHORT RetVal = FALSE;
 
    _dos_getdate (&d_date);
@@ -1361,10 +1408,22 @@ USHORT TMsgEditor::Write (VOID)
          if (UseFullScreen == TRUE) {
             Number = Msgn = Msg->Number () + 1L;
             if (Cfg->ExternalEditor == TRUE && Cfg->EditorCmd[0] != '\0') {
+               // Scrive il file msginf contenente le informazioni sul mittente e destinatario
+               // del messaggio che si sta scrivendo.
+               if ((fp = fopen ("msginf", "wt")) != NULL) {
+                  fprintf (fp, "%s\n", UserName);
+                  fprintf (fp, "%s\n", To);
+                  fprintf (fp, "%s\n", Subject);
+                  fprintf (fp, "%s\n", "1");
+                  fprintf (fp, "%s\n", AreaTitle);
+                  fprintf (fp, "%s\n", "NO");
+                  fclose (fp);
+               }
                if (ExternalEditor (Cfg->EditorCmd) == TRUE)
                   Save ();
                else
                   Embedded->Printf ("\n\026\001\014Message aborted!\n");
+               unlink ("msginf");
             }
             else {
                if (FullScreen () == TRUE)
@@ -1374,7 +1433,7 @@ USHORT TMsgEditor::Write (VOID)
             }
          }
          else {
-            Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+            Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
             if ((RetVal = InputText ()) == FALSE)
                Save ();
          }
@@ -1432,8 +1491,8 @@ VOID TMsgEditor::Save (VOID)
       Msg->Add (Text);
       Number = Msg->Highest ();
 
-      Log->Write (":Written message #%lu", Number);
-      Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%ld WRITTEN TO DISK >>>\n\006\007\006\007", Number);
+      Log->Write (":Written message #%lu (%lu)", Msg->UidToMsgn (Number), Number);
+      Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%ld WRITTEN TO DISK >>>\n\006\007\006\007", Msg->UidToMsgn (Number));
    }
 }
 
@@ -1487,7 +1546,7 @@ VOID TCommentEditor::Menu (VOID)
                break;
             case 'N':
                Text.Clear ();
-               Embedded->Printf ("\n\x16\x01\012Type your comment now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+               Embedded->Printf ("\n\x16\x01\012Type your comment now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
                if (InputText () == FALSE) {
                   Save ();
                   Stop = TRUE;
@@ -1527,7 +1586,7 @@ USHORT TCommentEditor::Write (VOID)
    USHORT RetVal;
 
    Text.Clear ();
-   Embedded->Printf ("\n\x16\x01\012Type your comment now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+   Embedded->Printf ("\n\x16\x01\012Type your comment now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
    if ((RetVal = InputText ()) == FALSE)
       Save ();
 
@@ -1543,8 +1602,11 @@ TMailEditor::TMailEditor (void)
    Number = 0L;
    strcpy (Origin, "Default Origin");
    strcpy (Address, "0:0/0");
-   To[0] = ToAddress[0] = '\0';
+   ToAddress[0] = '\0';
+   Subject[0] = To[0] = '\0';
    Msg = NULL;
+   Type = MAIL_LOCAL;
+   Private = FALSE;
 
    Storage = ST_SQUISH;
    strcpy (BasePath, "email");
@@ -1595,14 +1657,37 @@ USHORT TMailEditor::InputSubject (VOID)
 
 USHORT TMailEditor::InputTo (VOID)
 {
-   USHORT RetVal = FALSE;
+   USHORT RetVal = FALSE, Loop;
+   class TUser *User;
 
    do {
+      Loop = FALSE;
       Embedded->Printf ("%s\026\001\003     To: \026\001\016", (To[0] == '\0') ? "" : "\n");
-      Embedded->Input (To, (USHORT)(sizeof (To) - 1), 0);
-      if (strchr (To, ':') != NULL || strchr (To, '/') != NULL)
-         Embedded->Printf ("\026\001\014Please write the user name or internet address.");
-   } while (strchr (To, ':') != NULL || strchr (To, '/') != NULL);
+      Embedded->Input (To, (USHORT)(sizeof (To) - 1), (Type == MAIL_LOCAL) ? INP_FANCY : 0);
+      if (To[0] != '\0') {
+         if (Type == MAIL_INTERNET) {
+            if (strchr (To, '@') == NULL) {
+               Embedded->Printf ("\026\001\014Please write the destination Internet address in the form user@host.domain.");
+               Loop = TRUE;
+            }
+         }
+         else {
+            if (Type == MAIL_LOCAL) {
+               if ((User = new TUser (Cfg->UserFile)) != NULL) {
+                  if (User->GetData (To) == FALSE) {
+                     Embedded->Printf ("\026\001\014The user %s doesn't exists on this system.", To);
+                     Loop = TRUE;
+                  }
+                  delete User;
+               }
+            }
+            if (strchr (To, ':') != NULL || strchr (To, '/') != NULL) {
+               Embedded->Printf ("\026\001\014Please write the destination user name.");
+               Loop = TRUE;
+            }
+         }
+      }
+   } while (To[0] != '\0' && Loop == TRUE && Embedded->AbortSession () == FALSE);
 
    if (To[0] != '\0')
       RetVal = TRUE;
@@ -1613,13 +1698,32 @@ USHORT TMailEditor::InputTo (VOID)
 USHORT TMailEditor::InputAddress (VOID)
 {
    USHORT RetVal = FALSE;
+   CHAR Temp[64];
+   class TNodes *Nodes;
 
-   Embedded->Printf ("%s\026\001\016Enter destination address ([zone:]net/node[.point]).\n", (ToAddress[0] == '\0') ? "" : "\n");
-   Embedded->Printf ("\026\001\003Address: \026\001\016");
-   Embedded->Input (ToAddress, (USHORT)(sizeof (ToAddress) - 1), 0);
+   do {
+      Embedded->Printf ("%s\026\001\016Enter destination address ([zone:]net/node[.point]).\n", (ToAddress[0] == '\0') ? "" : "\n");
+      Embedded->Printf ("\026\001\003Address: \026\001\016");
+      Embedded->Input (Temp, (USHORT)(sizeof (Temp) - 1), 0);
+      if (Temp[0] != '\0') {
+         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+            if (Nodes->Read (Temp) == TRUE) {
+               Embedded->Printf ("\026\001\017%s, %s (%s)\nIs this correct", Nodes->Address, Nodes->SystemName, Nodes->Location);
+               if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_YES)
+                  RetVal = TRUE;
+            }
+            else {
+               Embedded->Printf ("\026\001\014The node %s was not found in the nodelist on this system\nDo you want to write the message anyway", Temp);
+               if (Embedded->GetAnswer (ASK_DEFNO) == ANSWER_YES)
+                  RetVal = TRUE;
+            }
+            delete Nodes;
+         }
+      }
+   } while (Temp[0] != '\0' && RetVal == FALSE && Embedded->AbortSession () == FALSE);
 
-   if (ToAddress[0] != '\0')
-      RetVal = TRUE;
+   if (RetVal == TRUE)
+      strcpy (ToAddress, Temp);
 
    return (RetVal);
 }
@@ -1716,7 +1820,7 @@ USHORT TMailEditor::Modify (VOID)
       strcpy (To, Msg->To);
       strcpy (Subject, Msg->Subject);
 
-      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
       if ((RetVal = InputText ()) == FALSE)
          Save ();
    }
@@ -1773,22 +1877,63 @@ VOID TMailEditor::QuoteText (VOID)
 
 USHORT TMailEditor::Reply (VOID)
 {
+   FILE *fp;
    USHORT RetVal = FALSE;
    CHAR Temp[128], Init[16], *p;
 
    _dos_getdate (&d_date);
    _dos_gettime (&d_time);
+   Cfg->MailAddress.First ();
 
    strcpy (To, Msg->From);
-   if (Msg->FromAddress[0] != '\0')
+   if (strchr (Msg->FromAddress, '@') != NULL) {
+      strcpy (To, Msg->FromAddress);
+      strcpy (ToAddress, Cfg->MailAddress.String);
+      Type = MAIL_INTERNET;
+   }
+   else if (strchr (Msg->From, '@') != NULL) {
+      strcpy (To, Msg->From);
       strcpy (ToAddress, Msg->FromAddress);
+      Type = MAIL_INTERNET;
+   }
+   else {
+      strcpy (To, Msg->From);
+      strcpy (ToAddress, Msg->FromAddress);
+      Type = MAIL_FIDONET;
+      do {
+         if (!stricmp (Cfg->MailAddress.String, ToAddress)) {
+            Type = MAIL_LOCAL;
+            break;
+         }
+      } while (Cfg->MailAddress.Next () == TRUE);
+   }
    strcpy (Subject, Msg->Subject);
+
+   if (Type == MAIL_FIDONET) {
+      Embedded->Printf ("\n\026\001\014You are entering a message into an \026\001\015E-MAIL \026\001\014area to someone\n");
+      Embedded->Printf ("on another \026\001\015FidoNet \026\001\014BBS.\n\n");
+   }
+   else if (Type == MAIL_INTERNET) {
+      Embedded->Printf ("\n\026\001\014You are entering a message into an \026\001\015E-MAIL \026\001\014area to someone\n");
+      Embedded->Printf ("on another \026\001\015Internet \026\001\014site.\n\n");
+   }
+   else if (Type == MAIL_LOCAL) {
+      Embedded->Printf ("\n\026\001\014You are entering a message into an \026\001\015E-MAIL \026\001\014area to someone\n");
+      Embedded->Printf ("on \026\001\015this \026\001\014system.\n\n");
+   }
 
    Msg->Read (Msg->Current, 68);
 
    Embedded->Printf ("\026\001\003   From: \026\001\016%s\n", UserName);
-   Embedded->Printf ("\026\001\003     To: \026\001\016%s (%s)\n", Msg->From, Msg->FromAddress);
-   Embedded->Printf ("\026\001\003Subject: \026\001\016%s\n", Msg->Subject);
+   if (ToAddress[0] != '\0')
+      Embedded->Printf ("\026\001\003     To: \026\001\016%s (%s)\n", To, ToAddress);
+   else
+      Embedded->Printf ("\026\001\003     To: \026\001\016%s\n", To);
+   Embedded->Printf ("\026\001\003Subject: \026\001\016%s\n", Subject);
+
+   Embedded->Printf ("\n\026\001\017Private");
+   if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_YES)
+      Private = TRUE;
 
    Init[0] = (CHAR)toupper (To[0]);
    if ((p = strchr (To, ' ')) != NULL) {
@@ -1811,20 +1956,35 @@ USHORT TMailEditor::Reply (VOID)
             p = (CHAR *)Msg->Text.Next ();
       } while (p != NULL);
 
+   Text.Clear ();
    if ((p = (CHAR *)Msg->Text.First ()) != NULL)
       do {
          sprintf (Temp, "%s%s", Init, p);
-         Msg->Text.Replace (Temp, (USHORT)(strlen (Temp) + 1));
+         if (UseFullScreen == TRUE)
+            Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+         else
+            Msg->Text.Replace (Temp, (USHORT)(strlen (Temp) + 1));
       } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
 
-   Text.Clear ();
    if (UseFullScreen == TRUE) {
       Number = Msg->Number () + 1L;
       if (Cfg->ExternalEditor == TRUE && Cfg->EditorCmd[0] != '\0') {
+         // Scrive il file msginf contenente le informazioni sul mittente e destinatario
+         // del messaggio che si sta scrivendo.
+         if ((fp = fopen ("msginf", "wt")) != NULL) {
+            fprintf (fp, "%s\n", UserName);
+            fprintf (fp, "%s\n", To);
+            fprintf (fp, "%s\n", Subject);
+            fprintf (fp, "%s\n", "1");
+            fprintf (fp, "%s\n", AreaTitle);
+            fprintf (fp, "%s\n", "NO");
+            fclose (fp);
+         }
          if (ExternalEditor (Cfg->EditorCmd) == TRUE)
             Save ();
          else
             Embedded->Printf ("\n\026\001\014Message aborted!\n");
+         unlink ("msginf");
       }
       else {
          if (FullScreen () == TRUE)
@@ -1834,7 +1994,7 @@ USHORT TMailEditor::Reply (VOID)
       }
    }
    else {
-      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
       if ((RetVal = InputText ()) == FALSE)
          Save ();
    }
@@ -1845,7 +2005,7 @@ USHORT TMailEditor::Reply (VOID)
 VOID TMailEditor::Save (VOID)
 {
    CHAR *p, Temp[64];
-   USHORT CloseBase = FALSE, IsFidoNet, First, Mapped, IsInternet;
+   USHORT CloseBase = FALSE, First, Mapped;
    class TMsgBase *NetMail;
    class TAddress Address;
 
@@ -1869,10 +2029,7 @@ VOID TMailEditor::Save (VOID)
       Msg->New ();
       Msg->Local = TRUE;
 
-      IsInternet = IsFidoNet = FALSE;
-
-      if ((p = strchr (ToAddress, ':')) != NULL || strchr (ToAddress, '/') != NULL) {
-         IsFidoNet = TRUE;
+      if (Type == MAIL_FIDONET) {
          Address.Parse (ToAddress);
          if (Cfg->MailAddress.First () == TRUE) {
             if (Address.Zone == 0)
@@ -1960,14 +2117,12 @@ VOID TMailEditor::Save (VOID)
             Text.Insert (Temp, (USHORT)(strlen (Temp) + 1));
          }
       }
-      else if (strchr (To, '@') != NULL || strchr (ToAddress, '@') != NULL)
-         IsInternet = TRUE;
 
       strcpy (Msg->From, UserName);
       strcpy (Msg->To, To);
       strcpy (Msg->Subject, Subject);
 
-      if (IsInternet == FALSE) {
+      if (Type != MAIL_INTERNET) {
          strlwr (Msg->To);
          Msg->To[0] = (CHAR)toupper (Msg->To[0]);
          p = Msg->To;
@@ -1994,10 +2149,12 @@ VOID TMailEditor::Save (VOID)
       Msg->Arrived.Minute = Msg->Written.Minute = d_time.minute;
       Msg->Arrived.Second = Msg->Written.Second = d_time.second;
 
+      Msg->Private = Private;
+
       Msg->Add (Text);
       Number = Msg->Highest ();
 
-      if (IsFidoNet == TRUE) {
+      if (Type == MAIL_FIDONET) {
          NetMail = NULL;
          if (Cfg->NetMailStorage == ST_JAM)
             NetMail = new JAM (Cfg->NetMailPath);
@@ -2024,62 +2181,97 @@ VOID TMailEditor::Save (VOID)
 
 USHORT TMailEditor::Write (VOID)
 {
-   USHORT RetVal = FALSE;
+   FILE *fp;
+   USHORT RetVal = FALSE, Continue = TRUE;
 
    _dos_getdate (&d_date);
    _dos_gettime (&d_time);
 
-   Embedded->Printf ("\n\026\001\014You are entering a message into an \026\001\015E-MAIL \026\001\014area to someone on another\n");
-   Embedded->Printf ("BBS or Internet site.\n\n");
+   if (Type == MAIL_FIDONET) {
+      Embedded->Printf ("\n\026\001\014You are entering a message into an \026\001\015E-MAIL \026\001\014area to someone\n");
+      Embedded->Printf ("on another \026\001\015FidoNet \026\001\014BBS.\n\n");
+   }
+   else if (Type == MAIL_INTERNET) {
+      Embedded->Printf ("\n\026\001\014You are entering a message into an \026\001\015E-MAIL \026\001\014area to someone\n");
+      Embedded->Printf ("on another \026\001\015Internet \026\001\014site.\n\n");
+   }
+   else if (Type == MAIL_LOCAL) {
+      Embedded->Printf ("\n\026\001\014You are entering a message into an \026\001\015E-MAIL \026\001\014area to someone\n");
+      Embedded->Printf ("on \026\001\015this \026\001\014system.\n\n");
+   }
 
    Embedded->Printf ("\026\001\003   From: \026\001\016%s\n", UserName);
 
-   Subject[0] = To[0] = '\0';
-   if (InputTo () == TRUE) {
-      if (InputAddress () == TRUE) {
-         if (Embedded->AbortSession () == FALSE)
-            InputSubject ();
+   if (To[0] == '\0')
+      Continue = InputTo ();
+   else
+      Embedded->Printf ("\026\001\003     To: \026\001\016%s\n", To);
 
-         if (Embedded->AbortSession () == FALSE) {
-            Text.Clear ();
-            if (UseFullScreen == TRUE) {
-               if (Cfg->MailStorage == ST_JAM)
-                  Msg = new JAM (Cfg->MailPath);
-               else if (Cfg->MailStorage == ST_SQUISH)
-                  Msg = new SQUISH (Cfg->MailPath);
-               else if (Cfg->MailStorage == ST_FIDO)
-                  Msg = new FIDOSDM (Cfg->MailPath);
-               else if (Cfg->MailStorage == ST_ADEPT)
-                  Msg = new ADEPT (Cfg->MailPath);
-               if (Msg != NULL) {
-                  Number = Msg->Number () + 1L;
-                  delete Msg;
-                  Msg = NULL;
-               }
-               if (Cfg->ExternalEditor == TRUE && Cfg->EditorCmd[0] != '\0') {
-                  if (ExternalEditor (Cfg->EditorCmd) == TRUE)
-                     Save ();
-                  else
-                     Embedded->Printf ("\n\026\001\014Message aborted!\n");
-               }
-               else {
-                  if (FullScreen () == TRUE)
-                     Save ();
-                  else
-                     Embedded->Printf ("\n\026\001\014Message aborted!\n");
-               }
+   if (Type == MAIL_FIDONET) {
+      if (Continue == TRUE && Embedded->AbortSession () == FALSE)
+         Continue = InputAddress ();
+   }
+
+   if (Continue == TRUE && Embedded->AbortSession () == FALSE) {
+      if (Subject[0] == '\0')
+         InputSubject ();
+      else
+         Embedded->Printf ("\026\001\003Subject: \026\001\016%s\n", Subject);
+   }
+
+   Embedded->Printf ("\n\026\001\017Private");
+   if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_YES)
+      Private = TRUE;
+
+   if (Continue == TRUE && Embedded->AbortSession () == FALSE) {
+      Text.Clear ();
+      if (UseFullScreen == TRUE) {
+         if (Cfg->MailStorage == ST_JAM)
+            Msg = new JAM (Cfg->MailPath);
+         else if (Cfg->MailStorage == ST_SQUISH)
+            Msg = new SQUISH (Cfg->MailPath);
+         else if (Cfg->MailStorage == ST_FIDO)
+            Msg = new FIDOSDM (Cfg->MailPath);
+         else if (Cfg->MailStorage == ST_ADEPT)
+            Msg = new ADEPT (Cfg->MailPath);
+         if (Msg != NULL) {
+            Number = Msg->Number () + 1L;
+            delete Msg;
+            Msg = NULL;
+         }
+         if (Cfg->ExternalEditor == TRUE && Cfg->EditorCmd[0] != '\0') {
+            // Scrive il file msginf contenente le informazioni sul mittente e destinatario
+            // del messaggio che si sta scrivendo.
+            if ((fp = fopen ("msginf", "wt")) != NULL) {
+               fprintf (fp, "%s\n", UserName);
+               fprintf (fp, "%s\n", To);
+               fprintf (fp, "%s\n", Subject);
+               fprintf (fp, "%s\n", "1");
+               fprintf (fp, "%s\n", AreaTitle);
+               fprintf (fp, "%s\n", "NO");
+               fclose (fp);
             }
-            else {
-               Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
-               if ((RetVal = InputText ()) == FALSE)
-                  Save ();
-            }
+            if (ExternalEditor (Cfg->EditorCmd) == TRUE)
+               Save ();
+            else
+               Embedded->Printf ("\n\026\001\014Message aborted!\n");
+            unlink ("msginf");
+         }
+         else {
+            if (FullScreen () == TRUE)
+               Save ();
+            else
+               Embedded->Printf ("\n\026\001\014Message aborted!\n");
          }
       }
-      else
-         Embedded->Printf ("\n\026\001\014Message aborted!\n");
+      else {
+         Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+         if ((RetVal = InputText ()) == FALSE)
+            Save ();
+      }
    }
-   else
+
+   if (Continue == FALSE)
       Embedded->Printf ("\n\026\001\014Message aborted!\n");
 
    return (RetVal);

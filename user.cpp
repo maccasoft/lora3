@@ -154,6 +154,10 @@ VOID TUser::Struct2Class (VOID)
    BirthMonth = Usr.BirthMonth;
    BirthYear = Usr.BirthYear;
    LastPwdChange = Usr.LastPwdChange;
+   PwdLength = Usr.PwdLength;
+   strcpy (PwdText, Usr.PwdText);
+
+   CurrentCRC = StringCrc32 (Name, 0xFFFFFFFFL);
 }
 
 VOID TUser::Class2Struct (VOID)
@@ -220,6 +224,8 @@ VOID TUser::Class2Struct (VOID)
    Usr.BirthMonth = BirthMonth;
    Usr.BirthYear = BirthYear;
    Usr.LastPwdChange = LastPwdChange;
+   Usr.PwdLength = PwdLength;
+   strcpy (Usr.PwdText, PwdText);
 }
 
 USHORT TUser::Add (VOID)
@@ -241,6 +247,7 @@ USHORT TUser::Add (VOID)
       Idx.RealNameCrc = StringCrc32 (RealName, 0xFFFFFFFFL);
       Idx.Position = tell (fdDat);
 
+      CurrentCRC = Idx.NameCrc;
       Class2Struct ();
 
       write (fdDat, &Usr, sizeof (Usr));
@@ -273,6 +280,28 @@ USHORT TUser::Age (VOID)
    }
 
    return (RetVal);
+}
+
+VOID TUser::ChangeLimitClass (PSZ pszOld, PSZ pszNew)
+{
+   if (fdDat == -1)
+      fdDat = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
+
+   if (fdDat != -1) {
+      lseek (fdDat, 0L, SEEK_SET);
+      while (read (fdDat, &Usr, sizeof (Usr)) == sizeof (Usr)) {
+         if (!stricmp (Usr.LimitClass, pszOld)) {
+            strcpy (Usr.LimitClass, pszNew);
+            lseek (fdDat, tell (fdDat) - sizeof (Usr), SEEK_SET);
+            write (fdDat, &Usr, sizeof (Usr));
+         }
+      }
+   }
+
+   if (fdDat != -1) {
+      close (fdDat);
+      fdDat = -1;
+   }
 }
 
 USHORT TUser::CheckPassword (PSZ pszPassword)
@@ -425,11 +454,8 @@ USHORT TUser::Next (VOID)
 
       if (RetVal == TRUE) {
          Clear ();
-
-         if (tell (fdDat) != Idx.Position)
-            lseek (fdDat, Idx.Position, SEEK_SET);
+         lseek (fdDat, Idx.Position, SEEK_SET);
          read (fdDat, &Usr, sizeof (Usr));
-
          Struct2Class ();
       }
    }
@@ -459,8 +485,7 @@ VOID TUser::Pack (VOID)
 
       while (read (fdIdx, &Idx, sizeof (Idx)) == sizeof (Idx)) {
          if (Idx.Deleted == FALSE) {
-            if (tell (fdDat) != Idx.Position)
-               lseek (fdDat, Idx.Position, SEEK_SET);
+            lseek (fdDat, Idx.Position, SEEK_SET);
             read (fdDat, &Usr, sizeof (Usr));
             write (fdNew, &Usr, sizeof (Usr));
          }
@@ -520,10 +545,8 @@ USHORT TUser::Previous (VOID)
 
       if (RetVal == TRUE) {
          Clear ();
-
          lseek (fdDat, Idx.Position, SEEK_SET);
          read (fdDat, &Usr, sizeof (Usr));
-
          Struct2Class ();
       }
    }
@@ -570,11 +593,14 @@ VOID TUser::Reindex (VOID)
    }
 }
 
+// Aggiorna i dati relativi ad un nominativo.
+// -----------------------------------------------------------------------------
 USHORT TUser::Update (VOID)
 {
    USHORT RetVal = FALSE, DoClose = FALSE;
-   ULONG NameCrc;
 
+   // Verifica se i file dati devono essere aperti, nel qual caso attiva il flag
+   // DoClose per poi forzarne la chiusura al termine della funzione.
    if (fdDat == -1) {
       fdDat = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
       DoClose = TRUE;
@@ -585,27 +611,53 @@ USHORT TUser::Update (VOID)
    }
 
    if (fdDat != -1 && fdIdx != -1) {
-      NameCrc = StringCrc32 (Name, 0xFFFFFFFFL);
+      // Cerca tramite l'indice il record corrispondente all'ultimo nominativo
+      // selezionato. Non si puo' utilizzare il nome nella classe perche' potrebbe
+      // non essere piu' quello letto originariamente.
       lseek (fdIdx, 0L, SEEK_SET);
-      while (RetVal == FALSE && read (fdIdx, &Idx, sizeof (Idx)) == sizeof (Idx)) {
-         if (Idx.Deleted == FALSE && Idx.NameCrc == NameCrc)
+      while (read (fdIdx, &Idx, sizeof (Idx)) == sizeof (Idx)) {
+         if (Idx.Deleted == FALSE && Idx.NameCrc == CurrentCRC) {
             RetVal = TRUE;
+            break;
+         }
       }
 
       if (RetVal == TRUE) {
-         lseek (fdDat, Idx.Position, SEEK_SET);
-
+         // Copia tutti i dati della classe nella struttura dati da scrivere
+         // nel record.
          Class2Struct ();
 
+         // Aggiorna il CRC di nome e alias nell'indice, nel caso in cui questi
+         // dati fossero stati cambiati.
+         Idx.NameCrc = StringCrc32 (Name, 0xFFFFFFFFL);
+         Idx.RealNameCrc = StringCrc32 (RealName, 0xFFFFFFFFL);
+         lseek (fdIdx, tell (fdIdx) - sizeof (Idx), SEEK_SET);
+         write (fdIdx, &Idx, sizeof (Idx));
+
+         // Aggiorna il record dati vero e proprio.
+         lseek (fdDat, Idx.Position, SEEK_SET);
          write (fdDat, &Usr, sizeof (Usr));
 
+         // Se e' stato cambiato il nome dell'utente, cambia anche le associazioni
+         // con i file contenenti i puntatori agli ultimi messaggi letti e i files
+         // marcati per il download.
+         if (CurrentCRC != Idx.NameCrc) {
+            MsgTag->Change (CurrentCRC, Idx.NameCrc);
+            FileTag->Change (CurrentCRC, Idx.NameCrc);
+            CurrentCRC = Idx.NameCrc;
+         }
+
+         // Aggiorna il file contenenti i puntatori agli ultimi messaggi letti.
          MsgTag->UserId = Idx.NameCrc;
          MsgTag->Save ();
+         // Aggiorna il file contenente i nome dei file marcati per il download.
          FileTag->UserId = Idx.NameCrc;
          FileTag->Save ();
       }
    }
 
+   // Se i file non erano gia' aperti prima di invocare questa funzione, vengono
+   // chiusi automaticamente per non lasciare handle aperti inutilmente.
    if (DoClose == TRUE) {
       if (fdDat != -1) {
          close (fdDat);
@@ -664,6 +716,8 @@ VOID TMsgTag::Add (VOID)
    Data.Add (&Buffer, sizeof (MSGTAGS));
 }
 
+// Cambia il nome di un'area
+// -----------------------------------------------------------------------------
 VOID TMsgTag::Change (PSZ pszOldName, PSZ pszNewName)
 {
    int fd, i, Count, Changed;
@@ -680,6 +734,40 @@ VOID TMsgTag::Change (PSZ pszOldName, PSZ pszNewName)
             for (i = 0; i < Count; i++) {
                if (Buffer[i].Free == FALSE && !stricmp (Buffer[i].Area, pszOldName)) {
                   strcpy (Buffer[i].Area, pszNewName);
+                  Changed = TRUE;
+               }
+            }
+
+            if (Changed == TRUE) {
+               lseek (fd, Position, SEEK_SET);
+               write (fd, Buffer, sizeof (MSGTAGS) * Count);
+            }
+         } while (Count == MSGTAGS_INDEX);
+         free (Buffer);
+      }
+
+      close (fd);
+   }
+}
+
+// Cambia l'ID dell'utente associato ai record.
+// -----------------------------------------------------------------------------
+VOID TMsgTag::Change (ULONG OldId, ULONG NewId)
+{
+   int fd, i, Count, Changed;
+   ULONG Position;
+   MSGTAGS *Buffer;
+
+   if ((fd = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+      if ((Buffer = (MSGTAGS *)malloc (sizeof (MSGTAGS) * MSGTAGS_INDEX)) != NULL) {
+         do {
+            Changed = FALSE;
+
+            Position = tell (fd);
+            Count = read (fd, Buffer, sizeof (MSGTAGS) * MSGTAGS_INDEX) / sizeof (MSGTAGS);
+            for (i = 0; i < Count; i++) {
+               if (Buffer[i].Free == FALSE && Buffer[i].UserId == OldId) {
+                  Buffer[i].UserId = NewId;
                   Changed = TRUE;
                }
             }
@@ -930,6 +1018,70 @@ USHORT TFileTag::Add (VOID)
    }
 
    return (RetVal);
+}
+
+VOID TFileTag::Change (PSZ pszOldName, PSZ pszNewName)
+{
+   int fd, i, Count, Changed;
+   ULONG Position;
+   FILETAGS *Buffer;
+
+   if ((fd = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+      if ((Buffer = (FILETAGS *)malloc (sizeof (FILETAGS) * FILETAGS_INDEX)) != NULL) {
+         do {
+            Changed = FALSE;
+
+            Position = tell (fd);
+            Count = read (fd, Buffer, sizeof (FILETAGS) * FILETAGS_INDEX) / sizeof (FILETAGS);
+            for (i = 0; i < Count; i++) {
+               if (Buffer[i].Free == FALSE && !stricmp (Buffer[i].Area, pszOldName)) {
+                  strcpy (Buffer[i].Area, pszNewName);
+                  Changed = TRUE;
+               }
+            }
+
+            if (Changed == TRUE) {
+               lseek (fd, Position, SEEK_SET);
+               write (fd, Buffer, sizeof (FILETAGS) * Count);
+            }
+         } while (Count == FILETAGS_INDEX);
+         free (Buffer);
+      }
+
+      close (fd);
+   }
+}
+
+VOID TFileTag::Change (ULONG OldId, ULONG NewId)
+{
+   int fd, i, Count, Changed;
+   ULONG Position;
+   FILETAGS *Buffer;
+
+   if ((fd = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+      if ((Buffer = (FILETAGS *)malloc (sizeof (FILETAGS) * FILETAGS_INDEX)) != NULL) {
+         do {
+            Changed = FALSE;
+
+            Position = tell (fd);
+            Count = read (fd, Buffer, sizeof (FILETAGS) * FILETAGS_INDEX) / sizeof (FILETAGS);
+            for (i = 0; i < Count; i++) {
+               if (Buffer[i].Free == FALSE && Buffer[i].UserId == OldId) {
+                  Buffer[i].UserId = NewId;
+                  Changed = TRUE;
+               }
+            }
+
+            if (Changed == TRUE) {
+               lseek (fd, Position, SEEK_SET);
+               write (fd, Buffer, sizeof (FILETAGS) * Count);
+            }
+         } while (Count == FILETAGS_INDEX);
+         free (Buffer);
+      }
+
+      close (fd);
+   }
 }
 
 USHORT TFileTag::Check (PSZ pszName)

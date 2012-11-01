@@ -511,46 +511,51 @@ VOID TMailProcessor::News (VOID)
                         Status->SetLine (0, "Sending messages to %s", Data->NewsGroup);
 
                      Msg->Lock (0L);
-                     Number = Msg->Lowest ();
+                     Number = 0L;
+                     if (Data->NewsHWM < Msg->Highest ())
+                        Number = Data->NewsHWM;
                      SentArea = 0L;
 
-                     do {
-                        if (Msg->Read (Number, MAX_LINE_LENGTH) == TRUE) {
-                           Msgn = Msg->UidToMsgn (Number);
-                           if (Status != NULL && (Msgn % 10) == 0L)
-                              Status->SetLine (1, "   %lu / %lu", Msgn, Msg->Number ());
-
-                           if (Msg->Sent == FALSE) {
-                              if (Status != NULL && (Msgn % 10) != 0L)
+                     if (Msg->Next (Number) == TRUE)
+                        do {
+                           if (Msg->Read (Number, MAX_LINE_LENGTH) == TRUE) {
+                              Msgn = Msg->UidToMsgn (Number);
+                              if (Status != NULL && (Msgn % 10) == 0L)
                                  Status->SetLine (1, "   %lu / %lu", Msgn, Msg->Number ());
-                              strcpy (Usenet->User, "anonymous");
-                              if (Msg->Local == TRUE) {
-                                 if ((User = new TUser (Cfg->UserFile)) != NULL) {
-                                    if (User->GetData (Msg->From) == TRUE)
-                                       strcpy (Usenet->User, User->MailBox);
-                                    delete User;
+
+                              if (Msg->Sent == FALSE) {
+                                 if (Status != NULL && (Msgn % 10) != 0L)
+                                    Status->SetLine (1, "   %lu / %lu", Msgn, Msg->Number ());
+                                 strcpy (Usenet->User, "anonymous");
+                                 if (Msg->Local == TRUE) {
+                                    if ((User = new TUser (Cfg->UserFile)) != NULL) {
+                                       if (User->GetData (Msg->From) == TRUE)
+                                          strcpy (Usenet->User, User->MailBox);
+                                       delete User;
+                                    }
+                                 }
+                                 if (Usenet->Add (Msg) == TRUE) {
+                                    Msg->Delete (Number);
+                                    SentArea++;
+                                    MsgSent++;
+                                 }
+                                 else if (Log != NULL) {
+                                    Log->Write (":Sending msg# %lu in %s", Number, Data->NewsGroup);
+                                    Log->Write ("!Server error: %s", Usenet->Error);
                                  }
                               }
-                              if (Usenet->Add (Msg) == TRUE) {
-                                 Msg->Delete (Number);
-                                 SentArea++;
-                                 MsgSent++;
-                              }
-                              else if (Log != NULL) {
-                                 Log->Write (":Sending msg# %lu in %s", Number, Data->NewsGroup);
-                                 Log->Write ("!Server error: %s", Usenet->Error);
-                              }
                            }
-                        }
-                     } while (Msg->Next (Number) == TRUE);
+                        } while (Msg->Next (Number) == TRUE);
 
                      Msg->UnLock ();
 
+                     // Aggiorna subito l'high water mark per le aree newsgroup
+                     Data->NewsHWM = Number;
+                     Data->Update ();
+
                      Tossed = 0L;
                      Number = Data->Highest;
-                     //////////////////////////////////////////////////////////////////////////////////////////////////
-                     // Se e' stato impostato un limite di messaggi si assicura di ricevere gli ultimi n messaggi    //
-                     //////////////////////////////////////////////////////////////////////////////////////////////////
+                     // Se e' stato impostato un limite di messaggi si assicura di ricevere gli ultimi n messaggi
                      if (Cfg->RetriveMaxMessages != 0 && (Usenet->Highest () - Number) > Cfg->RetriveMaxMessages)
                         Number = Usenet->Highest () - Cfg->RetriveMaxMessages;
 
@@ -613,11 +618,12 @@ VOID TMailProcessor::News (VOID)
 
 VOID TMailProcessor::Mail (VOID)
 {
-   CHAR Host[64], Name[32], *p, ToUs;
+   CHAR Host[128], Name[32], *p, ToUs;
    ULONG Number, Msgn;
    class TUser *User;
    class INETMAIL *Mail;
    class TAddress Addr;
+   class TMsgBase *EMail;
 
    if (Status != NULL)
       Status->Clear ();
@@ -635,94 +641,122 @@ VOID TMailProcessor::Mail (VOID)
    }
 
 #if !defined(__POINT__)
-   Msg = NULL;
-   if (Cfg->MailStorage == ST_JAM)
-      Msg = new JAM (Cfg->MailPath);
-   else if (Cfg->MailStorage == ST_SQUISH)
-      Msg = new SQUISH (Cfg->MailPath);
-   else if (Cfg->MailStorage == ST_FIDO)
-      Msg = new FIDOSDM (Cfg->MailPath);
-   else if (Cfg->MailStorage == ST_ADEPT)
-      Msg = new ADEPT (Cfg->MailPath);
-   else if (Cfg->MailStorage == ST_HUDSON)
-      Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->MailBoard);
+   if (stricmp (Cfg->MailPath, Cfg->NetMailPath)) {
+      Msg = NULL;
+      if (Cfg->MailStorage == ST_JAM)
+         Msg = new JAM (Cfg->MailPath);
+      else if (Cfg->MailStorage == ST_SQUISH)
+         Msg = new SQUISH (Cfg->MailPath);
+      else if (Cfg->MailStorage == ST_FIDO)
+         Msg = new FIDOSDM (Cfg->MailPath);
+      else if (Cfg->MailStorage == ST_ADEPT)
+         Msg = new ADEPT (Cfg->MailPath);
+      else if (Cfg->MailStorage == ST_HUDSON)
+         Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->MailBoard);
 
-   if ((Mail = new INETMAIL) != NULL) {
-      strcpy (Mail->SMTPHostName, Cfg->MailServer);
-      if (Status != NULL) {
-         sprintf (Temp, "Sending e-mail to %s", Mail->SMTPHostName);
-         Status->SetLine (0, Temp);
-      }
-      Number = Msg->Lowest ();
-      do {
-         if (Msg->ReadHeader (Number) == TRUE) {
-            Msgn = Msg->UidToMsgn (Number);
-            if (Status != NULL && (Msgn % 10) == 0L)
-               Status->SetLine (1, "   %lu / %lu", Msgn, Msg->Number ());
-            if (Msg->Sent == FALSE && strchr (Msg->To, '@') != NULL) {
-               Msg->Read (Number);
-               if (Status != NULL && (Msgn % 10) != 0L)
+      if ((Mail = new INETMAIL) != NULL) {
+         strcpy (Mail->SMTPHostName, Cfg->MailServer);
+         if (Status != NULL) {
+            sprintf (Temp, "Sending e-mail to %s", Mail->SMTPHostName);
+            Status->SetLine (0, Temp);
+         }
+         Number = Msg->Lowest ();
+         do {
+            if (Msg->ReadHeader (Number) == TRUE) {
+               Msgn = Msg->UidToMsgn (Number);
+               if (Status != NULL && (Msgn % 10) == 0L)
                   Status->SetLine (1, "   %lu / %lu", Msgn, Msg->Number ());
-               if (Log != NULL) {
-                  Log->Write (":  Msg#: %lu", Msg->UidToMsgn (Number));
-                  Log->Write (":    Fm: %s", Msg->From);
-                  Log->Write (":    To: %s", Msg->To);
-                  Log->Write (":    Sb: %s", Msg->Subject);
-               }
-               if (Msg->Local == TRUE) {
-                  sprintf (Msg->FromAddress, "anonymous@%s", Cfg->HostName);
-                  if ((User = new TUser (Cfg->UserFile)) != NULL) {
-                     if (User->GetData (Msg->From, FALSE) == TRUE) {
-                        if (User->UseInetAddress == TRUE && User->InetAddress[0] != '\0')
-                           strcpy (Msg->FromAddress, User->InetAddress);
-                        else
-                           sprintf (Msg->FromAddress, "%s@%s", User->MailBox, Cfg->HostName);
-                     }
-                     delete User;
-                  }
-               }
-               else {
-                  if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
-                     if (Nodes->Read (Msg->FromAddress, FALSE) == FALSE) {
-                        if (Nodes->UseInetAddress == TRUE && Nodes->InetAddress[0] != '\0')
-                           strcpy (Msg->FromAddress, Nodes->InetAddress);
-                        else {
-                           Addr.Parse (Msg->FromAddress);
-                           if (Addr.Point != 0)
-                              sprintf (Msg->FromAddress, "%s@p%u.f%u.n%u.z%u.fidonet.org", Msg->From, Addr.Point, Addr.Node, Addr.Net, Addr.Zone);
-                           else
-                              sprintf (Msg->FromAddress, "%s@f%u.n%u.z%u.fidonet.org", Msg->From, Addr.Node, Addr.Net, Addr.Zone);
+               if (Msg->Sent == FALSE && strchr (Msg->To, '@') != NULL) {
+                  Msg->Read (Number);
+                  if (Status != NULL && (Msgn % 10) != 0L)
+                     Status->SetLine (1, "   %lu / %lu", Msgn, Msg->Number ());
+
+                  // Verifica se la prima riga del testo del messaggio contiene il kludge
+                  // To: per specificare l'indirizzo internet di destinazione.
+                  if ((p = (CHAR *)Msg->Text.First ()) != NULL) {
+                     strcpy (Host, p);
+                     if (!strncmp (strlwr (Host), "to:", 3)) {
+                        p += 3;
+                        while (*p == ' ')
+                           p++;
+                        strcpy (Msg->To, p);
+                        // La riga con il kludge viene tolta.
+                        Msg->Text.Remove ();
+                        // Verifica se la riga sucessiva e' vuota, nel qual caso toglie anche quella.
+                        if ((p = (CHAR *)Msg->Text.First ()) != NULL) {
+                           if (*p == '\0')
+                              Msg->Text.Remove ();
                         }
                      }
-                     else {
-                        Addr.Parse (Msg->FromAddress);
-                        if (Addr.Point != 0)
-                           sprintf (Msg->FromAddress, "%s@p%u.f%u.n%u.z%u.fidonet.org", Msg->From, Addr.Point, Addr.Node, Addr.Net, Addr.Zone);
-                        else
-                           sprintf (Msg->FromAddress, "%s@f%u.n%u.z%u.fidonet.org", Msg->From, Addr.Node, Addr.Net, Addr.Zone);
+                  }
+
+                  // Scrive qualche informazione sul log.
+                  if (Log != NULL) {
+                     Log->Write (":  Msg#: %lu", Msg->UidToMsgn (Number));
+                     Log->Write (":    Fm: %s", Msg->From);
+                     Log->Write (":    To: %s", Msg->To);
+                     Log->Write (":    Sb: %s", Msg->Subject);
+                  }
+
+                  if (Msg->Local == TRUE) {
+                     // Nel caso di messaggi locali viene impostato di default un indirizzo
+                     // di ritorno di convenienza per il nostro host.
+                     sprintf (Msg->FromAddress, "anonymous@%s", Cfg->HostName);
+                     if ((User = new TUser (Cfg->UserFile)) != NULL) {
+                        if (User->GetData (Msg->From, FALSE) == TRUE) {
+                           // Se l'utente ha un indirizzo e-mail proprio, viene usato quello come
+                           // indirizzo di ritorno, altrimenti viene usata la sua mailbox presso
+                           // il nostro host.
+                           if (User->UseInetAddress == TRUE && User->InetAddress[0] != '\0')
+                              strcpy (Msg->FromAddress, User->InetAddress);
+                           else
+                              sprintf (Msg->FromAddress, "%s@%s", User->MailBox, Cfg->HostName);
+                        }
+                        delete User;
                      }
-                     delete Nodes;
+                  }
+                  else {
+                     // Nel caso in cui il messaggio provenga da un'altro nodo imposta come
+                     // indirizzo di ritorno di default quello standard per il gateway FidoNet.
+                     Addr.Parse (Msg->FromAddress);
+                     if (Addr.Point != 0)
+                        sprintf (Msg->FromAddress, "%s@p%u.f%u.n%u.z%u.fidonet.org", Msg->From, Addr.Point, Addr.Node, Addr.Net, Addr.Zone);
+                     else
+                        sprintf (Msg->FromAddress, "%s@f%u.n%u.z%u.fidonet.org", Msg->From, Addr.Node, Addr.Net, Addr.Zone);
+                     while ((p = strchr (Msg->FromAddress, ' ')) != NULL)
+                        *p = '.';
+                     if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+                        if (Nodes->Read (Msg->FromAddress, FALSE) == FALSE) {
+                           // Nel caso in cui il nodo (o point) abbia un suo indirizzo e-mail viene
+                           // usato quello come indirizzo di ritorno.
+                           if (Nodes->UseInetAddress == TRUE && Nodes->InetAddress[0] != '\0')
+                              strcpy (Msg->FromAddress, Nodes->InetAddress);
+                        }
+                        delete Nodes;
+                     }
+                  }
+
+                  // Invia il mail attraverso la classe INETMAIL.
+                  if (Mail->Add (Msg) == TRUE) {
+                     Msg->ReadHeader (Number);
+                     Msg->Sent = TRUE;
+                     Msg->WriteHeader (Number);
+                     MsgSent++;
                   }
                }
-               if (Mail->Add (Msg) == TRUE) {
-                  Msg->ReadHeader (Number);
-                  Msg->Sent = TRUE;
-                  Msg->WriteHeader (Number);
-                  MsgSent++;
-               }
             }
-         }
-      } while (Msg->Next (Number) == TRUE);
-      delete Mail;
-   }
+         } while (Msg->Next (Number) == TRUE);
+         delete Mail;
+      }
 
-   if (Msg != NULL) {
-      delete Msg;
-      Msg = NULL;
-   }
+      if (Msg != NULL) {
+         delete Msg;
+         Msg = NULL;
+      }
 
-   if (Status != NULL)
-      Status->Clear ();
+      if (Status != NULL)
+         Status->Clear ();
+   }
 #endif
 
    Msg = NULL;
@@ -972,11 +1006,41 @@ VOID TMailProcessor::Mail (VOID)
                            if (Msg != NULL)
                               Msg->Add (Mail);
 
+                           // Il messaggio viene aggiunto all'email solo se i path
+                           // delle aree email e netmail sono diversi.
+                           if (stricmp (Cfg->MailPath, Cfg->NetMailPath)) {
+                              // Se il Sysop del BBS/Point e' anche nostro utente, inserise il
+                              // mail nella base message email locale.
+                              if ((User = new TUser (Cfg->UserFile)) != NULL) {
+                                 if (User->GetData (Msg->To, FALSE) == TRUE) {
+                                    EMail = NULL;
+                                    if (Cfg->MailStorage == ST_JAM)
+                                       EMail = new JAM (Cfg->MailPath);
+                                    else if (Cfg->MailStorage == ST_SQUISH)
+                                       EMail = new SQUISH (Cfg->MailPath);
+                                    else if (Cfg->MailStorage == ST_FIDO)
+                                       EMail = new FIDOSDM (Cfg->MailPath);
+                                    else if (Cfg->MailStorage == ST_ADEPT)
+                                       EMail = new ADEPT (Cfg->MailPath);
+                                    else if (Cfg->MailStorage == ST_HUDSON)
+                                       EMail = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->MailBoard);
+
+                                    if (EMail != NULL) {
+                                       EMail->Add (Mail);
+                                       delete EMail;
+                                    }
+                                 }
+                                 delete User;
+                              }
+                           }
+
                            Mail->Delete (Number);
                            MsgTossed++;
                         }
                      } while (Mail->Next (Number) == TRUE);
                   }
+
+                  Mail->Close ();
                   delete Mail;
                }
             }

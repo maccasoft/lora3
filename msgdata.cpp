@@ -131,6 +131,7 @@ VOID TMsgData::Class2Struct (MESSAGE *Msg)
    Msg->FirstMessage = FirstMessage;
    Msg->LastMessage = LastMessage;
    Msg->OriginIndex = OriginIndex;
+   Msg->NewsHWM = NewsHWM;
 }
 
 VOID TMsgData::Delete (VOID)
@@ -212,6 +213,66 @@ USHORT TMsgData::First (VOID)
    }
 
    return (retVal);
+}
+
+USHORT TMsgData::Insert (class TMsgData *Data)
+{
+   PSZ p;
+
+   strcpy (Display, Data->Display);
+   strcpy (Key, Data->Key);
+   Level = Data->Level;
+   AccessFlags = Data->AccessFlags;
+   DenyFlags = Data->DenyFlags;
+   WriteLevel = Data->WriteLevel;
+   WriteFlags = Data->WriteFlags;
+   DenyWriteFlags = Data->DenyWriteFlags;
+   Age = Data->Age;
+   Storage = Data->Storage;
+
+   strcpy (Path, Data->Path);
+   if (Data->Storage == ST_FIDO || Data->Storage == ST_HUDSON) {
+      if (Path[strlen (Path) - 1] != '\\' && Path[strlen (Path) - 1] != '/')
+         strcat (Path, "\\");
+   }
+   else {
+      if (Path[strlen (Path) - 1] == '\\' || Path[strlen (Path) - 1] == '/')
+         Path[strlen (Path) - 1] = '\0';
+   }
+#if defined(__LINUX__)
+   while ((p = strchr (Path, '\\')) != NULL)
+      *p = '/';
+#else
+   while ((p = strchr (Path, '/')) != NULL)
+      *p = '\\';
+#endif
+
+   Board = Data->Board;
+   Flags = Data->Flags;
+   Group = Data->Group;
+   EchoMail = Data->EchoMail;
+   ShowGlobal = Data->ShowGlobal;
+   UpdateNews = Data->UpdateNews;
+   Offline = Data->Offline;
+   strcpy (MenuName, Data->MenuName);
+   strcpy (Moderator, Data->Moderator);
+   Cost = Data->Cost;
+   DaysOld = Data->DaysOld;
+   RecvDaysOld = Data->RecvDaysOld;
+   MaxMessages = Data->MaxMessages;
+   ActiveMsgs = Data->ActiveMsgs;
+   strcpy (NewsGroup, Data->NewsGroup);
+   Highest = Data->Highest;
+   HighWaterMark = Data->HighWaterMark;
+   strcpy (EchoTag, Data->EchoTag);
+   strcpy (Origin, Data->Origin);
+   strcpy (Address, Data->Address);
+   FirstMessage = Data->FirstMessage;
+   LastMessage = Data->LastMessage;
+   OriginIndex = Data->OriginIndex;
+   NewsHWM = Data->NewsHWM;
+
+   return (Insert ());
 }
 
 USHORT TMsgData::Insert (VOID)
@@ -360,6 +421,7 @@ VOID TMsgData::New (VOID)
    memset (Origin, 0, sizeof (Origin));
    HighWaterMark = 0L;
    memset (Address, 0, sizeof (Address));
+   NewsHWM = 0L;
 }
 
 USHORT TMsgData::Next (VOID)
@@ -616,11 +678,12 @@ VOID TMsgData::Struct2Class (MESSAGE *Msg)
    FirstMessage = Msg->FirstMessage;
    LastMessage = Msg->LastMessage;
    OriginIndex = Msg->OriginIndex;
+   NewsHWM = Msg->NewsHWM;
 
    strcpy (LastKey, Msg->Key);
 }
 
-USHORT TMsgData::Update (VOID)
+USHORT TMsgData::Update (PSZ pszNewKey)
 {
    USHORT retVal = FALSE, Size, DoClose = FALSE;
    MESSAGE *Msg;
@@ -669,6 +732,9 @@ USHORT TMsgData::Update (VOID)
          if ((Msg = (MESSAGE *)malloc (Size)) != NULL) {
             memset (Msg, 0, Size);
             Msg->Size = Size;
+            if (pszNewKey != NULL)
+               strcpy (Key, pszNewKey);
+
             Class2Struct (Msg);
 
             strcpy (Idx.Key, Key);

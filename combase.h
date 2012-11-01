@@ -10,6 +10,32 @@
 #ifndef _COMBASE_H
 #define _COMBASE_H
 
+#if defined(__OS2__)
+#include <types.h>
+#include <netinet\in.h>
+#include <sys\socket.h>
+#include <netdb.h>
+#include <sys\ioctl.h>
+#elif defined(__NT__)
+#elif defined(__LINUX__)
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#else
+extern "C" {
+#include <sys\types.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <pctcp/types.h>
+#include <pctcp/rwconf.h>
+#include <pctcp/pctcp.h>
+#include <pctcp/syscalls.h>
+};
+#endif
+
 #if defined(__DOS__) || (defined(__BORLANDC__) && !defined(__OS2__))
 #if defined(__386__)
 #define DOS4G
@@ -154,6 +180,7 @@ public:
 
 private:
    CXLWIN wh;
+   USHORT Running;
    USHORT RxPosition, Counter;
    USHORT Attr, Count, Params[10];
    CHAR   Prec, Ansi;
@@ -178,13 +205,17 @@ public:
    VOID   ClearInbound (VOID);
    VOID   ClosePort (VOID);
    USHORT ConnectServer (PSZ pszServerName, USHORT usPort);
-   USHORT Initialize (USHORT usPort, USHORT usSocket = 0);
+   USHORT Initialize (USHORT usPort, USHORT usSocket = 0, USHORT usProtocol = IPPROTO_TCP);
    UCHAR  ReadByte (VOID);
    USHORT ReadBytes (UCHAR *bytes, USHORT len);
    VOID   SendByte (UCHAR byte);
    VOID   SendBytes (UCHAR *bytes, USHORT len);
    VOID   UnbufferBytes (VOID);
    USHORT WaitClient (VOID);
+
+   USHORT GetPacket (PVOID lpBuffer, USHORT usSize);
+   USHORT PeekPacket (PVOID lpBuffer, USHORT usSize);
+   USHORT SendPacket (PVOID lpBuffer, USHORT usSize);
 
    VOID   SetName (PSZ name);
    VOID   SetCity (PSZ name);
@@ -197,6 +228,7 @@ private:
    int    LSock;
    USHORT fCarrierDown;
    USHORT RxPosition;
+   struct sockaddr_in udp_client;
 
 #if defined(__OS2__)
    friend VOID WaitThread (PVOID Args);

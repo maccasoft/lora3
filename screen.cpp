@@ -71,6 +71,8 @@ USHORT TScreen::BytesReady (VOID)
          memcpy (&RxBuffer[RxBytes], "\x7F", 1);
          RxBytes += 1;
       }
+      else if (c == 0x2300)      // Alt-H = Hangup
+         Running = FALSE;
       else
          RxBuffer[RxBytes++] = (UCHAR)c;
    }
@@ -247,7 +249,7 @@ VOID TScreen::BufferBytes (UCHAR *bytes, USHORT len)
 
 USHORT TScreen::Carrier (VOID)
 {
-   return (TRUE);
+   return (Running);
 }
 
 VOID TScreen::ClearOutbound (VOID)
@@ -266,6 +268,7 @@ USHORT TScreen::Initialize (VOID)
 
    RxBytes = 0;
    RxPosition = 0;
+   Running = TRUE;
 
 #if defined(__NT__)
    AllocConsole ();
@@ -341,6 +344,8 @@ USHORT TScreen::ReadBytes (UCHAR *bytes, USHORT len)
          memcpy (&bytes[Max], "\x1B[K", 3);
          Max += 3;
       }
+      else if (c == 0x2300)      // Alt-H = Hangup
+         Running = FALSE;
       else
          bytes[Max++] = (UCHAR)c;
    }

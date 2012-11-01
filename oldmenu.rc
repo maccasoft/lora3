@@ -1,0 +1,108 @@
+
+MENU 256 
+BEGIN
+	SUBMENU "System", 100
+	BEGIN
+		MENUITEM "Forced ~poll\tAlt-M", 109
+		MENUITEM "~Request file(s)\tAlt-R", 107
+		MENUITEM "~Send file(s)\tAlt-S", 108
+		SUBMENU "~Mail", 100
+		BEGIN
+			MENUITEM "~Import mail\tAlt-I", 101
+			MENUITEM "~Pack netmail", 103
+			MENUITEM "~Import from bad msgs.", 120
+			MENUITEM SEPARATOR
+			MENUITEM "Process ~NEWSgroups", 116
+			MENUITEM "Process E-~Mail", 118
+			MENUITEM SEPARATOR
+			MENUITEM "Rebuild outbound\tAlt-Q", 106
+		END
+
+		SUBMENU "~ECHOmail", 110
+		BEGIN
+			MENUITEM "Process ~ECHOmail\tAlt-P", 104
+			MENUITEM "~Export echomail", 102
+			MENUITEM SEPARATOR
+			MENUITEM "~Request ECHOmail link", 111, , MIA_DISABLED
+			MENUITEM "~New ECHOmail link", 112
+			MENUITEM "Re~scan ECHOmail", 113
+			MENUITEM SEPARATOR
+			MENUITEM "Write ~AREAS.BBS", 117
+		END
+
+		SUBMENU "~TIC", 120
+		BEGIN
+			MENUITEM "Process ~TIC files", 105
+			MENUITEM "New TIC ~file link", 114, , MIA_DISABLED
+		END
+
+		MENUITEM "~Local login\tAlt-K", 115
+		MENUITEM "~Build nodelist index", 119
+	END
+
+	SUBMENU "Global", 200
+	BEGIN
+		MENUITEM "~General Options", 201
+		MENUITEM "~Site Information", 202
+		MENUITEM "~Addresses", 204
+		MENUITEM "~Directory / Paths", 208
+		MENUITEM "~Time Adjustment", 205, , MIA_DISABLED
+		MENUITEM "~Internet Options", 206
+		MENUITEM "~Fax Options", 207
+	END
+
+	SUBMENU "Mailer", 300
+	BEGIN
+		MENUITEM "~Miscellaneous", 308
+		MENUITEM "~Mail Processing", 302
+		MENUITEM "~Areafix", 303
+		MENUITEM "~TIC Processor", 304, , MIA_DISABLED
+		MENUITEM "~File Requests", 305, , MIA_DISABLED
+		MENUITEM "~External Processing", 306
+	END
+
+	SUBMENU "BBS", 400
+	BEGIN
+		MENUITEM "~Message Areas", 402
+		MENUITEM "~File Areas", 403
+		MENUITEM "~General Options", 411
+		MENUITEM "~Offline Reader", 404
+		MENUITEM "~New Users", 405
+		MENUITEM "~User Limits", 406
+		MENUITEM "~Paging Hours", 407, , MIA_DISABLED
+		MENUITEM "~External Protocols", 409
+	END
+
+	SUBMENU "Modem", 500
+	BEGIN
+		MENUITEM "~Hardware", 501
+		MENUITEM "~Command Strings", 502
+		MENUITEM "~Answer Control", 504
+		MENUITEM "~Nodelist Flags", 505, , MIA_DISABLED
+		MENUITEM SEPARATOR
+		MENUITEM "Answer ~Now\tAlt-A", 507
+		MENUITEM "~Hangup\tAlt-H", 506
+	END
+
+	SUBMENU "Manager", 600
+	BEGIN
+		MENUITEM "~Event Scheduler", 601
+		MENUITEM "N~odelist", 606
+		MENUITEM "~Compressors", 602
+		MENUITEM "~Nodes", 604
+		MENUITEM "Me~nu Files", 603
+		MENUITEM "~User Editor", 605
+		MENUITEM "~Origin Lines", 607
+	END
+
+	SUBMENU "Help", 900
+	BEGIN
+		MENUITEM "Help ~contents...", 901
+		MENUITEM "~General help...", 902
+		MENUITEM "~Using help...", 903
+		MENUITEM "~Keys help...", 904
+		MENUITEM SEPARATOR
+		MENUITEM "~Product information...", 905
+	END
+
+END

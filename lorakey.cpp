@@ -5,7 +5,8 @@
 //#define PRE_KEY      "BT"        // Beta testers
 
 //#define PRE_KEY      "IT"        // Italy, Marco Maccaferri
-#define PRE_KEY      "US"        // USA, Robert Butler
+//#define PRE_KEY      "US"        // USA, Robert Butler
+#define PRE_KEY      "AU"        // Australia, Michael Doyle
 
 CHAR KeyLines[4][64];
 
@@ -54,7 +55,7 @@ void main (void)
    time_t t;
    struct tm *ltm;
 
-	printf ("\nLoraBBS 2.99.34 - Registration Key Generator\n");
+	printf ("\nLoraBBS 2.99 - Registration Key Generator\n");
    printf ("CopyRight (c) 1996-97 by Marco Maccaferri. All Rights Reserved\n\n");
 
    unlink ("lora.key");

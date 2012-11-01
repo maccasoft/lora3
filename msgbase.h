@@ -49,8 +49,8 @@ public:
    UCHAR   Sent;
    MDATE   Written;
    MDATE   Arrived;
-   CHAR    FromAddress[48];
-   CHAR    ToAddress[48];
+   CHAR    FromAddress[64];
+   CHAR    ToAddress[64];
    ULONG   Reply, Original;
    class   TCollection Text;
 
@@ -679,6 +679,7 @@ private:
    class  TTcpip *Tcp;
 
    USHORT GetResponse (PSZ pszResponse, USHORT usMaxLen);
+   USHORT GetLine (PSZ pszResponse, USHORT usMaxLen);
 };
 
 // --------------------------------------------------------------------------

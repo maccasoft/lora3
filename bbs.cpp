@@ -38,6 +38,7 @@ public:
    VOID   Enable (VOID);
    USHORT First (VOID);
    USHORT Next (VOID);
+   VOID   Read (USHORT nTask);
    VOID   Update (VOID);
 
 private:
@@ -183,6 +184,35 @@ VOID TUseron::Update (VOID)
    }
 }
 
+VOID TUseron::Read (USHORT nTask)
+{
+   int fd;
+   USHORT i;
+
+   if ((fd = open (DataFile, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE)) != -1) {
+      if (lseek (fd, (Task - 1) * sizeof (USERON), SEEK_SET) == -1) {
+         lseek (fd, 0L, SEEK_SET);
+         for (i = 0; i < Task; i++) {
+            if (read (fd, &User, sizeof (USERON)) != sizeof (USERON)) {
+               memset (&User, 0, sizeof (USERON));
+               write (fd, &User, sizeof (USERON));
+            }
+         }
+      }
+      else
+         read (fd, &User, sizeof (USERON));
+
+      User.Task = nTask;
+      strcpy (User.Status, Status);
+      strcpy (User.Name, Name);
+      strcpy (User.City, City);
+      User.Speed = Speed;
+      User.NoDisturb = NoDisturb;
+
+      close (fd);
+   }
+}
+
 // ----------------------------------------------------------------------
 
 TBbs::TBbs (void)
@@ -201,6 +231,7 @@ TBbs::TBbs (void)
    AutoDetect = TRUE;
    FancyNames = TRUE;
    Logoff = FALSE;
+   Local = FALSE;
    Stack.Clear ();
    TimeLimit = 0;
 
@@ -224,16 +255,47 @@ TBbs::~TBbs (void)
       delete Snoop;
 }
 
-VOID TBbs::ResetUseronRecord (VOID)
+VOID TBbs::DisableUseronRecord (VOID)
 {
+   class TUseron *Useron;
+
+   if ((Useron = new TUseron (Cfg->SystemPath)) != NULL) {
+      Useron->Task = Task;
+      Useron->Disable ();
+      delete Useron;
+   }
 }
 
-VOID TBbs::SetUseronRecord (USHORT id, PSZ status, PSZ name)
+VOID TBbs::SetUseronRecord (PSZ pszStatus)
 {
+   class TUseron *Useron;
+
+   if ((Useron = new TUseron (Cfg->SystemPath)) != NULL) {
+      Useron->Task = Task;
+      strcpy (Useron->Status, pszStatus);
+      if (User != NULL && User->Name[0] != '\0') {
+         strcpy (Useron->Name, User->Name);
+         strcpy (Useron->City, User->City);
+         Useron->NoDisturb = FALSE;
+      }
+      else
+         Useron->NoDisturb = TRUE;
+      Useron->Speed = Speed;
+      Useron->Enable ();
+      delete Useron;
+   }
 }
 
 VOID TBbs::ToggleNoDisturb (VOID)
 {
+   class TUseron *Useron;
+
+   if ((Useron = new TUseron (Cfg->SystemPath)) != NULL) {
+      Useron->Read (Task);
+      Useron->NoDisturb = (Useron->NoDisturb == TRUE) ? FALSE : TRUE;
+      Useron->Update ();
+      delete Useron;
+   }
 }
 
 VOID TBbs::SetBirthDate (VOID)
@@ -257,22 +319,29 @@ VOID TBbs::SetBirthDate (VOID)
 VOID TBbs::ExecuteCommand (class TMenu *Menu)
 {
    CHAR Temp[32], *p;
-   class TStatistics *Stats;
 
    switch (Menu->Command) {
-      case MNU_ONLINEUSERS:
-         if ((Stats = new TStatistics (Cfg->SystemPath)) != NULL) {
-            Embedded->Printf ("\014\x16\x01\x0BOnLine Users at: %s\n\n", Cfg->SystemName);
-            Embedded->Printf ("\x16\x01\012  # User Name                          Action\n=== ================================== ========================================\n");
-            if (Stats->First () == TRUE)
-               do {
-                  if (Stats->Status != STAT_OFFLINE)
-                     Embedded->Printf ("\x16\x01\x0E%3d %-34.34s \x16\x01\x0A%s\n", Stats->LineNumber, Stats->User, Stats->Action);
-               } while (Stats->Next () == TRUE);
-            Embedded->Printf ("\n");
-            delete Stats;
+      case MNU_APPENDMENU:
+         if (Menu->Load (Menu->Argument, TRUE) == FALSE) {
+            if (Log != NULL)
+               Log->Write ("!Can't append menu %s", Menu->Argument);
          }
          break;
+      case MNU_ONLINEUSERS: {
+         class TUseron *Useron;
+
+         if ((Useron = new TUseron (Cfg->SystemPath)) != NULL) {
+            Embedded->BufferedPrintf (Language->Text (LNG_ONLINETITLE), Cfg->SystemName);
+            Embedded->BufferedPrintf (Language->Text (LNG_ONLINEHEADER));
+            if (Useron->First () == TRUE)
+               do {
+                  Embedded->BufferedPrintf (Language->Text (LNG_ONLINEENTRY), Useron->Name, Useron->Task, Useron->Speed, Useron->Status, Useron->City);
+               } while (Useron->Next () == TRUE);
+            Embedded->Printf ("\n");
+            delete Useron;
+         }
+         break;
+      }
       case MNU_CLEARSTACK:
          Stack.Clear ();
          break;
@@ -280,6 +349,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
          Embedded->DisplayFile (Menu->Argument);
          break;
       case MNU_FILEDATELIST:
+         SetUseronRecord ("Browsing files");
          if (Library != NULL)
             Library->ListRecentFiles ();
          break;
@@ -289,6 +359,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
          break;
       case MNU_FILEDOWNLOAD:
       case MNU_FILEDOWNLOADANY:
+         SetUseronRecord ("Download");
          if (Library != NULL) {
             if ((p = strstr (Menu->Argument, "/f=")) == NULL)
                p = strstr (Menu->Argument, "/F=");
@@ -305,14 +376,17 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
             Library->DownloadList ();
          break;
       case MNU_FILEKEYWORDLIST:
+         SetUseronRecord ("Browsing files");
          if (Library != NULL)
             Library->SearchKeyword ();
          break;
       case MNU_FILENAMELIST:
+         SetUseronRecord ("Browsing files");
          if (Library != NULL)
             Library->ListFiles ();
          break;
       case MNU_FILENEWLIST:
+         SetUseronRecord ("Browsing files");
          if (Library != NULL)
             Library->SearchNewFiles ();
          break;
@@ -337,14 +411,17 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
             Library->DeleteAllTagged ();
          break;
       case MNU_FILETEXTLIST:
+         SetUseronRecord ("Browsing files");
          if (Library != NULL)
             Library->SearchText ();
          break;
       case MNU_FILEUPLOAD:
+         SetUseronRecord ("Upload");
          if (Library != NULL)
             Library->Upload ();
          break;
       case MNU_FILEUPLOADUSER:
+         SetUseronRecord ("Upload");
          if (Library != NULL)
             Library->UploadUser (Menu->Argument);
          break;
@@ -355,6 +432,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_FINGER: {
          class TInternet *Inet;
 
+         SetUseronRecord ("Finger");
          if ((Inet = new TInternet) != NULL) {
             Inet->Cfg = Cfg;
             Inet->Com = Com;
@@ -369,6 +447,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_FTP: {
          class TInternet *Inet;
 
+         SetUseronRecord ("FTP");
          if ((Inet = new TInternet) != NULL) {
             Inet->Cfg = Cfg;
             Inet->Com = Com;
@@ -377,6 +456,22 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
             Inet->Embedded = Embedded;
             Inet->User = User;
             Inet->FTP (Menu->Argument);
+            delete Inet;
+         }
+         break;
+      }
+      case MNU_IRC: {
+         class TInternet *Inet;
+
+         SetUseronRecord ("IRC");
+         if ((Inet = new TInternet) != NULL) {
+            Inet->Cfg = Cfg;
+            Inet->Com = Com;
+            Inet->Snoop = Snoop;
+            Inet->Log = Log;
+            Inet->Embedded = Embedded;
+            Inet->User = User;
+            Inet->IRC (Menu->Argument);
             delete Inet;
          }
          break;
@@ -436,6 +531,8 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_LOGOFF: {
          USHORT Answer;
 
+         SetUseronRecord ("Logoff");
+
          if (User != NULL) {
             if (User->FileTag != NULL) {
                if (User->FileTag->TotalFiles > 0)
@@ -466,11 +563,48 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
          break;
       case MNU_MAILREAD:
          if (EMail != NULL)
-            EMail->ReadMessages ();
+            EMail->ReadMessages (TRUE);
          break;
-      case MNU_MAILWRITE:
+      case MNU_MAILWRITELOCAL:
+      case MNU_MAILWRITEFIDONET:
+      case MNU_MAILWRITEINTERNET:
+         if (EMail != NULL) {
+            if (Menu->Command == MNU_MAILWRITELOCAL)
+               EMail->Write (MAIL_LOCAL, Menu->Argument);
+            else if (Menu->Command == MNU_MAILWRITEFIDONET)
+               EMail->Write (MAIL_FIDONET, Menu->Argument);
+            else if (Menu->Command == MNU_MAILWRITEINTERNET)
+               EMail->Write (MAIL_INTERNET, Menu->Argument);
+         }
+         break;
+      case MNU_MAILNEXT:
+         SetUseronRecord ("Reading e-mail");
          if (EMail != NULL)
-            EMail->Write ();
+            EMail->ReadNext ();
+         break;
+      case MNU_MAILPREVIOUS:
+         SetUseronRecord ("Reading e-mail");
+         if (EMail != NULL)
+            EMail->ReadPrevious ();
+         break;
+      case MNU_MAILNONSTOP:
+         SetUseronRecord ("Reading e-mail");
+         if (EMail != NULL)
+            EMail->ReadNonStop ();
+         break;
+      case MNU_MAILINDIVIDUAL: {
+         ULONG Number;
+
+         SetUseronRecord ("Reading e-mail");
+         Number = atol (Cmd);
+         if (EMail != NULL)
+            EMail->Read (Number);
+         break;
+      }
+      case MNU_MAILREPLY:
+         SetUseronRecord ("Message editor");
+         if (EMail != NULL)
+            EMail->Reply ();
          break;
       case MNU_MSGBRIEFLIST:
          if (Message != NULL)
@@ -481,24 +615,29 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
             Message->Delete ();
          break;
       case MNU_MSGFORWARD:
+         SetUseronRecord ("Message editor");
          if (Message != NULL)
             Message->ReadNext ();
          break;
       case MNU_MSGBACKWARD:
+         SetUseronRecord ("Reading messages");
          if (Message != NULL)
             Message->ReadPrevious ();
          break;
       case MNU_MSGREADREPLY:
+         SetUseronRecord ("Reading messages");
          if (Message != NULL)
             Message->ReadReply ();
          break;
       case MNU_MSGREADORIGINAL:
+         SetUseronRecord ("Reading messages");
          if (Message != NULL)
             Message->ReadOriginal ();
          break;
       case MNU_MSGINDIVIDUAL: {
          ULONG Number;
 
+         SetUseronRecord ("Reading messages");
          Number = atol (Cmd);
          if (Message != NULL && Message->Msg != NULL)
             Message->Read (Message->Msg->MsgnToUid (Number));
@@ -509,14 +648,17 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
             Message->SelectNewArea (Menu->Argument);
          break;
       case MNU_MSGREAD:
+         SetUseronRecord ("Reading messages");
          if (Message != NULL)
             Message->ReadMessages ();
          break;
       case MNU_MSGREADCURRENT:
+         SetUseronRecord ("Reading messages");
          if (Message != NULL)
             Message->DisplayCurrent ();
          break;
       case MNU_MSGREPLY:
+         SetUseronRecord ("Message editor");
          if (Message != NULL)
             Message->Reply ();
          break;
@@ -525,6 +667,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
             Message->SelectArea (Menu->Argument);
          break;
       case MNU_MSGREADNONSTOP:
+         SetUseronRecord ("Reading messages");
          if (Message != NULL)
             Message->ReadNonStop ();
          break;
@@ -533,6 +676,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
             Message->TitleList ();
          break;
       case MNU_MSGWRITE:
+         SetUseronRecord ("Message editor");
          if (Message != NULL)
             Message->Write ();
          break;
@@ -546,6 +690,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_OLRDOWNLOADQWK: {
          class TOffline *Olr = NULL;
 
+         SetUseronRecord ("Offline reader");
          if (Menu->Command == MNU_OLRDOWNLOADASCII)
             Olr = new TAscii;
          else if (Menu->Command == MNU_OLRDOWNLOADBW)
@@ -573,6 +718,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_OLRRESTRICTDATE: {
          class TOffline *Olr;
 
+         SetUseronRecord ("Offline reader");
          if ((Olr = new TOffline) != NULL) {
             Olr->Cfg = Cfg;
             Olr->Embedded = Embedded;
@@ -586,6 +732,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_OLRREMOVEAREA: {
          class TOffline *Olr;
 
+         SetUseronRecord ("Offline reader");
          if ((Olr = new TOffline) != NULL) {
             Olr->Cfg = Cfg;
             Olr->Embedded = Embedded;
@@ -599,6 +746,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_OLRTAGAREA: {
          class TOffline *Olr;
 
+         SetUseronRecord ("Offline reader");
          if ((Olr = new TOffline) != NULL) {
             Olr->Cfg = Cfg;
             Olr->Embedded = Embedded;
@@ -612,6 +760,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_OLRUPLOAD: {
          class TOffline *Olr;
 
+         SetUseronRecord ("Offline reader");
          if ((Olr = new TBlueWave) != NULL) {
             Olr->Cfg = Cfg;
             Olr->Embedded = Embedded;
@@ -654,6 +803,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
       case MNU_OLRVIEWTAGGED: {
          class TOffline *Olr;
 
+         SetUseronRecord ("Offline reader");
          if ((Olr = new TOffline) != NULL) {
             Olr->Cfg = Cfg;
             Olr->Embedded = Embedded;
@@ -680,6 +830,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
          Reload = TRUE;
          break;
       case MNU_RUNEXTERNAL:
+         SetUseronRecord ("External door");
          Embedded->RunExternal (Menu->Argument);
          break;
       case MNU_SEARCHFILENAME:
@@ -690,25 +841,25 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
          do {
             Embedded->Printf (Language->Text(LNG_ASKCOMPANYNAME));
             Embedded->Input (User->Company, (USHORT)(sizeof (User->Company) - 1), INP_FIELD);
-         } while (User->Company[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->CompanyName == REQUIRED);
+         } while (User->Company[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskCompanyName == REQUIRED);
          break;
       case MNU_SETADDRESS:
          do {
             Embedded->Printf (Language->Text(LNG_ASKADDRESS));
             Embedded->Input (User->Address, (USHORT)(sizeof (User->Address) - 1), INP_FIELD);
-         } while (User->Address[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->Address == REQUIRED);
+         } while (User->Address[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskAddress == REQUIRED);
          break;
       case MNU_SETCITY:
          do {
             Embedded->Printf (Language->Text(LNG_ASKCITY));
             Embedded->Input (User->City, (USHORT)(sizeof (User->City) - 1), 0);
-         } while (User->City[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->City == REQUIRED);
+         } while (User->City[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskCity == REQUIRED);
          break;
       case MNU_SETPHONE:
          do {
             Embedded->Printf (Language->Text(LNG_ASKDAYPHONE));
             Embedded->Input (User->DayPhone, (USHORT)(sizeof (User->DayPhone) - 1), INP_FIELD);
-         } while (User->DayPhone[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->PhoneNumber == REQUIRED);
+         } while (User->DayPhone[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskPhoneNumber == REQUIRED);
          break;
       case MNU_SETBIRTHDATE:
          SetBirthDate ();
@@ -718,7 +869,7 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
             Embedded->Printf (Language->Text(LNG_ASKSEX));
             Embedded->Input (Temp, 1, INP_FIELD);
             User->Sex = (UCHAR)toupper (Temp[0]);
-         } while (User->Sex != Language->Male && User->Sex != Language->Female && Embedded->AbortSession () == FALSE && Cfg->Gender == REQUIRED);
+         } while (User->Sex != Language->Male && User->Sex != Language->Female && Embedded->AbortSession () == FALSE && Cfg->AskGender == REQUIRED);
 
          if (User->Sex == Language->Female)
             User->Sex = 1;
@@ -777,9 +928,17 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
          }
          break;
       }
+      case MNU_SETSCREENLENGTH:
+         do {
+            Embedded->Printf (Language->Text (LNG_ASKLINES));
+            Embedded->Input (Temp, 2, INP_FIELD);
+         } while ((atoi (Temp) < 10 || atoi (Temp) > 66) && Embedded->AbortSession () == FALSE);
+         User->ScreenHeight = (USHORT)atoi (Temp);
+         break;
       case MNU_TELNET: {
          class TInternet *Inet;
 
+         SetUseronRecord ("Telnet");
          if ((Inet = new TInternet) != NULL) {
             Inet->Cfg = Cfg;
             Inet->Com = Com;
@@ -818,6 +977,9 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
          break;
       case MNU_TOGGLEIBMCHARS:
          User->IBMChars = (User->IBMChars == TRUE) ? FALSE : TRUE;
+         break;
+      case MNU_TOGGLERIP:
+         Embedded->Rip = (Embedded->Rip == TRUE) ? FALSE : TRUE;
          break;
       case MNU_TOGGLESCREENCLEAR:
          User->ScreenClear = (User->ScreenClear == TRUE) ? FALSE : TRUE;
@@ -905,9 +1067,10 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
 #endif
 
          Embedded->Printf ("\n%s Professional Edition - Version %s\n", NAME, VERSION);
-         Embedded->Printf ("Copyright (c) 1996 by Marco Maccaferri. All rights reserved.\n\n");
+         Embedded->Printf ("Copyright (c) 1996-97 by Marco Maccaferri. All rights reserved.\n");
+         Embedded->Printf ("\026\001\013BlueWave Offline Mail System. Copyright 1990-94 by Cutting Edge Computing\n\n");
 
-         Embedded->Printf ("Design and Development by Marco Maccaferri.\n\n");
+         Embedded->Printf ("Design and Development by Marco Maccaferri.\n\n");
 
          Embedded->Printf ("\026\001\014For technical support or for more informations on LoraBBS, send mail\nto macca@arci02.bo.cnr.it or \"Marco Maccaferri\" at 2:332/402.\n\n");
 
@@ -1112,6 +1275,11 @@ USHORT TBbs::Login (VOID)
          strcpy (User->LimitClass, Cfg->NewUserLimits);
          User->ScreenWidth = 80;
          User->ScreenHeight = 24;
+         User->Ansi = (UCHAR)Embedded->Ansi;
+         User->Avatar = (UCHAR)Embedded->Avatar;
+         User->Color = (UCHAR)Embedded->Color;
+         User->InUserList = TRUE;
+
          strcpy (Temp, User->Name);
          if ((p = strtok (strlwr (Temp), " ")) != NULL) {
             User->MailBox[0] = *p;                 // La prima lettera della mailbox e'
@@ -1123,23 +1291,36 @@ USHORT TBbs::Login (VOID)
             strcat (User->MailBox, p);
          }
 
+         SetUseronRecord ("New User");
          Embedded->DisplayFile ("applic");
 
-         if (Embedded->AbortSession () == FALSE && Cfg->City != NO)
+         if (Embedded->AbortSession () == FALSE && Cfg->AskCity != NO)
             do {
                Embedded->Printf (Language->Text (LNG_ASKCITY));
                Embedded->Input (User->City, (USHORT)(sizeof (User->City) - 1), INP_FIELD);
-            } while (User->City[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->City == REQUIRED);
+            } while (User->City[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskCity == REQUIRED);
          if (Snoop != NULL)
             Snoop->SetCity (User->City);
          else if (Com != NULL)
             Com->SetCity (User->City);
 
-         if (Embedded->AbortSession () == FALSE && Cfg->PhoneNumber != NO)
+         if (Embedded->AbortSession () == FALSE && Cfg->AskCompanyName != NO)
+            do {
+               Embedded->Printf (Language->Text(LNG_ASKCOMPANYNAME));
+               Embedded->Input (User->Company, (USHORT)(sizeof (User->Company) - 1), INP_FIELD);
+            } while (User->Company[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskCompanyName == REQUIRED);
+
+         if (Embedded->AbortSession () == FALSE && Cfg->AskAddress != NO)
+            do {
+               Embedded->Printf (Language->Text(LNG_ASKADDRESS));
+               Embedded->Input (User->Address, (USHORT)(sizeof (User->Address) - 1), INP_FIELD);
+            } while (User->Address[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskAddress == REQUIRED);
+
+         if (Embedded->AbortSession () == FALSE && Cfg->AskPhoneNumber != NO)
             do {
                Embedded->Printf (Language->Text (LNG_ASKDAYPHONE));
                Embedded->Input (User->DayPhone, (USHORT)(sizeof (User->DayPhone) - 1), INP_FIELD);
-            } while (User->DayPhone[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->PhoneNumber == REQUIRED);
+            } while (User->DayPhone[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskPhoneNumber == REQUIRED);
 
          if (Embedded->AbortSession () == FALSE)
             Embedded->DisplayFile ("newuser1");
@@ -1166,60 +1347,121 @@ USHORT TBbs::Login (VOID)
             RetVal = TRUE;
          }
 
-         if (Embedded->AbortSession () == FALSE && Cfg->CheckAnsi == YES)
+         if (Cfg->UseAnsi == YES) {
+            User->Ansi = User->Color = TRUE;
+            Embedded->Ansi = User->Ansi;
+            Embedded->Color = User->Color;
+         }
+         else if (Cfg->UseAnsi == NO) {
+            User->Ansi = User->Color = FALSE;
+            Embedded->Ansi = User->Ansi;
+            Embedded->Color = User->Color;
+         }
+         else if (Embedded->AbortSession () == FALSE && Cfg->UseAnsi == ASK)
             do {
                Embedded->Printf (Language->Text (LNG_ASKANSI));
-               if ((Answer = Embedded->GetAnswer (ASK_DEFNO|ASK_HELP)) == ANSWER_YES)
+               if ((Answer = Embedded->GetAnswer (ASK_DEFNO|ASK_HELP)) == ANSWER_YES) {
                   User->Ansi = User->Color = TRUE;
+                  Embedded->Ansi = User->Ansi;
+                  Embedded->Color = User->Color;
+               }
                else if (Answer == ANSWER_HELP)
                   Embedded->DisplayFile ("why_ansi");
             } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
-         Embedded->Ansi = User->Ansi;
-         Embedded->Color = User->Color;
 
-         if (User->Ansi == FALSE && Embedded->AbortSession () == FALSE && Cfg->CheckAvatar == YES)
-            do {
-               Embedded->Printf (Language->Text (LNG_ASKAVATAR));
-               if ((Answer = Embedded->GetAnswer (ASK_DEFNO|ASK_HELP)) == ANSWER_YES)
-                  User->Avatar = User->Color = TRUE;
-               else if (Answer == ANSWER_HELP)
-                  Embedded->DisplayFile ("why_avt");
-            } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
-         Embedded->Avatar = User->Avatar;
-         Embedded->Color = User->Color;
+         if (User->Ansi == FALSE) {
+            if (Cfg->UseAvatar == YES) {
+               User->Avatar = User->Color = TRUE;
+               Embedded->Avatar = User->Avatar;
+               Embedded->Color = User->Color;
+            }
+            else if (Cfg->UseAvatar == NO) {
+               User->Avatar = User->Color = FALSE;
+               Embedded->Avatar = User->Avatar;
+               Embedded->Color = User->Color;
+            }
+            else if (Embedded->AbortSession () == FALSE && Cfg->UseAvatar == ASK)
+               do {
+                  Embedded->Printf (Language->Text (LNG_ASKAVATAR));
+                  if ((Answer = Embedded->GetAnswer (ASK_DEFNO|ASK_HELP)) == ANSWER_YES) {
+                     User->Avatar = User->Color = TRUE;
+                     Embedded->Avatar = User->Avatar;
+                     Embedded->Color = User->Color;
+                  }
+                  else if (Answer == ANSWER_HELP)
+                     Embedded->DisplayFile ("why_avt");
+               } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
+         }
 
-         if (Embedded->AbortSession () == FALSE && (User->Ansi == TRUE || User->Avatar == TRUE) && Cfg->CheckColor == YES)
-            do {
-               Embedded->Printf (Language->Text (LNG_ASKCOLOR));
-               if ((Answer = Embedded->GetAnswer (ASK_DEFYES|ASK_HELP)) == ANSWER_YES)
-                  User->Color = TRUE;
-               else if (Answer == ANSWER_HELP)
-                  Embedded->DisplayFile ("why_col");
-            } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
-         Embedded->Color = User->Color;
+         if (User->Ansi == TRUE || User->Avatar == TRUE) {
+            if (Cfg->UseColor == YES)
+               User->Color = TRUE;
+            else if (Cfg->UseColor == NO)
+               User->Color = FALSE;
+            else if (Embedded->AbortSession () == FALSE && Cfg->UseColor == ASK)
+               do {
+                  Embedded->Printf (Language->Text (LNG_ASKCOLOR));
+                  if ((Answer = Embedded->GetAnswer (ASK_DEFYES|ASK_HELP)) == ANSWER_YES)
+                     User->Color = TRUE;
+                  else if (Answer == ANSWER_HELP)
+                     Embedded->DisplayFile ("why_col");
+               } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
+            Embedded->Color = User->Color;
 
-         if (Embedded->AbortSession () == FALSE && (User->Ansi == TRUE || User->Avatar == TRUE) && Cfg->CheckFullScreen == YES)
-            do {
-               Embedded->Printf (Language->Text (LNG_ASKFULLSCREEN));
-               if ((Answer = Embedded->GetAnswer (ASK_DEFYES|ASK_HELP)) == ANSWER_YES) {
-                  User->FullScreen = TRUE;
-                  User->FullEd = TRUE;
-                  User->FullReader = TRUE;
-               }
-               else if (Answer == ANSWER_HELP)
-                  Embedded->DisplayFile ("why_fs");
-            } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
+            if (Cfg->UseFullScreenEditor == YES)
+               User->FullEd = TRUE;
+            else if (Cfg->UseFullScreenEditor == NO)
+               User->FullEd = FALSE;
+            else if (Embedded->AbortSession () == FALSE && Cfg->UseFullScreenEditor == ASK)
+               do {
+                  Embedded->Printf ("\n\026\001\012Do you want to use the full-screen editor");
+                  if ((Answer = Embedded->GetAnswer (ASK_DEFYES|ASK_HELP)) == ANSWER_YES)
+                     User->FullEd = TRUE;
+                  else if (Answer == ANSWER_HELP)
+                     Embedded->DisplayFile ("why_fsed");
+               } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
 
-         if (Embedded->AbortSession () == FALSE && Cfg->RealName != NO) {
+            if (Cfg->UseFullScreenReader == YES)
+               User->FullReader = TRUE;
+            else if (Cfg->UseFullScreenReader == NO)
+               User->FullReader = FALSE;
+            else if (Embedded->AbortSession () == FALSE && Cfg->UseFullScreenReader == ASK)
+               do {
+                  Embedded->Printf ("\n\026\001\012Do you want to use the full-screen reader");
+                  if ((Answer = Embedded->GetAnswer (ASK_DEFYES|ASK_HELP)) == ANSWER_YES)
+                     User->FullReader = TRUE;
+                  else if (Answer == ANSWER_HELP)
+                     Embedded->DisplayFile ("why_fsrd");
+               } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
+
+            if (Cfg->UseFullScreenLists == YES)
+               User->FullScreen = TRUE;
+            else if (Cfg->UseFullScreenLists == NO)
+               User->FullScreen = FALSE;
+            if (Embedded->AbortSession () == FALSE && Cfg->UseFullScreenLists == ASK)
+               do {
+                  Embedded->Printf ("\n\026\001\012Do you want to use the full-screen lists");
+                  if ((Answer = Embedded->GetAnswer (ASK_DEFYES|ASK_HELP)) == ANSWER_YES)
+                     User->FullScreen = TRUE;
+                  else if (Answer == ANSWER_HELP)
+                     Embedded->DisplayFile ("why_fsls");
+               } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
+         }
+
+         if (Embedded->AbortSession () == FALSE && Cfg->AskAlias != NO) {
             do {
                Embedded->Printf (Language->Text (LNG_ASKALIAS));
                Embedded->Input (User->RealName, (USHORT)(sizeof (User->RealName) - 1), INP_FIELD);
-            } while (strlen (User->RealName) < 3 && Embedded->AbortSession () == FALSE && Cfg->RealName == REQUIRED);
+            } while (strlen (User->RealName) < 3 && Embedded->AbortSession () == FALSE && Cfg->AskAlias == REQUIRED);
             if (User->RealName[0] == '\0')
                strcpy (User->RealName, User->Name);
          }
 
-         if (Embedded->AbortSession () == FALSE && Cfg->CheckHotKey == YES)
+         if (Cfg->UseHotKey == YES)
+            User->HotKey = TRUE;
+         else if (Cfg->UseHotKey == NO)
+            User->HotKey = FALSE;
+         else if (Embedded->AbortSession () == FALSE && Cfg->UseHotKey == ASK)
             do {
                Embedded->Printf (Language->Text (LNG_ASKHOTKEY));
                if ((Answer = Embedded->GetAnswer (ASK_DEFYES|ASK_HELP)) == ANSWER_YES)
@@ -1228,7 +1470,11 @@ USHORT TBbs::Login (VOID)
                   Embedded->DisplayFile ("why_hot");
             } while (Answer == ANSWER_HELP && Embedded->AbortSession () == FALSE);
 
-         if (Embedded->AbortSession () == FALSE && Cfg->CheckIBMChars)
+         if (Cfg->UseIBMChars == YES)
+            User->IBMChars = TRUE;
+         else if (Cfg->UseIBMChars == NO)
+            User->IBMChars = FALSE;
+         else if (Embedded->AbortSession () == FALSE && Cfg->UseIBMChars == ASK)
             do {
                Embedded->Printf (Language->Text (LNG_ASKIBMCHARS));
                if ((Answer = Embedded->GetAnswer (ASK_DEFYES|ASK_HELP)) == ANSWER_YES)
@@ -1244,13 +1490,21 @@ USHORT TBbs::Login (VOID)
             } while ((atoi (Temp) < 10 || atoi (Temp) > 66) && Embedded->AbortSession () == FALSE);
          User->ScreenHeight = (USHORT)atoi (Temp);
 
-         if (Embedded->AbortSession () == FALSE && Cfg->AskPause == YES) {
+         if (Cfg->UsePause == YES)
+            User->MorePrompt = TRUE;
+         else if (Cfg->UsePause == NO)
+            User->MorePrompt = FALSE;
+         else if (Embedded->AbortSession () == FALSE && Cfg->UsePause == ASK) {
             Embedded->Printf (Language->Text (LNG_ASKPAUSE));
             if ((Answer = Embedded->GetAnswer (ASK_DEFYES)) == ANSWER_YES)
                User->MorePrompt = TRUE;
          }
 
-         if (Embedded->AbortSession () == FALSE && Cfg->AskScreenClear == YES) {
+         if (Cfg->UseScreenClear == YES)
+            User->ScreenClear = TRUE;
+         else if (Cfg->UseScreenClear == NO)
+            User->ScreenClear = FALSE;
+         else if (Embedded->AbortSession () == FALSE && Cfg->UseScreenClear == ASK) {
             Embedded->Printf (Language->Text (LNG_ASKSCREENCLEAR));
             if ((Answer = Embedded->GetAnswer (ASK_DEFYES)) == ANSWER_YES)
                User->ScreenClear = TRUE;
@@ -1259,16 +1513,33 @@ USHORT TBbs::Login (VOID)
          if (Embedded->AbortSession () == FALSE && Cfg->AskBirthDate == YES)
             SetBirthDate ();
 
-         if (Embedded->AbortSession () == FALSE && Cfg->AskMailCheck == YES) {
+         User->MailCheck = Cfg->AskMailCheck;
+         if (Embedded->AbortSession () == FALSE && Cfg->AskMailCheck == ASK) {
             Embedded->Printf (Language->Text (LNG_ASKMAILCHECK));
             if ((Answer = Embedded->GetAnswer (ASK_DEFYES)) == ANSWER_YES)
                User->MailCheck = TRUE;
          }
 
+         User->NewFileCheck = Cfg->AskFileCheck;
          if (Embedded->AbortSession () == FALSE && Cfg->AskFileCheck == YES) {
             Embedded->Printf (Language->Text (LNG_ASKFILECHECK));
             if ((Answer = Embedded->GetAnswer (ASK_DEFYES)) == ANSWER_YES)
                User->NewFileCheck = TRUE;
+         }
+
+         if (Embedded->AbortSession () == FALSE && Cfg->AskGender != NO) {
+            do {
+               Embedded->Printf (Language->Text(LNG_ASKSEX));
+               Embedded->Input (Cmd, 1, INP_FIELD);
+               User->Sex = (UCHAR)toupper (Cmd[0]);
+            } while (User->Sex != Language->Male && User->Sex != Language->Female && Embedded->AbortSession () == FALSE && Cfg->AskGender == REQUIRED);
+
+            if (User->Sex == Language->Female)
+               User->Sex = 1;
+            else if (User->Sex == Language->Male)
+               User->Sex = 0;
+            else
+               User->Sex = 0;
          }
 
 
@@ -1355,6 +1626,9 @@ USHORT TBbs::Login (VOID)
             Snoop->SetCity (User->City);
          else if (Com != NULL)
             Com->SetCity (User->City);
+
+         SetUseronRecord ("Login");
+
          if (User->Language[0] != '\0') {
             if (Language->Load (User->Language) == TRUE) {
                Log->Write (":Loaded language %s", User->Language);
@@ -1423,27 +1697,39 @@ VOID TBbs::IEMSILogin (VOID)
 
    Embedded->DisplayFile ("applic");
 
-   if (Embedded->AbortSession () == FALSE && Cfg->City != NO && User->City[0] == '\0')
+   if (Embedded->AbortSession () == FALSE && Cfg->AskCity != NO)
       do {
          Embedded->Printf (Language->Text (LNG_ASKCITY));
          Embedded->Input (User->City, (USHORT)(sizeof (User->City) - 1), INP_FIELD);
-      } while (User->City[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->City == REQUIRED);
+      } while (User->City[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskCity == REQUIRED);
    if (Snoop != NULL)
       Snoop->SetCity (User->City);
    else if (Com != NULL)
       Com->SetCity (User->City);
 
-   if (Embedded->AbortSession () == FALSE && Cfg->PhoneNumber != NO && User->DayPhone[0] == '\0')
+   if (Embedded->AbortSession () == FALSE && Cfg->AskCompanyName != NO)
+      do {
+         Embedded->Printf (Language->Text(LNG_ASKCOMPANYNAME));
+         Embedded->Input (User->Company, (USHORT)(sizeof (User->Company) - 1), INP_FIELD);
+      } while (User->Company[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskCompanyName == REQUIRED);
+
+   if (Embedded->AbortSession () == FALSE && Cfg->AskAddress != NO)
+      do {
+         Embedded->Printf (Language->Text(LNG_ASKADDRESS));
+         Embedded->Input (User->Address, (USHORT)(sizeof (User->Address) - 1), INP_FIELD);
+      } while (User->Address[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskAddress == REQUIRED);
+
+   if (Embedded->AbortSession () == FALSE && Cfg->AskPhoneNumber != NO)
       do {
          Embedded->Printf (Language->Text (LNG_ASKDAYPHONE));
          Embedded->Input (User->DayPhone, (USHORT)(sizeof (User->DayPhone) - 1), INP_FIELD);
-      } while (User->DayPhone[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->PhoneNumber == REQUIRED);
+      } while (User->DayPhone[0] == '\0' && Embedded->AbortSession () == FALSE && Cfg->AskPhoneNumber == REQUIRED);
 
-   if (Embedded->AbortSession () == FALSE && Cfg->RealName != NO && User->RealName[0] == '\0') {
+   if (Embedded->AbortSession () == FALSE && Cfg->AskAlias != NO) {
       do {
          Embedded->Printf (Language->Text (LNG_ASKALIAS));
          Embedded->Input (User->RealName, (USHORT)(sizeof (User->RealName) - 1), INP_FIELD);
-      } while (strlen (User->RealName) < 3 && Embedded->AbortSession () == FALSE && Cfg->RealName == REQUIRED);
+      } while (strlen (User->RealName) < 3 && Embedded->AbortSession () == FALSE && Cfg->AskAlias == REQUIRED);
       if (User->RealName[0] == '\0')
          strcpy (User->RealName, User->Name);
    }
@@ -1501,7 +1787,7 @@ VOID TBbs::CheckBirthday (VOID)
 VOID TBbs::Run (VOID)
 {
    USHORT Logged, Executed, Manual, Hangup;
-   USHORT FirstTime, DoTimeWarn;
+   USHORT FirstTime, DoTimeWarn, Flags;
    ULONG CallLen;
    class TStatistics *Stats;
    class TDetect *Detect;
@@ -1513,6 +1799,7 @@ VOID TBbs::Run (VOID)
    StartCall = time (NULL);
    User = new TUser (Cfg->UserFile);
 //   Task = Cfg->TaskNumber;
+   SetUseronRecord ("Login");
 
    Language->Load ("default.lng");
    strcpy (Embedded->AltPath, Language->TextFiles);
@@ -1532,102 +1819,112 @@ VOID TBbs::Run (VOID)
       Embedded->Log = Log;
       strcpy (Embedded->Path, Cfg->TextFiles);
       Embedded->StartCall = StartCall;
+      Embedded->CarrierSpeed = Speed;
 
-      if ((Detect = new TDetect) != NULL) {
-         Detect->Task = Task;
-         Detect->Com = Com;
-         Detect->Cfg = Cfg;
-         Detect->Log = Log;
-         Detect->Speed = Speed;
-         Detect->Progress = Progress;
-         Detect->MailerStatus = MailerStatus;
-         Detect->Status = Status;
+      if (Local == FALSE) {
+         if ((Detect = new TDetect) != NULL) {
+            Detect->Task = Task;
+            Detect->Com = Com;
+            Detect->Cfg = Cfg;
+            Detect->Log = Log;
+            Detect->Events = Events;
+            Detect->Speed = Speed;
+            Detect->Progress = Progress;
+            Detect->MailerStatus = MailerStatus;
+            Detect->Status = Status;
 
-         Detect->Terminal ();
-         if (Embedded->AbortSession () == TRUE && Log != NULL)
-            Log->Write ("!Carrier lost");
+            Detect->Terminal ();
+            if (Embedded->AbortSession () == TRUE && Log != NULL)
+               Log->Write ("!Carrier lost");
 
-         Embedded->Ansi = Detect->Ansi;
-         Embedded->Avatar = Detect->Avatar;
-         Embedded->Rip = Detect->Rip;
-         if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)
-            Embedded->Color = TRUE;
-         Remote = Detect->Remote;
+            Embedded->Ansi = Detect->Ansi;
+            Embedded->Avatar = Detect->Avatar;
+            Embedded->Rip = Detect->Rip;
+            if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)
+               Embedded->Color = TRUE;
+            Remote = Detect->Remote;
 
-         if (Detect->IEMSI == TRUE) {
-            Log->Write ("*Detected IEMSI login");
-            Log->Write (":  %s from %s", Detect->Name, Detect->City);
-            strcpy (Name, Detect->Name);
+            if (Detect->IEMSI == TRUE) {
+               Log->Write ("*Detected IEMSI login");
+               Log->Write (":  %s from %s", Detect->Name, Detect->City);
+               strcpy (Name, Detect->Name);
 
-            Log->Write ("+%s is calling", Name);
-            if (Status != NULL)
-               Status->SetLine (0, "%s from %s", Detect->Name, Detect->City);
+               Log->Write ("+%s is calling", Name);
+               if (Status != NULL)
+                  Status->SetLine (0, "%s from %s", Detect->Name, Detect->City);
 
-            if (User->GetData (Name) == FALSE) {
-               Log->Write ("+%s isn't in user list", Name);
-               User->Clear ();
-               strcpy (User->Name, Name);
-               strcpy (User->RealName, Detect->RealName);
-               strcpy (User->City, Detect->City);
+               if (User->GetData (Name) == FALSE) {
+                  Log->Write ("+%s isn't in user list", Name);
+                  User->Clear ();
+                  strcpy (User->Name, Name);
+                  strcpy (User->RealName, Detect->RealName);
+                  strcpy (User->City, Detect->City);
+
+                  User->Ansi = Detect->Ansi;
+                  User->Avatar = Detect->Avatar;
+                  if (User->Ansi == TRUE && User->Avatar == TRUE)
+                     User->Color = TRUE;
+                  User->SetPassword (Detect->Password);
+                  User->Add ();
+
+                  Embedded->DisplayFile ("Logo");
+                  IEMSILogin ();
+                  if (Embedded->AbortSession () == TRUE && Log != NULL)
+                     Log->Write ("!Carrier lost");
+
+                  User->Update ();
+                  Logged = TRUE;
+               }
+               else {
+                  Logged = TRUE;
+                  if (User->Language[0] != '\0') {
+                     if (Language->Load (User->Language) == TRUE) {
+                        Log->Write (":Loaded language %s", User->Language);
+                        strcpy (Menu->AltPath, Language->MenuPath);
+                        strcpy (Embedded->AltPath, Language->TextFiles);
+                        Reload = TRUE;
+                        if (Menu->AltPath[0] != '\0')
+                           Log->Write ("   Language Menu Path = %s", Menu->AltPath);
+                        if (Embedded->AltPath[0] != '\0')
+                           Log->Write ("   Language Text Files Path = %s", Embedded->AltPath);
+                     }
+                     else {
+                        Log->Write ("!Failed to load language %s", User->Language);
+                        Language->Load ("default.lng");
+                        strcpy (Menu->AltPath, Language->MenuPath);
+                        strcpy (Embedded->AltPath, Language->TextFiles);
+                     }
+                  }
+                  if (User->CheckPassword (Detect->Password) == FALSE) {
+                     Log->Write ("!Invalid Password (%s)", strlwr (Detect->Password));
+                     Logged = Manual = FALSE;
+                  }
+                  else
+                     Embedded->DisplayFile ("logo");
+               }
 
                User->Ansi = Detect->Ansi;
                User->Avatar = Detect->Avatar;
                if (User->Ansi == TRUE && User->Avatar == TRUE)
                   User->Color = TRUE;
-               User->SetPassword (Detect->Password);
-               User->Add ();
-
-               Embedded->DisplayFile ("Logo");
-               IEMSILogin ();
-               if (Embedded->AbortSession () == TRUE && Log != NULL)
-                  Log->Write ("!Carrier lost");
-
-               User->Update ();
-               Logged = TRUE;
+               User->FullEd = Detect->FullEd;
+               User->IBMChars = Detect->IBMChars;
+               User->MorePrompt = Detect->MorePrompt;
+               User->HotKey = Detect->HotKeys;
+               User->ScreenClear = Detect->ScreenClear;
+               User->MailCheck = Detect->MailCheck;
+               User->NewFileCheck = Detect->FileCheck;
             }
-            else {
-               Logged = TRUE;
-               if (User->Language[0] != '\0') {
-                  if (Language->Load (User->Language) == TRUE) {
-                     Log->Write (":Loaded language %s", User->Language);
-                     strcpy (Menu->AltPath, Language->MenuPath);
-                     strcpy (Embedded->AltPath, Language->TextFiles);
-                     Reload = TRUE;
-                     if (Menu->AltPath[0] != '\0')
-                        Log->Write ("   Language Menu Path = %s", Menu->AltPath);
-                     if (Embedded->AltPath[0] != '\0')
-                        Log->Write ("   Language Text Files Path = %s", Embedded->AltPath);
-                  }
-                  else {
-                     Log->Write ("!Failed to load language %s", User->Language);
-                     Language->Load ("default.lng");
-                     strcpy (Menu->AltPath, Language->MenuPath);
-                     strcpy (Embedded->AltPath, Language->TextFiles);
-                  }
-               }
-               if (User->CheckPassword (Detect->Password) == FALSE) {
-                  Log->Write ("!Invalid Password (%s)", strlwr (Detect->Password));
-                  Logged = Manual = FALSE;
-               }
-               else
-                  Embedded->DisplayFile ("logo");
-            }
-
-            User->Ansi = Detect->Ansi;
-            User->Avatar = Detect->Avatar;
-            if (User->Ansi == TRUE && User->Avatar == TRUE)
-               User->Color = TRUE;
-            User->FullEd = Detect->FullEd;
-            User->IBMChars = Detect->IBMChars;
-            User->MorePrompt = Detect->MorePrompt;
-            User->HotKey = Detect->HotKeys;
-            User->ScreenClear = Detect->ScreenClear;
-            User->MailCheck = Detect->MailCheck;
-            User->NewFileCheck = Detect->FileCheck;
+            else if (Detect->Remote != REMOTE_USER)
+               Hangup = TRUE;
+            delete Detect;
          }
-         else if (Detect->Remote != REMOTE_USER)
-            Hangup = TRUE;
-         delete Detect;
+      }
+      else {
+         // In locale viene forzata l'emulazione ANSI, visto che tutti i componenti
+         // locali possono visualizzare i codici ANSI senza problemi.
+         Embedded->Ansi = Embedded->Color = TRUE;
+         Remote = REMOTE_USER;
       }
 
       if (Hangup == FALSE && Remote == REMOTE_USER) {
@@ -1674,6 +1971,7 @@ VOID TBbs::Run (VOID)
                Log->Write (":Daily Time/DL Zeroed");
             }
 
+            SetUseronRecord ("Login");
             User->TotalCalls++;
             User->Update ();
 
@@ -1689,6 +1987,9 @@ VOID TBbs::Run (VOID)
             DoTimeWarn = FALSE;
             if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
                if (Limits->Read (User->LimitClass) == TRUE) {
+                  User->Level = Limits->Level;
+                  User->AccessFlags = Limits->Flags;
+                  User->DenyFlags = Limits->DenyFlags;
                   Embedded->TimeLimit = Limits->CallTimeLimit;
                   if (Limits->DayTimeLimit != 0 && (Embedded->TimeLimit + User->TodayTime) > Limits->DayTimeLimit)
                      Embedded->TimeLimit = (USHORT)(Limits->DayTimeLimit - User->TodayTime);
@@ -1793,6 +2094,8 @@ VOID TBbs::Run (VOID)
                strcpy (Embedded->AltPath, Language->TextFiles);
 
                while (Embedded->AbortSession () == FALSE && Logoff == FALSE) {
+                  SetUseronRecord ("Browsing");
+
                   if (Reload == TRUE) {
                      FirstTime = TRUE;
                      if (Menu->Load (MenuName) == FALSE) {
@@ -1808,6 +2111,11 @@ VOID TBbs::Run (VOID)
                   }
 
                   if (Logoff == FALSE) {
+                     // Imposta di default il modo hotkey normale
+                     Flags = INP_HOTKEY;
+
+                     // Esegue il loop per la visualizzazione del menu' correntemente
+                     // caricato in memoria.
                      if (Menu->First () == TRUE)
                         do {
                            if (User->Level >= Menu->Level) {
@@ -1816,6 +2124,8 @@ VOID TBbs::Run (VOID)
                                     if (Menu->Display[0] != '\0')
                                        Embedded->DisplayPrompt (Menu->Display, Menu->Color, Menu->Hilight, FALSE);
                                  }
+                                 if (Menu->Command == MNU_APPENDMENU)
+                                    Menu->Automatic = Menu->FirstTime = TRUE;
                                  if (Menu->Automatic == TRUE && (Menu->FirstTime == FALSE || FirstTime == TRUE)) {
                                     if (Com != NULL)
                                        Com->UnbufferBytes ();
@@ -1823,10 +2133,17 @@ VOID TBbs::Run (VOID)
                                        Snoop->UnbufferBytes ();
                                     ExecuteCommand (Menu);
                                  }
+                                 // Verifica se c'e' il comando di lettura di messaggi
+                                 // individuali associato ad un numero, nel qual caso
+                                 // disabilita l'hotkey per gli input numerici.
+                                 if ((Menu->Command == MNU_MSGINDIVIDUAL || Menu->Command == MNU_MAILINDIVIDUAL) && isdigit (Menu->Key[0]))
+                                    Flags |= INP_NONUMHOT;
                               }
                            }
                         } while (Menu->Next () == TRUE);
 
+                     // Se il tempo rimasto e' minore di 3 minuti, visualizza un
+                     // avvertimento per l'utente.
                      if (Embedded->TimeRemain () <= 3)
                         Embedded->Printf ("\n\026\001\015You only have %lu minute(s) left\n", Embedded->TimeRemain ());
 
@@ -1837,7 +2154,7 @@ VOID TBbs::Run (VOID)
                      }
 
                      Embedded->DisplayPrompt (Menu->Prompt, Menu->PromptColor, Menu->PromptHilight, TRUE);
-                     Embedded->Input (Cmd, (USHORT)(sizeof (Cmd) - 1), INP_HOTKEY);
+                     Embedded->Input (Cmd, (USHORT)(sizeof (Cmd) - 1), Flags);
 
                      if (Embedded->AbortSession () == FALSE) {
                         Executed = FALSE;
@@ -1892,6 +2209,8 @@ VOID TBbs::Run (VOID)
          }
       }
    }
+
+   DisableUseronRecord ();
 }
 
 // ----------------------------------------------------------------------

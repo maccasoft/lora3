@@ -66,12 +66,27 @@ VOID TLibrary::ExternalProtocols (USHORT Batch)
 VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
 {
    CHAR Names[64], Cmd[10], *p;
-   USHORT SelectOK, ClearAfter = FALSE, Loop = TRUE, Continue = TRUE;
+   USHORT KB, SelectOK, ClearAfter = FALSE, Loop = TRUE, Continue = TRUE;
    ULONG DlTime;
    class TFileBase *Data;
    class TTransfer *Transfer;
    class TLimits *Limits;
    class TProtocol *Protocol;
+
+   ///////////////////////////////////////////////////////////////////////////
+   // Verifica che l'utente sia collegato ad una velocita' tale da          //
+   // consentire il download dei files.                                     //
+   ///////////////////////////////////////////////////////////////////////////
+   if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
+      if (Limits->Read (User->LimitClass) == TRUE) {
+         if (Limits->DownloadSpeed != 0L && CarrierSpeed < Limits->DownloadSpeed) {
+            Embedded->Printf ("\n\016\001\014Sorry, you can't download files at your current speed.\nBetter buy a faster modem.\n");
+            delete Limits;
+            return;
+         }
+      }
+      delete Limits;
+   }
 
    if (Files == NULL) {
       Files = new TFileTag;
@@ -135,9 +150,40 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
    }
    if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
       if (Limits->Read (User->LimitClass) == TRUE) {
-         if ((Files->TotalBytes + 1023L)/ 1024L > (Limits->DayDownloadLimit - (User->BytesToday + 1023L) / 1024L)) {
+         KB = (USHORT)((Files->TotalBytes + 1023L)/ 1024L);
+         if (Limits->DownloadLimit != 0 && KB > (Limits->DownloadLimit - (User->BytesToday + 1023L) / 1024L)) {
             Embedded->Printf (Language->Text (LNG_FILENOBYTESWARNING));
             Continue = FALSE;
+         }
+         if (Continue == TRUE && CarrierSpeed <= 2400) {
+            if (Limits->DownloadAt2400 != 0 && KB > (Limits->DownloadAt2400 - (User->BytesToday + 1023L) / 1024L)) {
+               Embedded->Printf (Language->Text (LNG_FILENOBYTESWARNING));
+               Continue = FALSE;
+            }
+         }
+         if (Continue == TRUE && CarrierSpeed > 2400 && CarrierSpeed < 9600) {
+            if (Limits->DownloadAt9600 != 0 && KB > (Limits->DownloadAt9600 - (User->BytesToday + 1023L) / 1024L)) {
+               Embedded->Printf (Language->Text (LNG_FILENOBYTESWARNING));
+               Continue = FALSE;
+            }
+         }
+         if (Continue == TRUE && CarrierSpeed > 9600 && CarrierSpeed < 14400) {
+            if (Limits->DownloadAt14400 != 0 && KB > (Limits->DownloadAt14400 - (User->BytesToday + 1023L) / 1024L)) {
+               Embedded->Printf (Language->Text (LNG_FILENOBYTESWARNING));
+               Continue = FALSE;
+            }
+         }
+         if (Continue == TRUE && CarrierSpeed > 14400 && CarrierSpeed < 28800) {
+            if (Limits->DownloadAt28800 != 0 && KB > (Limits->DownloadAt28800 - (User->BytesToday + 1023L) / 1024L)) {
+               Embedded->Printf (Language->Text (LNG_FILENOBYTESWARNING));
+               Continue = FALSE;
+            }
+         }
+         if (Continue == TRUE && CarrierSpeed > 28800 && CarrierSpeed < 33600) {
+            if (Limits->DownloadAt33600 != 0 && KB > (Limits->DownloadAt33600 - (User->BytesToday + 1023L) / 1024L)) {
+               Embedded->Printf (Language->Text (LNG_FILENOBYTESWARNING));
+               Continue = FALSE;
+            }
          }
       }
       delete Limits;

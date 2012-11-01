@@ -94,7 +94,7 @@ public:
 };
 
 BEGIN_MESSAGE_MAP (CNewUserDlg, CDialog)
-   ON_COMMAND (113, NewUserSecurity)
+   ON_COMMAND (201, NewUserSecurity)
 END_MESSAGE_MAP ()
 
 CNewUserDlg::CNewUserDlg (HWND p_hWnd) : CDialog ("21", p_hWnd)
@@ -113,73 +113,75 @@ USHORT CNewUserDlg::OnInitDialog (VOID)
    Center ();
    SetFocus (101);
 
-   BM_SetCheck (102 + Cfg->CheckAnsi, TRUE);
-   BM_SetCheck (106 + Cfg->RealName, TRUE);
-   BM_SetCheck (110 + Cfg->CompanyName, TRUE);
-   BM_SetCheck (115 + Cfg->Address, TRUE);
-   BM_SetCheck (119 + Cfg->City, TRUE);
-   BM_SetCheck (123 + Cfg->PhoneNumber, TRUE);
-   BM_SetCheck (127 + Cfg->Gender, TRUE);
-   BM_SetCheck (23 + Cfg->CheckAvatar, TRUE);
-   BM_SetCheck (26 + Cfg->CheckColor, TRUE);
-   BM_SetCheck (29 + Cfg->CheckFullScreen, TRUE);
-   BM_SetCheck (32 + Cfg->CheckHotKey, TRUE);
-   BM_SetCheck (35 + Cfg->CheckIBMChars, TRUE);
-   BM_SetCheck (38 + Cfg->AskLines, TRUE);
-   BM_SetCheck (41 + Cfg->AskPause, TRUE);
-   BM_SetCheck (44 + Cfg->AskScreenClear, TRUE);
-   BM_SetCheck (47 + Cfg->AskBirthDate, TRUE);
-   BM_SetCheck (50 + Cfg->AskMailCheck, TRUE);
-   BM_SetCheck (53 + Cfg->AskFileCheck, TRUE);
+   BM_SetCheck (102 + Cfg->UseAnsi, TRUE);
+   BM_SetCheck (107 + Cfg->UseAvatar, TRUE);
+   BM_SetCheck (112 + Cfg->UseColor, TRUE);
+   BM_SetCheck (116 + Cfg->UseFullScreenEditor, TRUE);
+   BM_SetCheck (120 + Cfg->UseFullScreenReader, TRUE);
+   BM_SetCheck (124 + Cfg->UseFullScreenLists, TRUE);
+   BM_SetCheck (128 + Cfg->UseHotKey, TRUE);
+   BM_SetCheck (132 + Cfg->UseIBMChars, TRUE);
+   BM_SetCheck (136 + Cfg->AskLines, TRUE);
+   BM_SetCheck (139 + Cfg->UsePause, TRUE);
+   BM_SetCheck (143 + Cfg->UseScreenClear, TRUE);
+   BM_SetCheck (147 + Cfg->AskBirthDate, TRUE);
+   BM_SetCheck (150 + Cfg->AskMailCheck, TRUE);
+   BM_SetCheck (154 + Cfg->AskFileCheck, TRUE);
+   BM_SetCheck (158 + Cfg->AskAlias, TRUE);
+   BM_SetCheck (162 + Cfg->AskCompanyName, TRUE);
+   BM_SetCheck (166 + Cfg->AskAddress, TRUE);
+   BM_SetCheck (170 + Cfg->AskCity, TRUE);
+   BM_SetCheck (174 + Cfg->AskPhoneNumber, TRUE);
+   BM_SetCheck (178 + Cfg->AskGender, TRUE);
 
    if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
       if (Limits->First () == TRUE)
          do {
-            LM_AddString (130, Limits->Key);
+            LM_AddString (182, Limits->Key);
          } while (Limits->Next () == TRUE);
          delete Limits;
    }
-   SetDlgItemText (130, Cfg->NewUserLimits);
+   SetDlgItemText (182, Cfg->NewUserLimits);
 
    return (TRUE);
 }
 
-UCHAR CNewUserDlg::GetSelection (USHORT id, USHORT Three)
+UCHAR CNewUserDlg::GetSelection (USHORT id, USHORT num)
 {
-   if (BM_QueryCheck (id) == TRUE)
-      return (NO);
-   else if (BM_QueryCheck (id + 1) == TRUE)
-      return (YES);
-   else if (Three == TRUE) {
-      if (BM_QueryCheck (id + 2) == TRUE)
-         return (REQUIRED);
+   UCHAR i;
+
+   for (i = 0; i < num; i++) {
+      if (BM_QueryCheck (id + i) == TRUE)
+         return (i);
    }
 
-   return (NO);
+   return (0);
 }
 
 VOID CNewUserDlg::OnOK (VOID)
 {
-   Cfg->CheckAnsi = GetSelection (102, FALSE);
-   Cfg->RealName = GetSelection (106, TRUE);
-   Cfg->CompanyName = GetSelection (110, TRUE);
-   Cfg->Address = GetSelection (115, TRUE);
-   Cfg->City = GetSelection (119, TRUE);
-   Cfg->PhoneNumber = GetSelection (123, TRUE);
-   Cfg->Gender = GetSelection (127, TRUE);
-   Cfg->CheckAvatar = GetSelection (23, FALSE);
-   Cfg->CheckColor = GetSelection (26, FALSE);
-   Cfg->CheckFullScreen = GetSelection (29, FALSE);
-   Cfg->CheckHotKey = GetSelection (32, FALSE);
-   Cfg->CheckIBMChars = GetSelection (35, FALSE);
-   Cfg->AskLines = GetSelection (38, FALSE);
-   Cfg->AskPause = GetSelection (41, FALSE);
-   Cfg->AskScreenClear = GetSelection (44, FALSE);
-   Cfg->AskBirthDate = GetSelection (47, FALSE);
-   Cfg->AskMailCheck = GetSelection (50, FALSE);
-   Cfg->AskFileCheck = GetSelection (53, FALSE);
+   Cfg->UseAnsi = GetSelection (102, 4);
+   Cfg->UseAvatar = GetSelection (107, 4);
+   Cfg->UseColor = GetSelection (112, 3);
+   Cfg->UseFullScreenEditor = GetSelection (116, 3);
+   Cfg->UseFullScreenReader = GetSelection (120, 3);
+   Cfg->UseFullScreenLists = GetSelection (124, 3);
+   Cfg->UseHotKey = GetSelection (128, 3);
+   Cfg->UseIBMChars = GetSelection (132, 3);
+   Cfg->AskLines = GetSelection (136, 2);
+   Cfg->UsePause = GetSelection (139, 3);
+   Cfg->UseScreenClear = GetSelection (143, 3);
+   Cfg->AskBirthDate = GetSelection (147, 2);
+   Cfg->AskMailCheck = GetSelection (150, 3);
+   Cfg->AskFileCheck = GetSelection (154, 3);
+   Cfg->AskAlias = GetSelection (158, 3);
+   Cfg->AskCompanyName = GetSelection (162, 3);
+   Cfg->AskAddress = GetSelection (166, 3);
+   Cfg->AskCity = GetSelection (170, 3);
+   Cfg->AskPhoneNumber = GetSelection (174, 3);
+   Cfg->AskGender = GetSelection (178, 3);
 
-   GetDlgItemText (130, Cfg->NewUserLimits, GetDlgItemTextLength (130));
+   GetDlgItemText (182, Cfg->NewUserLimits, GetDlgItemTextLength (182));
 
    EndDialog (TRUE);
 }
@@ -253,39 +255,45 @@ typedef struct {
    PSZ    Text;
 } MENUCMD;
 
-MENUCMD MenuCmd[] = {
-   // Moving between menu
-   MNU_CLEARGOTO, "Clear goto menu",
-   MNU_CLEARGOSUB, "Clear gosub menu",
+// Moving between menu
+MENUCMD MenuCmd1[] = {
+   MNU_GOTO,       "Goto menu          ",
+   MNU_GOSUB,      "Gosub menu         ",
+   MNU_RETURN,     "Return to previous ",
+   MNU_CLEARSTACK, "Clear menu stack   ",
+   MNU_CLEARGOSUB, "Clear gosub menu   ",
+   MNU_CLEARGOTO,  "Clear goto menu    ",
    MNU_RETURNMAIN, "Return to MAIN menu",
-   MNU_GOTO, "Goto menu",
-   MNU_GOSUB, "Gosub menu",
-   MNU_RETURN, "Return to previous",
-   MNU_CLEARSTACK, "Clear menu stack",
+   0, NULL
+};
 
-   // Message areas
-   MNU_MSGDELETE, "Kill message",
-   MNU_MSGWRITE, "Edit new message",
-   MNU_MSGREPLY, "Reply to message",
-   MNU_MSGBRIEFLIST, "Short message list",
-   MNU_MSGFORWARD, "Read next message",
-   MNU_MSGBACKWARD, "Read previous message",
-   MNU_MSGREADNONSTOP, "Read message non-stop",
-   MNU_INQUIRETEXT, "Inquire messages",
-   MNU_MSGINDIVIDUAL, "Read individual message",
-   MNU_MSGTITLELIST, "Verbose message list",
+// Message areas
+MENUCMD MenuCmd2[] = {
+   MNU_MSGSELECT,       "Change message area      ",
+   MNU_MSGDELETE,       "Kill message             ",
+   MNU_MSGWRITE,        "Edit new message         ",
+   MNU_MSGREPLY,        "Reply to message         ",
+   MNU_MSGBRIEFLIST,    "Short message list       ",
+   MNU_MSGFORWARD,      "Read next message        ",
+   MNU_MSGBACKWARD,     "Read previous message    ",
+   MNU_MSGREADNONSTOP,  "Read message non-stop    ",
+   MNU_INQUIRETEXT,     "Inquire messages         ",
+   MNU_MSGINDIVIDUAL,   "Read individual message  ",
+   MNU_MSGTITLELIST,    "Verbose message list     ",
    MNU_MSGLISTNEWAREAS, "List areas w/new messages",
-   MNU_MSGREAD, "Read messages",
+   MNU_MSGREAD,         "Read messages            ",
    MNU_INQUIREPERSONAL, "Inquire personal messages",
-   MNU_MSGSELECT, "Change message area",
-   MNU_MSGMODIFY, "Change message",
-   MNU_MSGREADCURRENT, "Read current message",
-   MNU_TOGGLEKLUDGES, "Toggle kludges lines",
-   MNU_MSGUNRECEIVE, "Unreceive message",
-   MNU_MSGREADORIGINAL, "Read original message",
-   MNU_MSGREADREPLY, "Read reply message",
+   MNU_MSGMODIFY,       "Change message           ",
+   MNU_MSGUNRECEIVE,    "Unreceive message        ",
+   MNU_MSGREADORIGINAL, "Read original message    ",
+   MNU_MSGREADREPLY,    "Read reply message       ",
+   MNU_MSGREADCURRENT,  "Read current message     ",
+   MNU_TOGGLEKLUDGES,   "Toggle kludges lines     ",
+   0, NULL
+};
 
-   // File areas
+// File areas
+MENUCMD MenuCmd3[] = {
    MNU_FILENAMELIST, "File list",
    MNU_FILEDOWNLOAD, "Download file",
    MNU_FILETEXTLIST, "Locate files",
@@ -304,8 +312,11 @@ MENUCMD MenuCmd[] = {
    MNU_DELETETAGGED, "Delete tagged files",
    MNU_LISTTAGGED, "List tagged files",
    MNU_DELETEALLTAGGED, "Delete all tagged files",
+   0, NULL
+};
 
-   // User configuration
+// User configuration
+MENUCMD MenuCmd4[] = {
    MNU_SETLANGUAGE, "Change language",
    MNU_SETPASSWORD, "Set password",
    MNU_TOGGLEANSI, "Toggle ANSI graphics",
@@ -317,7 +328,7 @@ MENUCMD MenuCmd[] = {
    MNU_SETCITY, "Set city",
    MNU_SETPHONE, "Set phone number",
    MNU_SETGENDER, "Set gender",
-   MNU_TOGGLEFULLSCREEN, "Toggle fullscreen enhancements",
+   MNU_TOGGLEFULLSCREEN, "Toggle fullscreen lists",
    MNU_TOGGLEIBMCHARS, "Toggle IBM characters",
    MNU_TOGGLEMOREPROMPT, "Toggle More? prompt",
    MNU_TOGGLESCREENCLEAR, "Toggle screen clear",
@@ -332,15 +343,30 @@ MENUCMD MenuCmd[] = {
    MNU_TOGGLEMAILCHECK, "Toggle logon mail check",
    MNU_TOGGLEFILECHECK, "Toggle new files check",
    MNU_SETBIRTHDATE, "Set birthdate",
+   MNU_SETSCREENLENGTH, "Set screen length",
+   MNU_TOGGLERIP, "Toggle RIP graphics",
+   0, NULL
+};
 
-   // Personal mail
-   MNU_MAILLIST, "List mail",
-   MNU_MAILREAD, "Read mail",
-   MNU_MAILWRITE, "Edit new mail",
-   MNU_MAILDELETE, "Kill mail",
-   MNU_MAILCHECK, "Check unread mail",
+// Personal mail
+MENUCMD MenuCmd5[] = {
+   MNU_MAILWRITELOCAL,    "Write local mail    ",
+   MNU_MAILWRITEINTERNET, "Write Internet mail ",
+   MNU_MAILREAD,          "Read mail           ",
+   MNU_MAILDELETE,        "Kill mail           ",
+   MNU_MAILLIST,          "List mail           ",
+   MNU_MAILWRITEFIDONET,  "Write FidoNet mail  ",
+   MNU_MAILCHECK,         "Check unread mail   ",
+   MNU_MAILNEXT,          "Read next mail      ",
+   MNU_MAILPREVIOUS,      "Read previous mail  ",
+   MNU_MAILINDIVIDUAL,    "Read individual mail",
+   MNU_MAILNONSTOP,       "Read mail non-stop  ",
+   MNU_MAILREPLY,         "Reply mail          ",
+   0, NULL
+};
 
-   // Offline reader
+// Offline reader
+MENUCMD MenuCmd6[] = {
    MNU_OLRTAGAREA, "Tag areas",
    MNU_OLRDOWNLOADASCII, "ASCII download",
    MNU_OLRUPLOAD, "Upload replies",
@@ -350,8 +376,11 @@ MENUCMD MenuCmd[] = {
    MNU_OLRREMOVEAREA, "Untag areas",
    MNU_OLRVIEWTAGGED, "View tagged areas",
    MNU_OLRRESTRICTDATE, "Restrict date",
+   0, NULL
+};
 
    // Miscellaneous
+MENUCMD MenuCmd7[] = {
    MNU_DISPLAY, "Display file (anywhere)",
    MNU_NULL, "Display only",
    MNU_LOGOFF, "Logoff",
@@ -360,6 +389,8 @@ MENUCMD MenuCmd[] = {
    MNU_PRESSENTER, "Press Enter to Continue",
    MNU_FINGER, "Finger",
    MNU_FTP, "FTP client",
+   MNU_IRC, "IRC client",
+   MNU_APPENDMENU, "Append menu",
 //   MNU_GOPHER, "Gopher Client",
    MNU_TELNET, "Telnet client",
    MNU_ONLINEUSERS, "Users online",
@@ -398,10 +429,10 @@ class CMenuListDlg : public CDialog
 public:
    CMenuListDlg (HWND p_hWnd);
 
-   int    Selected;
-   CHAR   File[128];
+   int    old_item;
    class  TMenu *Data;
 
+   VOID   OnCancel (VOID);
    VOID   OnChanged (VOID);
    USHORT OnInitDialog (VOID);
    VOID   OnOK (VOID);
@@ -411,9 +442,25 @@ private:
    DECLARE_MESSAGE_MAP ()
 };
 
+class CMenuCommandDlg : public CDialog
+{
+public:
+   CMenuCommandDlg (HWND p_hWnd);
+
+   USHORT id;
+   CHAR   text[64];
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   DECLARE_MESSAGE_MAP ()
+
+   VOID   Selection (VOID);
+};
+
 BEGIN_MESSAGE_MAP (CMenuDlg, CDialog)
    ON_COMMAND (115, Delete)
-   ON_COMMAND (116, Command)
    ON_COMMAND (117, Add)
    ON_COMMAND (118, Previous)
    ON_COMMAND (119, Next)
@@ -423,6 +470,7 @@ BEGIN_MESSAGE_MAP (CMenuDlg, CDialog)
    ON_COMMAND (123, Insert)
    ON_COMMAND (124, HilightColor)
    ON_COMMAND (125, Color)
+   ON_COMMAND (126, Command)
 END_MESSAGE_MAP ()
 
 CMenuDlg::CMenuDlg (HWND p_hWnd) : CDialog ("8", p_hWnd)
@@ -443,7 +491,6 @@ VOID CMenuDlg::OnHelp (VOID)
 
 USHORT CMenuDlg::OnInitDialog (VOID)
 {
-   int i;
    CHAR Temp[128];
 
    FullFile[0] = '\0';
@@ -466,6 +513,7 @@ USHORT CMenuDlg::OnInitDialog (VOID)
    OpenFileName.lpstrCustomFilter = (LPTSTR) NULL;
    OpenFileName.nMaxCustFilter = 0L;
    OpenFileName.nFilterIndex = 1L;
+   sprintf (FullFile, "%s*.mnu", Cfg->MenuPath);
    OpenFileName.lpstrFile = FullFile;
    OpenFileName.nMaxFile = sizeof (FullFile) - 1;
    OpenFileName.lpstrFileTitle = NULL;
@@ -497,11 +545,6 @@ USHORT CMenuDlg::OnInitDialog (VOID)
       SPBM_SetLimits (104, 255L, 0L);
       SPBM_SetLimits (106, 255L, 0L);
 
-      for (i = 0; MenuCmd[i].Text != NULL; i++) {
-         sprintf (Temp, "%u - %s", MenuCmd[i].Id, MenuCmd[i].Text);
-         CB_AddString (110, Temp);
-      }
-
       DisplayData ();
    }
    else
@@ -521,15 +564,59 @@ VOID CMenuDlg::OnOK (VOID)
 VOID CMenuDlg::DisplayData (VOID)
 {
    USHORT i;
+   CHAR Temp[64];
 
    SetDlgItemText (102, Menu->Display);
    SPBM_SetCurrentValue (104, Menu->Color);
    SPBM_SetCurrentValue (106, Menu->Hilight);
    SetDlgItemText (108, Menu->Key);
 
-   for (i = 0; MenuCmd[i].Text != NULL; i++) {
-      if (MenuCmd[i].Id == Menu->Command) {
-         CB_SelectItem (110, i);
+   for (i = 0; MenuCmd1[i].Text != NULL; i++) {
+      if (MenuCmd1[i].Id == Menu->Command) {
+         sprintf (Temp, "%u - %s", MenuCmd1[i].Id, MenuCmd1[i].Text);
+         SetDlgItemText (110, Temp);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd2[i].Text != NULL; i++) {
+      if (MenuCmd2[i].Id == Menu->Command) {
+         sprintf (Temp, "%u - %s", MenuCmd2[i].Id, MenuCmd2[i].Text);
+         SetDlgItemText (110, Temp);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd3[i].Text != NULL; i++) {
+      if (MenuCmd3[i].Id == Menu->Command) {
+         sprintf (Temp, "%u - %s", MenuCmd3[i].Id, MenuCmd3[i].Text);
+         SetDlgItemText (110, Temp);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd4[i].Text != NULL; i++) {
+      if (MenuCmd4[i].Id == Menu->Command) {
+         sprintf (Temp, "%u - %s", MenuCmd4[i].Id, MenuCmd4[i].Text);
+         SetDlgItemText (110, Temp);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd5[i].Text != NULL; i++) {
+      if (MenuCmd5[i].Id == Menu->Command) {
+         sprintf (Temp, "%u - %s", MenuCmd5[i].Id, MenuCmd5[i].Text);
+         SetDlgItemText (110, Temp);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd6[i].Text != NULL; i++) {
+      if (MenuCmd6[i].Id == Menu->Command) {
+         sprintf (Temp, "%u - %s", MenuCmd6[i].Id, MenuCmd6[i].Text);
+         SetDlgItemText (110, Temp);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd7[i].Text != NULL; i++) {
+      if (MenuCmd7[i].Id == Menu->Command) {
+         sprintf (Temp, "%u - %s", MenuCmd7[i].Id, MenuCmd7[i].Text);
+         SetDlgItemText (110, Temp);
          break;
       }
    }
@@ -549,7 +636,7 @@ VOID CMenuDlg::ReadData (VOID)
    GetDlgItemText (108, GetDlgItemTextLength (108), Menu->Key);
    GetDlgItemText (112, GetDlgItemTextLength (112), Menu->Argument);
    Value = CB_QuerySelection (110);
-   Menu->Command = MenuCmd[Value].Id;
+//   Menu->Command = MenuCmd[Value].Id;
    Menu->Automatic = (UCHAR)BM_QueryCheck (113);
    Menu->FirstTime = (UCHAR)BM_QueryCheck (114);
 }
@@ -584,7 +671,8 @@ VOID CMenuDlg::Add (VOID)
 
 VOID CMenuDlg::Insert (VOID)
 {
-//   ReadData ();
+   ReadData ();
+   Menu->Update ();
    Menu->New (FALSE);
    Menu->Insert ();
    DisplayData ();
@@ -626,11 +714,16 @@ VOID CMenuDlg::List (VOID)
 {
    class CMenuListDlg *Dlg;
 
+   ReadData ();
+   Menu->Update ();
+
    if ((Dlg = new CMenuListDlg (m_hWnd)) != NULL) {
       Dlg->Data = Menu;
-      strcpy (Dlg->File, FullFile);
       Dlg->DoModal ();
       delete Dlg;
+
+      DisplayData ();
+      SetFocus (102);
    }
 }
 
@@ -660,6 +753,200 @@ VOID CMenuDlg::HilightColor (VOID)
 
 VOID CMenuDlg::Command (VOID)
 {
+   class CMenuCommandDlg *Dlg;
+
+   if ((Dlg = new CMenuCommandDlg (m_hWnd)) != NULL) {
+      Dlg->id = Menu->Command;
+      if (Dlg->DoModal () == TRUE) {
+         Menu->Command = Dlg->id;
+         SetDlgItemText (110, Dlg->text);
+      }
+      delete Dlg;
+   }
+}
+
+// ----------------------------------------------------------------------
+
+BEGIN_MESSAGE_MAP (CMenuCommandDlg, CDialog)
+#if defined(__OS2__)
+   ON_CONTROL (LN_SELECT, 103, Selection)
+#elif defined(__NT__)
+   ON_NOTIFY (LBN_SELCHANGE, 103, Selection)
+#endif
+END_MESSAGE_MAP ()
+
+CMenuCommandDlg::CMenuCommandDlg (HWND p_hWnd) : CDialog ("54", p_hWnd)
+{
+   id = 0;
+}
+
+USHORT CMenuCommandDlg::OnInitDialog (VOID)
+{
+   int i;
+
+   Center ();
+
+   LM_AddString (103, "Moving Between Menus");
+   LM_AddString (103, "Message Areas");
+   LM_AddString (103, "File Areas");
+   LM_AddString (103, "User Configuration");
+   LM_AddString (103, "Personal Mail");
+   LM_AddString (103, "Offline Reader");
+   LM_AddString (103, "Miscellaneous");
+
+   for (i = 0; MenuCmd1[i].Text != NULL; i++) {
+      if (MenuCmd1[i].Id == id) {
+         LM_SelectItem (103, 0);
+         LM_SelectItem (104, (USHORT)i);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd2[i].Text != NULL; i++) {
+      if (MenuCmd2[i].Id == id) {
+         LM_SelectItem (103, 1);
+         LM_SelectItem (104, (USHORT)i);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd3[i].Text != NULL; i++) {
+      if (MenuCmd3[i].Id == id) {
+         LM_SelectItem (103, 2);
+         LM_SelectItem (104, (USHORT)i);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd4[i].Text != NULL; i++) {
+      if (MenuCmd4[i].Id == id) {
+         LM_SelectItem (103, 3);
+         LM_SelectItem (104, (USHORT)i);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd5[i].Text != NULL; i++) {
+      if (MenuCmd5[i].Id == id) {
+         LM_SelectItem (103, 4);
+         LM_SelectItem (104, (USHORT)i);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd6[i].Text != NULL; i++) {
+      if (MenuCmd6[i].Id == id) {
+         LM_SelectItem (103, 5);
+         LM_SelectItem (104, (USHORT)i);
+         break;
+      }
+   }
+   for (i = 0; MenuCmd7[i].Text != NULL; i++) {
+      if (MenuCmd7[i].Id == id) {
+         LM_SelectItem (103, 6);
+         LM_SelectItem (104, (USHORT)i);
+         break;
+      }
+   }
+
+#if defined(__NT__)
+   Selection ();
+#endif
+
+   return (TRUE);
+}
+
+VOID CMenuCommandDlg::Selection (VOID)
+{
+   int i;
+   CHAR Temp[64];
+
+   switch (LM_QuerySelection (103)) {
+      case 0:
+         LM_DeleteAll (104);
+         for (i = 0; MenuCmd1[i].Text != NULL; i++) {
+            sprintf (Temp, "%u - %s", MenuCmd1[i].Id, MenuCmd1[i].Text);
+            LM_AddString (104, Temp);
+         }
+         break;
+      case 1:
+         LM_DeleteAll (104);
+         for (i = 0; MenuCmd2[i].Text != NULL; i++) {
+            sprintf (Temp, "%u - %s", MenuCmd2[i].Id, MenuCmd2[i].Text);
+            LM_AddString (104, Temp);
+         }
+         break;
+      case 2:
+         LM_DeleteAll (104);
+         for (i = 0; MenuCmd3[i].Text != NULL; i++) {
+            sprintf (Temp, "%u - %s", MenuCmd3[i].Id, MenuCmd3[i].Text);
+            LM_AddString (104, Temp);
+         }
+         break;
+      case 3:
+         LM_DeleteAll (104);
+         for (i = 0; MenuCmd4[i].Text != NULL; i++) {
+            sprintf (Temp, "%u - %s", MenuCmd4[i].Id, MenuCmd4[i].Text);
+            LM_AddString (104, Temp);
+         }
+         break;
+      case 4:
+         LM_DeleteAll (104);
+         for (i = 0; MenuCmd5[i].Text != NULL; i++) {
+            sprintf (Temp, "%u - %s", MenuCmd5[i].Id, MenuCmd5[i].Text);
+            LM_AddString (104, Temp);
+         }
+         break;
+      case 5:
+         LM_DeleteAll (104);
+         for (i = 0; MenuCmd6[i].Text != NULL; i++) {
+            sprintf (Temp, "%u - %s", MenuCmd6[i].Id, MenuCmd6[i].Text);
+            LM_AddString (104, Temp);
+         }
+         break;
+      case 6:
+         LM_DeleteAll (104);
+         for (i = 0; MenuCmd7[i].Text != NULL; i++) {
+            sprintf (Temp, "%u - %s", MenuCmd7[i].Id, MenuCmd7[i].Text);
+            LM_AddString (104, Temp);
+         }
+         break;
+   }
+}
+
+VOID CMenuCommandDlg::OnOK (VOID)
+{
+   USHORT item;
+
+   item = LM_QuerySelection (104);
+
+   switch (LM_QuerySelection (103)) {
+      case 0:
+         id = MenuCmd1[item].Id;
+         sprintf (text, "%u - %s", MenuCmd1[item].Id, MenuCmd1[item].Text);
+         break;
+      case 1:
+         id = MenuCmd2[item].Id;
+         sprintf (text, "%u - %s", MenuCmd2[item].Id, MenuCmd2[item].Text);
+         break;
+      case 2:
+         id = MenuCmd3[item].Id;
+         sprintf (text, "%u - %s", MenuCmd3[item].Id, MenuCmd3[item].Text);
+         break;
+      case 3:
+         id = MenuCmd4[item].Id;
+         sprintf (text, "%u - %s", MenuCmd4[item].Id, MenuCmd4[item].Text);
+         break;
+      case 4:
+         id = MenuCmd5[item].Id;
+         sprintf (text, "%u - %s", MenuCmd5[item].Id, MenuCmd5[item].Text);
+         break;
+      case 5:
+         id = MenuCmd6[item].Id;
+         sprintf (text, "%u - %s", MenuCmd6[item].Id, MenuCmd6[item].Text);
+         break;
+      case 6:
+         id = MenuCmd7[item].Id;
+         sprintf (text, "%u - %s", MenuCmd7[item].Id, MenuCmd7[item].Text);
+         break;
+   }
+
+   EndDialog (TRUE);
 }
 
 // ----------------------------------------------------------------------
@@ -778,13 +1065,13 @@ END_MESSAGE_MAP ()
 
 CMenuListDlg::CMenuListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
 {
-   Selected = -1;
+   old_item = 0;
 }
 
 USHORT CMenuListDlg::OnInitDialog (VOID)
 {
    int i;
-   class TMenu *Menu;
+   ULONG CrcCurrent, Crc;
 
    SetWindowTitle ("Menu List");
 
@@ -795,40 +1082,67 @@ USHORT CMenuListDlg::OnInitDialog (VOID)
    LVM_InsertColumn (101, "Command", LVC_LEFT);
    LVM_InsertColumn (101, "Argument", LVC_LEFT);
 
-   if ((Menu = new TMenu) != NULL) {
-      Menu->Load (File);
-      if (Menu->First () == TRUE)
-         do {
-            LVM_InsertItem (101);
+   // Calcola il CRC di alcuni elementi chiave per determinare l'indice della voce
+   // di menu' correntemente selezionata.
+   CrcCurrent = StringCrc32 (Data->Display, 0xFFFFFFFFL);
+   CrcCurrent = StringCrc32 (Data->Key, CrcCurrent);
+   sprintf (Temp, "%u", Data->Command);
+   CrcCurrent = StringCrc32 (Temp, CrcCurrent);
 
-            LVM_SetItemText (101, 0, Menu->Display);
-            LVM_SetItemText (101, 1, Menu->Key);
-            sprintf (Temp, "%u", Menu->Level);
-            LVM_SetItemText (101, 2, Temp);
-            for (i = 0; MenuCmd[i].Text != NULL; i++) {
-               if (MenuCmd[i].Id == Menu->Command) {
-                  sprintf (Temp, "%u - %s", MenuCmd[i].Id, MenuCmd[i].Text);
-                  LVM_SetItemText (101, 3, Temp);
-               }
-            }
-            LVM_SetItemText (101, 4, Menu->Argument);
-         } while (Menu->Next () == TRUE);
-      delete Menu;
-   }
+   i = 0;
+   if (Data->First () == TRUE)
+      do {
+         LVM_InsertItem (101);
+
+         LVM_SetItemText (101, 0, Data->Display);
+         LVM_SetItemText (101, 1, Data->Key);
+         sprintf (Temp, "%u", Data->Level);
+         LVM_SetItemText (101, 2, Temp);
+         LVM_SetItemText (101, 3, "");
+         LVM_SetItemText (101, 4, Data->Argument);
+
+         // Calcola il CRC di alcuni elementi chiavi per controllare se la voce
+         // inserita e' quella correntemente selezionata nell'editor.
+         Crc = StringCrc32 (Data->Display, 0xFFFFFFFFL);
+         Crc = StringCrc32 (Data->Key, Crc);
+         sprintf (Temp, "%u", Data->Command);
+         Crc = StringCrc32 (Temp, Crc);
+
+         // Se e' quella selezionata memorizza l'indice per l'uso mediante il
+         // tasto cancel e per la selezione dell'elemento di default.
+         if (Crc == CrcCurrent)
+            old_item = i;
+
+         i++;
+      } while (Data->Next () == TRUE);
 
    LVM_InvalidateView (101);
+   LVM_SelectItem (101, (USHORT)old_item);
 
    return (TRUE);
 }
 
 VOID CMenuListDlg::OnOK (VOID)
 {
-   int item;
-   CHAR Temp[32];
+   int i, item;
 
-   if ((item = LVM_QuerySelectedItem (101)) != -1) {
-      LVM_QueryItemText (101, item, 0, Temp);
-   }
+   if ((item = LVM_QuerySelectedItem (101)) == -1)
+      item = old_item;
+
+   Data->First ();
+   for (i = 0; i < item; i++)
+      Data->Next ();
+
+   EndDialog (TRUE);
+}
+
+VOID CMenuListDlg::OnCancel (VOID)
+{
+   int i;
+
+   Data->First ();
+   for (i = 0; i < old_item; i++)
+      Data->Next ();
 
    EndDialog (TRUE);
 }
@@ -854,8 +1168,8 @@ public:
    CFileListDlg (HWND p_hWnd);
 
    USHORT Found;
+   CHAR   Area[32];
    CHAR   Search[128];
-   class  TFileData *Data;
 
    VOID   OnChanged (VOID);
    USHORT OnInitDialog (VOID);
@@ -921,6 +1235,7 @@ BEGIN_MESSAGE_MAP (CFileDlg, CDialog)
    ON_COMMAND (120, OnDelete)
    ON_COMMAND (121, Links)
    ON_COMMAND (122, Search)
+   ON_COMMAND (124, Move)
 END_MESSAGE_MAP()
 
 CFileDlg::CFileDlg (HWND p_hWnd) : CDialog ("10", p_hWnd)
@@ -953,12 +1268,6 @@ VOID CFileDlg::DisplayData (VOID)
 
 VOID CFileDlg::ReadData (VOID)
 {
-   CHAR OldArea[16];
-   class TFileBase *File;
-
-   strcpy (OldArea, Data->Key);
-
-   GetDlgItemText (102, Data->Key, GetDlgItemTextLength (102));
    GetDlgItemText (104, Data->Display, GetDlgItemTextLength (104));
    GetDlgItemText (106, Data->Upload, GetDlgItemTextLength (106));
    GetDlgItemText (108, Data->Download, GetDlgItemTextLength (108));
@@ -966,13 +1275,6 @@ VOID CFileDlg::ReadData (VOID)
    Data->FreeDownload = (UCHAR)BM_QueryCheck (123);
    Data->CdRom = (UCHAR)BM_QueryCheck (114);
    GetDlgItemText (127, Data->EchoTag, GetDlgItemTextLength (127));
-
-   if (strcmp (OldArea, Data->Key) && OldArea[0] != '\0') {
-      if ((File = new TFileBase (".\\", "")) != NULL) {
-         Data->ActiveFiles = File->ChangeLibrary (OldArea, Data->Key);
-         delete File;
-      }
-   }
 }
 
 VOID CFileDlg::OnAdd (VOID)
@@ -1051,8 +1353,24 @@ VOID CFileDlg::OnNext (VOID)
 
 VOID CFileDlg::OnOK (VOID)
 {
+   CHAR Temp[32];
+   class TFileBase *File;
+   class TUser *User;
+
    ReadData ();
-   Data->Update ();
+   GetDlgItemText (102, GetDlgItemTextLength (102), Temp);
+   if (strcmp (Temp, Data->Key)) {
+      if ((File = new TFileBase (Cfg->SystemPath, "")) != NULL) {
+         Data->ActiveFiles = File->ChangeLibrary (Data->Key, Temp);
+         delete File;
+      }
+      if ((User = new TUser (Cfg->UserFile)) != NULL) {
+         User->FileTag->Change (Data->Key, Temp);
+         delete User;
+      }
+   }
+
+   Data->Update (Temp);
 }
 
 VOID CFileDlg::Security (VOID)
@@ -1071,9 +1389,37 @@ VOID CFileDlg::List (VOID)
    class CFileListDlg *Dlg;
 
    if ((Dlg = new CFileListDlg (m_hWnd)) != NULL) {
-      Dlg->Data = Data;
-      if (Dlg->DoModal () == TRUE)
+      strcpy (Dlg->Area, Data->Key);
+      if (Dlg->DoModal () == TRUE) {
+         Data->Read (Dlg->Area, FALSE);
          DisplayData ();
+      }
+      delete Dlg;
+   }
+}
+
+VOID CFileDlg::Move (VOID)
+{
+   CHAR Key[32];
+   class CFileListDlg *Dlg;
+   class TFileData *NewData;
+
+   Key[0] = '\0';
+   if ((Dlg = new CFileListDlg (m_hWnd)) != NULL) {
+      strcpy (Dlg->Area, Data->Key);
+      if (Dlg->DoModal () == TRUE) {
+         if ((NewData = new TFileData (Cfg->SystemPath)) != NULL) {
+            NewData->Read (Data->Key);
+            NewData->Delete ();
+            strcpy (Key, NewData->Key);
+            NewData->Read (Dlg->Area);
+            NewData->Insert (Data);
+            delete NewData;
+         }
+         if (Data->Read (Key, FALSE) == FALSE)
+            Data->Read (Dlg->Area, FALSE);
+         DisplayData ();
+      }
       delete Dlg;
    }
 }
@@ -1088,9 +1434,11 @@ VOID CFileDlg::Search (VOID)
          if ((Dlg = new CFileListDlg (m_hWnd)) != NULL) {
             strcpy (Dlg->Search, Ask->String);
             Dlg->Found = FALSE;
-            Dlg->Data = Data;
-            if (Dlg->DoModal () == TRUE)
+            strcpy (Dlg->Area, Data->Key);
+            if (Dlg->DoModal () == TRUE) {
+               Data->Read (Dlg->Area, FALSE);
                DisplayData ();
+            }
             delete Dlg;
          }
       }
@@ -1252,7 +1600,7 @@ USHORT CFileListDlg::OnInitDialog (VOID)
 
             LVM_InsertItem (101);
 
-            if (!strcmp (File->Key, Data->Key))
+            if (!strcmp (File->Key, Area))
                select = i;
             i++;
 
@@ -1283,12 +1631,9 @@ USHORT CFileListDlg::OnInitDialog (VOID)
 VOID CFileListDlg::OnOK (VOID)
 {
    int item;
-   CHAR Temp[32];
 
-   if ((item = LVM_QuerySelectedItem (101)) != -1) {
-      LVM_QueryItemText (101, item, 0, Temp);
-      Data->Read (Temp, FALSE);
-   }
+   if ((item = LVM_QuerySelectedItem (101)) != -1)
+      LVM_QueryItemText (101, item, 0, Area);
 
    EndDialog (TRUE);
 }
@@ -1460,8 +1805,8 @@ public:
    CMessageListDlg (HWND p_hWnd);
 
    USHORT Found;
+   CHAR   Area[32];
    CHAR   Search[128];
-   class  TMsgData *Data;
 
    VOID   OnChanged (VOID);
    USHORT OnInitDialog (VOID);
@@ -1527,6 +1872,7 @@ BEGIN_MESSAGE_MAP (CMessageDlg, CDialog)
    ON_COMMAND (122, Search)
    ON_COMMAND (121, Links)
    ON_COMMAND (123, Security)
+   ON_COMMAND (124, Move)
 END_MESSAGE_MAP()
 
 CMessageDlg::CMessageDlg (HWND p_hWnd) : CDialog ("9", p_hWnd)
@@ -1654,7 +2000,6 @@ VOID CMessageDlg::ReadData (VOID)
    USHORT index;
    CHAR Temp[128];
 
-   GetDlgItemText (102, GetDlgItemTextLength (102), Data->Key);
    GetDlgItemText (104, GetDlgItemTextLength (104), Data->Display);
    GetDlgItemText (106, GetDlgItemTextLength (106), Data->Path);
    switch (CB_QuerySelection (107)) {
@@ -1797,8 +2142,19 @@ VOID CMessageDlg::OnNext (VOID)
 
 VOID CMessageDlg::OnOK (VOID)
 {
+   CHAR Temp[32];
+   class TUser *User;
+
    ReadData ();
-   Data->Update ();
+   GetDlgItemText (102, GetDlgItemTextLength (102), Temp);
+   if (stricmp (Data->Key, Temp)) {
+      if ((User = new TUser (Cfg->UserFile)) != NULL) {
+         User->MsgTag->Change (Data->Key, Temp);
+         delete User;
+      }
+   }
+
+   Data->Update (Temp);
 }
 
 VOID CMessageDlg::Security (VOID)
@@ -1817,9 +2173,37 @@ VOID CMessageDlg::List (VOID)
    class CMessageListDlg *Dlg;
 
    if ((Dlg = new CMessageListDlg (m_hWnd)) != NULL) {
-      Dlg->Data = Data;
-      if (Dlg->DoModal () == TRUE)
+      strcpy (Dlg->Area, Data->Key);
+      if (Dlg->DoModal () == TRUE) {
+         Data->Read (Dlg->Area, FALSE);
          DisplayData ();
+      }
+      delete Dlg;
+   }
+}
+
+VOID CMessageDlg::Move (VOID)
+{
+   CHAR Key[32];
+   class CMessageListDlg *Dlg;
+   class TMsgData *NewData;
+
+   Key[0] = '\0';
+   if ((Dlg = new CMessageListDlg (m_hWnd)) != NULL) {
+      strcpy (Dlg->Area, Data->Key);
+      if (Dlg->DoModal () == TRUE) {
+         if ((NewData = new TMsgData (Cfg->SystemPath)) != NULL) {
+            NewData->Read (Data->Key);
+            NewData->Delete ();
+            strcpy (Key, NewData->Key);
+            NewData->Read (Dlg->Area);
+            NewData->Insert (Data);
+            delete NewData;
+         }
+         if (Data->Read (Key, FALSE) == FALSE)
+            Data->Read (Dlg->Area, FALSE);
+         DisplayData ();
+      }
       delete Dlg;
    }
 }
@@ -1845,9 +2229,11 @@ VOID CMessageDlg::Search (VOID)
          if ((Dlg = new CMessageListDlg (m_hWnd)) != NULL) {
             strcpy (Dlg->Search, Ask->String);
             Dlg->Found = FALSE;
-            Dlg->Data = Data;
-            if (Dlg->DoModal () == TRUE)
+            strcpy (Dlg->Area, Data->Key);
+            if (Dlg->DoModal () == TRUE) {
+               Data->Read (Dlg->Area, FALSE);
                DisplayData ();
+            }
             delete Dlg;
          }
       }
@@ -1975,7 +2361,7 @@ USHORT CMessageListDlg::OnInitDialog (VOID)
 
             LVM_InsertItem (101);
 
-            if (!strcmp (Msg->Key, Data->Key))
+            if (!strcmp (Msg->Key, Area))
                select = i;
             i++;
 
@@ -2004,12 +2390,9 @@ USHORT CMessageListDlg::OnInitDialog (VOID)
 VOID CMessageListDlg::OnOK (VOID)
 {
    int item;
-   CHAR Temp[32];
 
-   if ((item = LVM_QuerySelectedItem (101)) != -1) {
-      LVM_QueryItemText (101, item, 0, Temp);
-      Data->Read (Temp, FALSE);
-   }
+   if ((item = LVM_QuerySelectedItem (101)) != -1)
+      LVM_QueryItemText (101, item, 0, Area);
 
    EndDialog (TRUE);
 }
@@ -2204,14 +2587,35 @@ VOID CAddMessageDlg::OnOK (VOID)
 // User limits
 // ----------------------------------------------------------------------
 
+class CSecurityDlg : public CDialog
+{
+public:
+   CSecurityDlg (HWND p_hWnd);
+
+   USHORT Level;
+   ULONG  Flags;
+   ULONG  DenyFlags;
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+};
+
 BEGIN_MESSAGE_MAP (CLimitsDlg, CDialog)
-   ON_CONTROL (LN_SELECT, 101, SelectItem)
-   ON_COMMAND (112, Delete)
-   ON_COMMAND (113, Add)
+   ON_COMMAND (198, Add)
+   ON_COMMAND (199, Delete)
+   ON_COMMAND (200, Previous)
+   ON_COMMAND (201, Next)
 END_MESSAGE_MAP ()
 
 CLimitsDlg::CLimitsDlg (HWND p_hWnd) : CDialog ("4", p_hWnd)
 {
+   Limits = NULL;
+}
+
+CLimitsDlg::~CLimitsDlg ()
+{
+   if (Limits != NULL)
+      delete Limits;
 }
 
 VOID CLimitsDlg::OnHelp (VOID)
@@ -2221,131 +2625,177 @@ VOID CLimitsDlg::OnHelp (VOID)
 
 USHORT CLimitsDlg::OnInitDialog (VOID)
 {
-   class TLimits *Limits;
-
    Center ();
 
-   EM_SetTextLimit (110, sizeof (Limits->Key) - 1);
-   EM_SetTextLimit (103, sizeof (Limits->Description) - 1);
+   Limits = new TLimits (Cfg->SystemPath);
 
-   SPBM_SetLimits (105, 65535U, 0L);
-   SPBM_SetLimits (107, 65535U, 0L);
-   SPBM_SetLimits (111, 65535U, 0L);
+   EM_SetTextLimit (102, sizeof (Limits->Key) - 1);
+   EM_SetTextLimit (104, sizeof (Limits->Description) - 1);
 
-   if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
-      if (Limits->First () == TRUE)
-         do {
-            LM_AddString (101, Limits->Key);
-         } while (Limits->Next () == TRUE);
-      delete Limits;
-   }
+   SPBM_SetLimits (132, 65535L, 0L);
+   SPBM_SetLimits (126, 1440L, 0L);
+   SPBM_SetLimits (128, 1440L, 0L);
+   SPBM_SetLimits (113, 65535L, 0L);
+   SPBM_SetLimits (115, 65535L, 0L);
+   SPBM_SetLimits (117, 65535L, 0L);
+   SPBM_SetLimits (119, 65535L, 0L);
+   SPBM_SetLimits (121, 65535L, 0L);
+   SPBM_SetLimits (123, 65535L, 0L);
+   SPBM_SetLimits (109, 100L, 0L);
+   SPBM_SetLimits (111, 65535L, 0L);
+
+   CB_AddString (107, "300");
+   CB_AddString (107, "1200");
+   CB_AddString (107, "2400");
+   CB_AddString (107, "9600");
+   CB_AddString (107, "14400");
+   CB_AddString (107, "28800");
+   CB_AddString (107, "33600");
+   CB_AddString (107, "56000");
+   CB_AddString (107, "64000");
+   CB_AddString (107, "128000");
+   CB_AddString (107, "256000");
+
+   if (Limits->First () == TRUE)
+      DisplayData ();
 
    return (TRUE);
 }
 
-VOID CLimitsDlg::OnOK (VOID)
+VOID CLimitsDlg::DisplayData (VOID)
 {
-   USHORT Item;
-   CHAR Temp[64];
-   class TLimits *Limits;
+   USHORT i;
+   ULONG Test;
 
-   Item = LM_QuerySelection (101);
-   LM_QueryItemText (101, Item, sizeof (Temp), Temp);
-
-   if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
-      if (Limits->Read (Temp) == TRUE) {
-         GetDlgItemText (110, GetDlgItemTextLength (110), Limits->Key);
-         GetDlgItemText (103, GetDlgItemTextLength (103), Limits->Description);
-         Limits->CallTimeLimit = (USHORT)SPBM_QueryValue (105);
-         Limits->DayTimeLimit = (USHORT)SPBM_QueryValue (107);
-         Limits->DayDownloadLimit = (USHORT)SPBM_QueryValue (111);
-
-         Limits->Update ();
-
-         LM_DeleteAll (101);
-         if (Limits->First () == TRUE)
-            do {
-               LM_AddString (101, Limits->Key);
-            } while (Limits->Next () == TRUE);
-      }
-      delete Limits;
+   SetDlgItemText (102, Limits->Key);
+   SetDlgItemText (104, Limits->Description);
+   switch (Limits->DownloadSpeed) {
+      case 300L:
+         CB_SelectItem (107, 0);
+         break;
+      case 1200L:
+         CB_SelectItem (107, 1);
+         break;
+      case 2400L:
+         CB_SelectItem (107, 2);
+         break;
+      case 9600L:
+         CB_SelectItem (107, 3);
+         break;
+      case 14400L:
+         CB_SelectItem (107, 4);
+         break;
+      case 28800L:
+         CB_SelectItem (107, 5);
+         break;
+      case 33600L:
+         CB_SelectItem (107, 6);
+         break;
+      case 56000L:
+         CB_SelectItem (107, 7);
+         break;
+      case 64000L:
+         CB_SelectItem (107, 8);
+         break;
+      case 128000L:
+         CB_SelectItem (107, 9);
+         break;
+      case 256000L:
+         CB_SelectItem (107, 10);
+         break;
+      default:
+         CB_SelectItem (107, 1);
+         break;
    }
+   SPBM_SetCurrentValue (109, Limits->DownloadRatio);
+   SPBM_SetCurrentValue (111, Limits->RatioStart);
+   SPBM_SetCurrentValue (113, Limits->DownloadLimit);
+   SPBM_SetCurrentValue (115, Limits->DownloadAt2400);
+   SPBM_SetCurrentValue (117, Limits->DownloadAt9600);
+   SPBM_SetCurrentValue (119, Limits->DownloadAt14400);
+   SPBM_SetCurrentValue (121, Limits->DownloadAt28800);
+   SPBM_SetCurrentValue (123, Limits->DownloadAt33600);
+   SPBM_SetCurrentValue (126, Limits->CallTimeLimit);
+   SPBM_SetCurrentValue (128, Limits->DayTimeLimit);
+   SPBM_SetCurrentValue (132, Limits->Level);
+   for (i = 133, Test = 0x80000000L; i <= 164; i++, Test >>= 1)
+      BM_SetCheck (i, (Limits->Flags & Test) ? TRUE : FALSE);
+   for (i = 166, Test = 0x80000000L; i <= 197; i++, Test >>= 1)
+      BM_SetCheck (i, (Limits->Flags & Test) ? TRUE : FALSE);
+
+   SetFocus (102);
 }
 
-VOID CLimitsDlg::Add (VOID)
+VOID CLimitsDlg::OnOK (VOID)
 {
-   class TLimits *Limits;
+   USHORT i;
+   CHAR Temp[64];
+   ULONG Test;
+   class TUser *User;
 
-   if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
-      Limits->New ();
+   strcpy (Temp, Limits->Key);
+   GetDlgItemText (102, GetDlgItemTextLength (102), Limits->Key);
+   GetDlgItemText (104, GetDlgItemTextLength (104), Limits->Description);
+   GetDlgItemText (107, GetDlgItemTextLength (107), Temp);
+   Limits->DownloadSpeed = atol (Temp);
+   Limits->DownloadRatio = (USHORT)SPBM_QueryValue (109);
+   Limits->RatioStart = (USHORT)SPBM_QueryValue (111);
+   Limits->DownloadLimit = (USHORT)SPBM_QueryValue (113);
+   Limits->DownloadAt2400 = (USHORT)SPBM_QueryValue (115);
+   Limits->DownloadAt9600 = (USHORT)SPBM_QueryValue (117);
+   Limits->DownloadAt14400 = (USHORT)SPBM_QueryValue (119);
+   Limits->DownloadAt28800 = (USHORT)SPBM_QueryValue (121);
+   Limits->DownloadAt33600 = (USHORT)SPBM_QueryValue (123);
+   Limits->CallTimeLimit = (USHORT)SPBM_QueryValue (126);
+   Limits->DayTimeLimit = (USHORT)SPBM_QueryValue (128);
+   Limits->Level = (USHORT)SPBM_QueryValue (132);
+   Limits->Flags = 0L;
+   for (i = 133, Test = 0x80000000L; i <= 164; i++, Test >>= 1) {
+      if (BM_QueryCheck (i) == TRUE)
+         Limits->Flags |= Test;
+   }
+   Limits->DenyFlags = 0L;
+   for (i = 166, Test = 0x80000000L; i <= 197; i++, Test >>= 1) {
+      if (BM_QueryCheck (i) == TRUE)
+         Limits->DenyFlags |= Test;
+   }
 
-      GetDlgItemText (110, GetDlgItemTextLength (110), Limits->Key);
-      GetDlgItemText (103, GetDlgItemTextLength (103), Limits->Description);
-      Limits->CallTimeLimit = (USHORT)SPBM_QueryValue (105);
-      Limits->DayTimeLimit = (USHORT)SPBM_QueryValue (107);
-      Limits->DayDownloadLimit = (USHORT)SPBM_QueryValue (111);
+   Limits->Update ();
 
-      Limits->Add ();
-
-      LM_DeleteAll (101);
-      if (Limits->First () == TRUE)
-         do {
-            LM_AddString (101, Limits->Key);
-         } while (Limits->Next () == TRUE);
-
-      delete Limits;
+   if (stricmp (Temp, Limits->Key)) {
+      if ((User = new TUser (Cfg->UserFile)) != NULL) {
+         User->ChangeLimitClass (Temp, Limits->Key);
+         delete User;
+      }
    }
 }
 
 VOID CLimitsDlg::Delete (VOID)
 {
-   USHORT Item;
-   CHAR Temp[64];
-   class TLimits *Limits;
-
-   Item = LM_QuerySelection (101);
-   LM_QueryItemText (101, Item, sizeof (Temp), Temp);
-
-   if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
-      if (Limits->Read (Temp) == TRUE) {
-         Limits->Delete ();
-         Limits->New ();
-
-         SetDlgItemText (110, Limits->Key);
-         SetDlgItemText (103, Limits->Description);
-         SPBM_SetCurrentValue (105, Limits->CallTimeLimit);
-         SPBM_SetCurrentValue (107, Limits->DayTimeLimit);
-         SPBM_SetCurrentValue (111, Limits->DayDownloadLimit);
-
-         LM_DeleteAll (101);
-         if (Limits->First () == TRUE)
-            do {
-               LM_AddString (101, Limits->Key);
-            } while (Limits->Next () == TRUE);
-      }
-      delete Limits;
+   if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
+      Limits->Delete ();
+      DisplayData ();
    }
 }
 
-VOID CLimitsDlg::SelectItem (VOID)
+VOID CLimitsDlg::Previous (VOID)
 {
-   USHORT Item;
-   CHAR Temp[64];
-   class TLimits *Limits;
+   if (Limits->Previous () == TRUE)
+      DisplayData ();
+}
 
-   Item = LM_QuerySelection (101);
-   LM_QueryItemText (101, Item, sizeof (Temp), Temp);
+VOID CLimitsDlg::Next (VOID)
+{
+   if (Limits->Next () == TRUE)
+      DisplayData ();
+}
 
-   if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
-      if (Limits->Read (Temp) == TRUE) {
-         SetDlgItemText (110, Limits->Key);
-         SetDlgItemText (103, Limits->Description);
-         SPBM_SetCurrentValue (105, Limits->CallTimeLimit);
-         SPBM_SetCurrentValue (107, Limits->DayTimeLimit);
-         SPBM_SetCurrentValue (111, Limits->DayDownloadLimit);
-      }
-      delete Limits;
-   }
+VOID CLimitsDlg::Add (VOID)
+{
+   Limits->New ();
+   Limits->Add ();
+
+   DisplayData ();
 }
 
 // ----------------------------------------------------------------------
@@ -2636,6 +3086,10 @@ VOID CUserDlg::DisplayData (VOID)
    BM_SetCheck (19, Data->IBMChars);
    BM_SetCheck (21, Data->InUserList);
    BM_SetCheck (20, Data->MorePrompt);
+   BM_SetCheck (22, Data->FullEd);
+   BM_SetCheck (23, Data->FullReader);
+   BM_SetCheck (24, Data->FullScreen);
+   BM_SetCheck (25, Data->MailCheck);
 }
 
 VOID CUserDlg::ReadData (VOID)
@@ -2669,6 +3123,10 @@ VOID CUserDlg::ReadData (VOID)
    Data->IBMChars = (CHAR)BM_QueryCheck (19);
    Data->InUserList = (CHAR)BM_QueryCheck (21);
    Data->MorePrompt = (CHAR)BM_QueryCheck (20);
+   Data->FullEd = (CHAR)BM_QueryCheck (22);
+   Data->FullReader = (CHAR)BM_QueryCheck (23);
+   Data->FullScreen = (CHAR)BM_QueryCheck (24);
+   Data->MailCheck = (CHAR)BM_QueryCheck (25);
 }
 
 VOID CUserDlg::Add (VOID)

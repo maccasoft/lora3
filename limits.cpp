@@ -54,32 +54,26 @@ USHORT TLimits::Add (VOID)
       lseek (fdDat, 0L, SEEK_END);
 
       memset (&Limits, 0, sizeof (Limits));
+      Limits.Size = sizeof (Limits);
       strcpy (Limits.Key, Key);
       strcpy (Limits.Description, Description);
       Limits.Level = Level;
       Limits.Flags = Flags;
       Limits.DenyFlags = DenyFlags;
-      Limits.ExpireDays = ExpireDays;
-      strcpy (Limits.ExpireClass, ExpireClass);
-      Limits.ExpireLevel = ExpireLevel;
-      Limits.ExpireFlags = ExpireFlags;
-      Limits.ExpireDenyFlags = ExpireDenyFlags;
       Limits.CallTimeLimit = CallTimeLimit;
       Limits.DayTimeLimit = DayTimeLimit;
-      Limits.WeekTimeLimit = WeekTimeLimit;
-      Limits.MonthTimeLimit = MonthTimeLimit;
-      Limits.YearTimeLimit = YearTimeLimit;
-      Limits.CallDownloadLimit = CallDownloadLimit;
-      Limits.DayDownloadLimit = DayDownloadLimit;
-      Limits.WeekDownloadLimit = WeekDownloadLimit;
-      Limits.MonthDownloadLimit = MonthDownloadLimit;
-      Limits.YearDownloadLimit = YearDownloadLimit;
-      Limits.InactivityTime = InactivityTime;
-      Limits.ShowLevel = ShowLevel;
-      Limits.ShowFlags = ShowFlags;
-      Limits.ShowDenyFlags = ShowDenyFlags;
+      Limits.DownloadLimit = DownloadLimit;
+      Limits.DownloadAt2400 = DownloadAt2400;
+      Limits.DownloadAt9600 = DownloadAt9600;
+      Limits.DownloadAt14400 = DownloadAt14400;
+      Limits.DownloadAt28800 = DownloadAt28800;
+      Limits.DownloadAt33600 = DownloadAt33600;
+      Limits.DownloadRatio = DownloadRatio;
+      Limits.RatioStart = RatioStart;
+      Limits.DownloadSpeed = DownloadSpeed;
 
       write (fdDat, &Limits, sizeof (Limits));
+      strcpy (LastKey, Key);
       retVal = TRUE;
    }
 
@@ -93,23 +87,22 @@ USHORT TLimits::Add (VOID)
 
 VOID TLimits::New (VOID)
 {
-   memset (Description, 0, sizeof (Description));
-   memset (Key, 0, sizeof (Key));
-   ExpireDays = 0;
-   memset (ExpireClass, 0, sizeof (ExpireClass));
-   ExpireLevel = 0;
-   ExpireFlags = 0L;
-   ExpireDenyFlags = 0L;
-   CallTimeLimit = DayTimeLimit = WeekTimeLimit = MonthTimeLimit = 0;
-   YearTimeLimit = 0L;
-   CallDownloadLimit = DayDownloadLimit = WeekDownloadLimit = 0L;
-   MonthDownloadLimit = YearDownloadLimit = 0L;
-   InactivityTime = 0;
-   DenyFlags = Flags = 0L;
+   Key[0] = '\0';
+   Description[0] = '\0';
    Level = 0;
-   ShowLevel = 0;
-   ShowFlags = 0L;
-   ShowDenyFlags = 0L;
+   Flags = 0L;
+   DenyFlags = 0L;
+   CallTimeLimit = 0;
+   DayTimeLimit = 0;
+   DownloadLimit = 0;
+   DownloadAt2400 = 0;
+   DownloadAt9600 = 0;
+   DownloadAt14400 = 0;
+   DownloadAt28800 = 0;
+   DownloadAt33600 = 0;
+   DownloadRatio = 0;
+   RatioStart = 0;
+   DownloadSpeed = 0;
 }
 
 VOID TLimits::Delete (VOID)
@@ -181,26 +174,18 @@ USHORT TLimits::Next (VOID)
          Level = Limits.Level;
          Flags = Limits.Flags;
          DenyFlags = Limits.DenyFlags;
-         ExpireDays = Limits.ExpireDays;
-         strcpy (ExpireClass, Limits.ExpireClass);
-         ExpireLevel = Limits.ExpireLevel;
-         ExpireFlags = Limits.ExpireFlags;
-         ExpireDenyFlags = Limits.ExpireDenyFlags;
          CallTimeLimit = Limits.CallTimeLimit;
          DayTimeLimit = Limits.DayTimeLimit;
-         WeekTimeLimit = Limits.WeekTimeLimit;
-         MonthTimeLimit = Limits.MonthTimeLimit;
-         YearTimeLimit = Limits.YearTimeLimit;
-         CallDownloadLimit = Limits.CallDownloadLimit;
-         DayDownloadLimit = Limits.DayDownloadLimit;
-         WeekDownloadLimit = Limits.WeekDownloadLimit;
-         MonthDownloadLimit = Limits.MonthDownloadLimit;
-         YearDownloadLimit = Limits.YearDownloadLimit;
-         InactivityTime = Limits.InactivityTime;
-         Flags = Limits.Flags;
-         ShowLevel = Limits.ShowLevel;
-         ShowFlags = Limits.ShowFlags;
-         ShowDenyFlags = Limits.ShowDenyFlags;
+         DownloadLimit = Limits.DownloadLimit;
+         DownloadAt2400 = Limits.DownloadAt2400;
+         DownloadAt9600 = Limits.DownloadAt9600;
+         DownloadAt14400 = Limits.DownloadAt14400;
+         DownloadAt28800 = Limits.DownloadAt28800;
+         DownloadAt33600 = Limits.DownloadAt33600;
+         DownloadRatio = Limits.DownloadRatio;
+         RatioStart = Limits.RatioStart;
+         DownloadSpeed = Limits.DownloadSpeed;
+         strcpy (LastKey, Key);
          retVal = TRUE;
       }
    }
@@ -224,26 +209,18 @@ USHORT TLimits::Previous (VOID)
          Level = Limits.Level;
          Flags = Limits.Flags;
          DenyFlags = Limits.DenyFlags;
-         ExpireDays = Limits.ExpireDays;
-         strcpy (ExpireClass, Limits.ExpireClass);
-         ExpireLevel = Limits.ExpireLevel;
-         ExpireFlags = Limits.ExpireFlags;
-         ExpireDenyFlags = Limits.ExpireDenyFlags;
          CallTimeLimit = Limits.CallTimeLimit;
          DayTimeLimit = Limits.DayTimeLimit;
-         WeekTimeLimit = Limits.WeekTimeLimit;
-         MonthTimeLimit = Limits.MonthTimeLimit;
-         YearTimeLimit = Limits.YearTimeLimit;
-         CallDownloadLimit = Limits.CallDownloadLimit;
-         DayDownloadLimit = Limits.DayDownloadLimit;
-         WeekDownloadLimit = Limits.WeekDownloadLimit;
-         MonthDownloadLimit = Limits.MonthDownloadLimit;
-         YearDownloadLimit = Limits.YearDownloadLimit;
-         InactivityTime = Limits.InactivityTime;
-         Flags = Limits.Flags;
-         ShowLevel = Limits.ShowLevel;
-         ShowFlags = Limits.ShowFlags;
-         ShowDenyFlags = Limits.ShowDenyFlags;
+         DownloadLimit = Limits.DownloadLimit;
+         DownloadAt2400 = Limits.DownloadAt2400;
+         DownloadAt9600 = Limits.DownloadAt9600;
+         DownloadAt14400 = Limits.DownloadAt14400;
+         DownloadAt28800 = Limits.DownloadAt28800;
+         DownloadAt33600 = Limits.DownloadAt33600;
+         DownloadRatio = Limits.DownloadRatio;
+         RatioStart = Limits.RatioStart;
+         DownloadSpeed = Limits.DownloadSpeed;
+         strcpy (LastKey, Key);
          retVal = TRUE;
       }
    }
@@ -271,26 +248,18 @@ USHORT TLimits::Read (PSZ pszName, USHORT fCloseFile)
             Level = Limits.Level;
             Flags = Limits.Flags;
             DenyFlags = Limits.DenyFlags;
-            ExpireDays = Limits.ExpireDays;
-            strcpy (ExpireClass, Limits.ExpireClass);
-            ExpireLevel = Limits.ExpireLevel;
-            ExpireFlags = Limits.ExpireFlags;
-            ExpireDenyFlags = Limits.ExpireDenyFlags;
             CallTimeLimit = Limits.CallTimeLimit;
             DayTimeLimit = Limits.DayTimeLimit;
-            WeekTimeLimit = Limits.WeekTimeLimit;
-            MonthTimeLimit = Limits.MonthTimeLimit;
-            YearTimeLimit = Limits.YearTimeLimit;
-            CallDownloadLimit = Limits.CallDownloadLimit;
-            DayDownloadLimit = Limits.DayDownloadLimit;
-            WeekDownloadLimit = Limits.WeekDownloadLimit;
-            MonthDownloadLimit = Limits.MonthDownloadLimit;
-            YearDownloadLimit = Limits.YearDownloadLimit;
-            InactivityTime = Limits.InactivityTime;
-            Flags = Limits.Flags;
-            ShowLevel = Limits.ShowLevel;
-            ShowFlags = Limits.ShowFlags;
-            ShowDenyFlags = Limits.ShowDenyFlags;
+            DownloadLimit = Limits.DownloadLimit;
+            DownloadAt2400 = Limits.DownloadAt2400;
+            DownloadAt9600 = Limits.DownloadAt9600;
+            DownloadAt14400 = Limits.DownloadAt14400;
+            DownloadAt28800 = Limits.DownloadAt28800;
+            DownloadAt33600 = Limits.DownloadAt33600;
+            DownloadRatio = Limits.DownloadRatio;
+            RatioStart = Limits.RatioStart;
+            DownloadSpeed = Limits.DownloadSpeed;
+            strcpy (LastKey, Key);
             retVal = TRUE;
          }
       }
@@ -315,35 +284,28 @@ USHORT TLimits::Update (VOID)
    }
 
    if (fdDat != -1) {
+      lseek (fdDat, 0L, SEEK_SET);
       while (retVal == FALSE && read (fdDat, &Limits, sizeof (Limits)) == sizeof (Limits)) {
-         if (!stricmp (Key, Limits.Key)) {
+         if (!stricmp (LastKey, Limits.Key)) {
             lseek (fdDat, tell (fdDat) - sizeof (Limits), SEEK_SET);
             memset (&Limits, 0, sizeof (Limits));
+            Limits.Size = sizeof (Limits);
             strcpy (Limits.Key, Key);
             strcpy (Limits.Description, Description);
             Limits.Level = Level;
             Limits.Flags = Flags;
             Limits.DenyFlags = DenyFlags;
-            Limits.ExpireDays = ExpireDays;
-            strcpy (Limits.ExpireClass, ExpireClass);
-            Limits.ExpireLevel = ExpireLevel;
-            Limits.ExpireFlags = ExpireFlags;
-            Limits.ExpireDenyFlags = ExpireDenyFlags;
             Limits.CallTimeLimit = CallTimeLimit;
             Limits.DayTimeLimit = DayTimeLimit;
-            Limits.WeekTimeLimit = WeekTimeLimit;
-            Limits.MonthTimeLimit = MonthTimeLimit;
-            Limits.YearTimeLimit = YearTimeLimit;
-            Limits.CallDownloadLimit = CallDownloadLimit;
-            Limits.DayDownloadLimit = DayDownloadLimit;
-            Limits.WeekDownloadLimit = WeekDownloadLimit;
-            Limits.MonthDownloadLimit = MonthDownloadLimit;
-            Limits.YearDownloadLimit = YearDownloadLimit;
-            Limits.InactivityTime = InactivityTime;
-            Limits.Flags = Flags;
-            Limits.ShowLevel = ShowLevel;
-            Limits.ShowFlags = ShowFlags;
-            Limits.ShowDenyFlags = ShowDenyFlags;
+            Limits.DownloadLimit = DownloadLimit;
+            Limits.DownloadAt2400 = DownloadAt2400;
+            Limits.DownloadAt9600 = DownloadAt9600;
+            Limits.DownloadAt14400 = DownloadAt14400;
+            Limits.DownloadAt28800 = DownloadAt28800;
+            Limits.DownloadAt33600 = DownloadAt33600;
+            Limits.DownloadRatio = DownloadRatio;
+            Limits.RatioStart = RatioStart;
+            Limits.DownloadSpeed = DownloadSpeed;
             write (fdDat, &Limits, sizeof (Limits));
             retVal = TRUE;
          }

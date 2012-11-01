@@ -387,7 +387,7 @@ USHORT CSecurityDlg (PSZ title, USHORT *level, ULONG *flags, ULONG *deny_flags)
             *deny_flags = DenyFlags;
             break;
       }
-   } while (menu_sel != -1 && menu_sel != 996 && menu_sel != 997);
+   } while (menu_sel != -1 && menu_sel != 996 && menu_sel != 995);
 
    wclose ();
 

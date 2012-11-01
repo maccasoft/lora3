@@ -23,6 +23,8 @@ TEvents::TEvents (PSZ pszDataFile)
    if (strchr (DataFile, '.') == NULL)
       strcat (DataFile, ".dat");
    Data.Clear ();
+
+   AdjustPath (DataFile);
 }
 
 TEvents::~TEvents (void)
@@ -77,6 +79,7 @@ VOID TEvents::Class2Struct (EVENT *Event)
    Event->MakeRequests = MakeRequests;
    Event->ProcessTIC = ProcessTIC;
    Event->ClockAdjustment = ClockAdjustment;
+   Event->Completed = Completed;
 }
 
 VOID TEvents::Struct2Class (EVENT *Event)
@@ -125,6 +128,7 @@ VOID TEvents::Struct2Class (EVENT *Event)
    MakeRequests = Event->MakeRequests;
    ProcessTIC = Event->ProcessTIC;
    ClockAdjustment = Event->ClockAdjustment;
+   Completed = Event->Completed;
 }
 
 VOID TEvents::Add (VOID)
@@ -202,6 +206,7 @@ USHORT TEvents::First (VOID)
    USHORT RetVal = FALSE;
    EVENT *Event;
 
+   Started = FALSE;
    if ((Event = (EVENT *)Data.First ()) != NULL) {
       Number = 1;
       Struct2Class (Event);
@@ -254,6 +259,7 @@ USHORT TEvents::Next (VOID)
    USHORT RetVal = FALSE;
    EVENT *Event;
 
+   Started = FALSE;
    if ((Event = (EVENT *)Data.Next ()) != NULL) {
       Number++;
       Struct2Class (Event);
@@ -268,6 +274,7 @@ USHORT TEvents::Previous (VOID)
    USHORT RetVal = FALSE;
    EVENT *Event;
 
+   Started = FALSE;
    if ((Event = (EVENT *)Data.Previous ()) != NULL) {
       Number--;
       Struct2Class (Event);
@@ -336,6 +343,7 @@ USHORT TEvents::SetCurrent (VOID)
          if (TimeNow >= TimeEvent && TimeNow < (TimeEvent + Event->Length) && (CurDay & Event->WeekDays)) {
             if (Event->LastDay != ltm.tm_yday) {
                Event->LastDay = (USHORT)ltm.tm_yday;
+               Event->Completed = FALSE;
                Started = TRUE;
             }
             else
@@ -409,10 +417,16 @@ VOID TEvents::TimeToNext (VOID)
 
 VOID TEvents::Update (VOID)
 {
-   if (Data.Value () != NULL) {
-      Data.Remove ();
-      Add ();
-      Struct2Class ((EVENT *)Data.Value ());
+   EVENT *Event;
+
+   if ((Event = (EVENT *)Data.Value ()) != NULL) {
+      if (Event->Hour != Hour || Event->Minute != Minute || Event->Length != Length) {
+         Data.Remove ();
+         Add ();
+         Struct2Class ((EVENT *)Data.Value ());
+      }
+      else
+         Class2Struct (Event);
    }
 }
 

@@ -11,7 +11,7 @@
 #include "msgbase.h"
 
 static PSZ MONTHS[] = {
-   "January", "February", "March", "April", "Maj", "Juni",
+   "January", "February", "March", "April", "May", "Juni",
    "July", "August", "September", "October", "November", "December"
 };
 
@@ -288,7 +288,6 @@ USHORT INETMAIL::Add (class TCollection &MsgText)
       }
       delete Tcp;
    }
-
    Tcp = OldTcp;
 
    return (RetVal);
@@ -322,7 +321,43 @@ USHORT INETMAIL::GetHWM (ULONG &ulMsg)
 USHORT INETMAIL::GetResponse (PSZ pszResponse, USHORT usMaxLen)
 {
    USHORT retVal = FALSE, len = 0;
-   CHAR c, *pszResp = pszResponse;
+   CHAR c, *pszResp;
+
+loop:
+   pszResp = pszResponse;
+
+   do {
+      c = '\0';
+      if (Tcp->BytesReady () == TRUE) {
+         if ((c = (CHAR)Tcp->ReadByte ()) != '\r') {
+            if (c != '\n') {
+               *pszResp++ = c;
+               if (++len >= usMaxLen)
+                  c = '\r';
+            }
+         }
+      }
+   } while (c != '\r' && Tcp->Carrier () == TRUE);
+
+   *pszResp = '\0';
+   if (pszResponse[0] == '+')
+      retVal = TRUE;
+   else if (pszResponse[0] == '-')
+      retVal = FALSE;
+   else if (pszResponse[3] == ' ')
+      retVal = (USHORT)atoi (pszResponse);
+   else
+      goto loop;
+
+   return (retVal);
+}
+
+USHORT INETMAIL::GetLine (PSZ pszResponse, USHORT usMaxLen)
+{
+   USHORT retVal = FALSE, len = 0;
+   CHAR c, *pszResp;
+
+   pszResp = pszResponse;
 
    do {
       c = '\0';
@@ -487,7 +522,7 @@ USHORT INETMAIL::Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth)
 
          do {
             szBuffer[0] = 1;
-            GetResponse (&szBuffer[1], (USHORT)(sizeof (szBuffer) - 2));
+            GetLine (&szBuffer[1], (USHORT)(sizeof (szBuffer) - 2));
             if (szBuffer[1] != '\0' && strcmp (szBuffer, "."))
                Text.Add (szBuffer);
 
@@ -545,7 +580,7 @@ USHORT INETMAIL::Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth)
          SkipNext = FALSE;
 
          do {
-            GetResponse (szBuffer, (USHORT)(sizeof (szBuffer) - 1));
+            GetLine (szBuffer, (USHORT)(sizeof (szBuffer) - 1));
             nReaded = (USHORT)strlen (szBuffer);
 
             for (i = 0, pBuff = szBuffer; i < nReaded; i++, pBuff++) {

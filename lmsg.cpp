@@ -381,12 +381,83 @@ VOID ReindexMessages (VOID)
    }
 }
 
+VOID ImportDescriptions (PSZ pszFile)
+{
+   #define MAX_LINECHAR 2048
+   int counter, existing;
+   FILE *fp = fopen (pszFile, "rt");
+   CHAR *lpTemp = (CHAR *)malloc (MAX_LINECHAR + 1);
+   CHAR *lpTag, *lpDescription;
+   class TMsgData *MsgData = new TMsgData (Cfg->SystemPath);
+
+   counter = 0;
+   existing = 0;
+   printf (" * Import descriptions from %s\n", pszFile);
+
+   if (fp != NULL && lpTemp != NULL && MsgData != NULL) {
+      while (fgets (lpTemp, MAX_LINECHAR, fp) != NULL) {
+         lpTemp[strlen (lpTemp) - 1] = '\0';
+         if (lpTemp[0] == ';' || lpTemp[0] == '\0')
+            continue;
+         if ((lpTag = strtok (lpTemp, " ")) != NULL) {
+            if ((lpDescription = strtok (NULL, "")) != NULL) {
+               while (*lpDescription == ' ' || *lpDescription == 0x09)
+                  lpDescription++;
+               if (MsgData->ReadEcho (lpTag) == TRUE) {
+                  strcpy (MsgData->Display, lpDescription);
+                  MsgData->Update ();
+                  existing++;
+               }
+
+               counter++;
+            }
+         }
+      }
+   }
+
+   printf ("   %d area(s) readed, %d updated\n", counter, existing);
+
+   if (MsgData != NULL)
+      delete MsgData;
+   if (lpTemp != NULL)
+      free (lpTemp);
+   if (fp != NULL)
+      fclose (fp);
+}
+
+VOID ExportDescriptions (PSZ pszFile)
+{
+   FILE *fp;
+   int counter = 0;
+   class TMsgData *MsgData;
+
+   printf (" * Updating %s\n", pszFile);
+
+   if ((fp = fopen (pszFile, "wt")) != NULL) {
+      if ((MsgData = new TMsgData (Cfg->SystemPath)) != NULL) {
+         if (MsgData->First () == TRUE)
+            do {
+               if (MsgData->EchoMail == TRUE && MsgData->EchoTag[0] != '\0') {
+                  fprintf (fp, "%-24s %s\n", MsgData->EchoTag, MsgData->Display);
+                  counter++;
+               }
+            } while (MsgData->Next () == TRUE);
+         delete MsgData;
+      }
+      fclose (fp);
+   }
+
+   printf ("   %d description(s) exported\n", counter);
+}
+
 void main (int argc, char *argv[])
 {
    int i;
    USHORT Purge, Pack, Reindex, Link, WriteDate;
-   CHAR *Area = NULL, *Config = NULL;
+   USHORT Import, Export;
+   CHAR *Area = NULL, *Config = NULL, *File = NULL;
 
+   Import = Export = 0;
    Purge = Pack = FALSE;
    Reindex = Link = FALSE;
    WriteDate = FALSE;
@@ -394,6 +465,7 @@ void main (int argc, char *argv[])
    printf ("\nLMSG; %s v%s - Message maintenance utility\n", NAME, VERSION);
    printf ("      Copyright (c) 1991-96 by Marco Maccaferri. All Rights Reserved.\n\n");
 
+/*
    if (ValidateKey ("bbs", NULL, NULL) == KEY_UNREGISTERED) {
       printf ("* * *     WARNING: No license key found    * * *\n");
       if ((i = CheckExpiration ()) == 0) {
@@ -403,17 +475,22 @@ void main (int argc, char *argv[])
       else
          printf ("* * * You have %2d days left for evaluation * * * \n\a\n", i);
    }
+*/
 
    if (argc <= 1) {
       printf (" * Command-line parameters:\n\n");
 
-      printf ("        -A<key>   Process the area <key> only\n");
-      printf ("        -I        Recreate index files\n");
-      printf ("        -P[K]     Pack (compress) message base\n");
-      printf ("                  K=Purge\n");
-      printf ("        -K[W]     Purge messages from info in MSG.DAT\n");
-      printf ("                  W=Use write date\n");
-      printf ("        -L        Link messages by subject\n");
+      printf ("        -A<key>     Process the area <key> only\n");
+      printf ("        -I          Recreate index files\n");
+      printf ("        -P[K]       Pack (compress) message base\n");
+      printf ("                    K=Purge\n");
+      printf ("        -K[W]       Purge messages from info in MSG.DAT\n");
+      printf ("                    W=Use write date\n");
+      printf ("        -L          Link messages by subject\n");
+      printf ("        -E[D]<file> Export data from MSG.DAT\n");
+      printf ("                    D=Echomail descriptions\n");
+      printf ("        -R[D]<file> Import data to MSG.DAT\n");
+      printf ("                    D=Echomail descriptions\n");
 
       printf ("\n * Please refer to the documentation for a more complete command summary\n\n");
    }
@@ -440,6 +517,18 @@ void main (int argc, char *argv[])
                case 'L':
                   Link = TRUE;
                   break;
+               case 'R':
+                  if (toupper (argv[i][2]) == 'D') {
+                     Import = 1;
+                     File = &argv[i][3];
+                  }
+                  break;
+               case 'E':
+                  if (toupper (argv[i][2]) == 'D') {
+                     Export = 1;
+                     File = &argv[i][3];
+                  }
+                  break;
             }
          }
          else if (Config == NULL)
@@ -451,6 +540,10 @@ void main (int argc, char *argv[])
             Cfg->Default ();
       }
 
+      if (Export == 1)
+         ExportDescriptions (File);
+      if (Import == 1)
+         ImportDescriptions (File);
       if (Reindex == TRUE)
          ReindexMessages ();
       if (Purge == TRUE)
@@ -460,7 +553,7 @@ void main (int argc, char *argv[])
       if (Link == TRUE)
          LinkMessages (Area);
 
-      if (Purge == TRUE || Pack == TRUE || Reindex == TRUE || Link == TRUE)
+      if (Purge == TRUE || Pack == TRUE || Reindex == TRUE || Link == TRUE || Import != 0 || Export != 0)
          printf (" * Done\n\n");
       else
          printf (" * Nothing to do\n\n");

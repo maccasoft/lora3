@@ -252,6 +252,8 @@ public:
    ~TJanus (void);
 
    USHORT TimeoutSecs;
+   USHORT MakeRequests;
+   USHORT AllowRequests;
    CHAR   RxPath[64];
    ULONG  Speed;
    class  TCom *Com;

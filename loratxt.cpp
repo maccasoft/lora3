@@ -729,7 +729,7 @@ USHORT CProductDlg (VOID)
    }
    else
       wcenters (3, BLACK|_LGREY, "- Unregistered Evaluation Copy -");
-   wcenters (6, WHITE|_LGREY, "Copyright (c) 1996 by Marco Maccaferri");
+   wcenters (6, WHITE|_LGREY, "Copyright (c) 1996-97 by Marco Maccaferri");
    wcenters (7, WHITE|_LGREY, "All rights reserved");
 
    do {
@@ -1165,6 +1165,7 @@ VOID BbsThread (PVOID Args)
    if ((Bbs = new TBbs) != NULL) {
       Bbs->Log = Log;
       Bbs->Cfg = Cfg;
+      Bbs->Events = Events;
       if (Daemon == FALSE) {
          Bbs->Progress = new TPMProgress;
          Bbs->MailerStatus = new TPMMailStatus;
@@ -1253,7 +1254,9 @@ VOID LocalThread (PVOID Args)
          Bbs->Com = Com;
          Bbs->Log = Log;
          Bbs->Cfg = Cfg;
+         Bbs->Events = Events;
          Bbs->Task = Cfg->TaskNumber;
+         Bbs->Local = TRUE;
          Bbs->Run ();
          delete Bbs;
       }
@@ -1277,6 +1280,7 @@ VOID MailerThread (PVOID Args)
    if ((Detect = new TDetect) != NULL) {
       Detect->Log = Log;
       Detect->Cfg = Cfg;
+      Detect->Events = Events;
       if (Daemon == FALSE) {
          Detect->Progress = new TPMProgress;
          Detect->MailerStatus = new TPMMailStatus;
@@ -1390,12 +1394,15 @@ VOID ModemTimer (VOID)
       case 0:
          if (Log != NULL && ValidateKey ("bbs", NULL, NULL) == KEY_UNREGISTERED) {
             Log->Write ("!WARNING: No license key found");
+            Log->Write ("!Your system is limited to 2 lines");
+/*
             if ((i = CheckExpiration ()) == 0) {
                Log->Write ("!This evaluation copy has expired");
                Status = 200;
             }
             else
                Log->Write ("!You have %d days left for evaluation", i);
+*/
          }
          switch (ValidateKey ("bbs", NULL, NULL)) {
             case KEY_UNREGISTERED:
@@ -1775,29 +1782,44 @@ VOID AddShadow (VOID)
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddModemShadow (VOID)
+VOID AddFileShadow (VOID)
 {
-   whline (4, 0, 28, 3, RED|_LGREY);
+   whline (2, 0, 27, 3, RED|_LGREY);
+   whline (4, 0, 27, 3, RED|_LGREY);
+   wshadow (DGREY|_BLACK);
+}
+
+VOID AddUtilityShadow (VOID)
+{
+   whline (1, 0, 31, 3, RED|_LGREY);
+   whline (5, 0, 31, 3, RED|_LGREY);
+   whline (7, 0, 31, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
 VOID AddMailShadow (VOID)
 {
-   whline (2, 0, 26, 3, RED|_LGREY);
-   whline (5, 0, 26, 3, RED|_LGREY);
+   whline (3, 0, 31, 3, RED|_LGREY);
+   whline (5, 0, 31, 3, RED|_LGREY);
+   whline (9, 0, 31, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddEchoShadow (VOID)
+VOID AddConfigureShadow (VOID)
 {
-   whline (2, 0, 29, 3, RED|_LGREY);
-   whline (6, 0, 29, 3, RED|_LGREY);
+   whline (4, 0, 31, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddSystemShadow (VOID)
+VOID AddBBSShadow (VOID)
 {
-   whline (8, 0, 24, 3, RED|_LGREY);
+   whline (1, 0, 31, 3, RED|_LGREY);
+   wshadow (DGREY|_BLACK);
+}
+
+VOID AddHelpShadow (VOID)
+{
+   whline (4, 0, 31, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
@@ -1814,92 +1836,93 @@ VOID ProcessMenu (VOID)
    USHORT RetVal = FALSE;
 
    wmenubeg (0, 0, 0, 79, 5, BLACK|_LGREY, BLACK|_LGREY, NULL);
-   wmenuitem (0, 1, " System ", 'P', 100, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 1, 12, 26, 3, RED|_LGREY, BLUE|_LGREY, AddSystemShadow);
-      wmenuitem (0, 0, " Forced poll      Alt-M ", 0, 109, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (1, 0, " Request file(s)  Alt-R ", 0, 107, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (2, 0, " Send file(s)     Alt-S ", 0, 108, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (3, 0, " Mail                -> ", 0, 100, 0, NULL, 0, 0);
-         wmenubeg (4, 26, 12, 53, 3, RED|_LGREY, BLUE|_LGREY, AddMailShadow);
-         wmenuitem (0, 0, " Import Mail        Alt-I ", 0, 101, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (1, 0, " Pack NetMail             ", 0, 103, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (3, 0, " Process NEWSgroups       ", 0, 116, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (4, 0, " Process E-Mail           ", 0, 118, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (6, 0, " Rebuild Outbound   Alt-Q ", 0, 106, M_CLALL, ProcessSelection, 0, 0);
-         wmenuend (101, M_VERT|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-      wmenuitem (4, 0, " ECHOmail            -> ", 0, 110, 0, NULL, 0, 0);
-         wmenubeg (5, 26, 14, 56, 3, RED|_LGREY, BLUE|_LGREY, AddEchoShadow);
-         wmenuitem (0, 0, " Process ECHOmail      Alt-P ", 0, 104, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (1, 0, " Export echomail             ", 0, 102, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (3, 0, " Request ECHOmail link       ", 0, 111, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-         wmenuitem (4, 0, " New ECHOmail link           ", 0, 112, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (5, 0, " Rescan ECHOmail             ", 0, 113, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (7, 0, " Write AREAS.BBS             ", 0, 117, M_CLALL, ProcessSelection, 0, 0);
-         wmenuend (104, M_VERT|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-      wmenuitem (5, 0, " TIC                 -> ", 0, 120, 0, NULL, 0, 0);
-         wmenubeg (6, 26, 9, 46, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
-         wmenuitem (0, 0, " Process TIC files ", 0, 105, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (1, 0, " New TIC file link ", 0, 114, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-         wmenuend (105, M_VERT|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-      wmenuitem (6, 0, " Local Login      Alt-K ", 0, 115, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (7, 0, " Process Nodelist       ", 0, 119, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (9, 0, " Exit             Alt-X ", 0, 130, M_CLALL, ProcessSelection, 0, 0);
+   wmenuitem (0,  1, " File ", 0, 100, M_HASPD, NULL, 0, 0);
+      wmenubeg (1, 1, 9, 28, 3, RED|_LGREY, BLUE|_LGREY, AddFileShadow);
+      wmenuitem ( 0, 0, " Request file(s)    Alt-R ", 0, 107, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 1, 0, " Send file(s)       Alt-S ", 0, 108, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 3, 0, " Rebuild Outbound   Alt-Q ", 0, 106, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 5, 0, " Import AREAS.BBS         ", 0, 121, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 6, 0, " Write AREAS.BBS          ", 0, 117, M_CLALL, ProcessSelection, 0, 0);
+      wmenuend (107, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+   wmenuitem (0,  7, " Utility ", 0, 200, M_HASPD, NULL, 0, 0);
+      wmenubeg (1, 7, 11, 38, 3, RED|_LGREY, BLUE|_LGREY, AddUtilityShadow);
+      wmenuitem ( 0, 0, " Forced poll            Alt-M ", 0, 109, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 2, 0, " Request ECHOmail link        ", 0, 111, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem ( 3, 0, " New ECHOmail link            ", 0, 112, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 4, 0, " Rescan ECHOmail              ", 0, 113, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 6, 0, " New TIC file link            ", 0, 114, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem ( 8, 0, " Build nodelist index         ", 0, 119, M_CLALL, ProcessSelection, 0, 0);
       wmenuend (109, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-   wmenuitem (0, 11, " Global ", 'G', 200, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 11, 9, 31, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
-      wmenuitem (0, 0, " General Options   ", 0, 201, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (1, 0, " Site Informations ", 0, 202, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (2, 0, " Addresses         ", 0, 204, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (3, 0, " Directory / Paths ", 0, 208, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (4, 0, " Time Adjustment   ", 0, 205, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (5, 0, " Internet Options  ", 0, 206, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (6, 0, " Fax Options       ", 0, 207, M_CLALL, ProcessSelection, 0, 0);
-      wmenuend (201, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-   wmenuitem (0, 20, " Mailer ", 'M', 300, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 20, 8, 42, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
-      wmenuitem ( 0, 0, " Miscellaneous       ", 0, 310, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem ( 1, 0, " Mail Processing     ", 0, 311, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem ( 2, 0, " Areafix             ", 0, 312, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem ( 3, 0, " TIC Processor       ", 0, 301, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem ( 4, 0, " Files Requests      ", 0, 302, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem ( 5, 0, " External Processing ", 0, 304, M_CLALL, ProcessSelection, 0, 0);
-      wmenuend (310, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-   wmenuitem (0, 29, " BBS ", 'B', 400, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 29, 10, 50, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
-      wmenuitem (0, 0, " Message Areas      ", 0, 401, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (1, 0, " File Areas         ", 0, 402, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (2, 0, " General Options    ", 0, 403, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (3, 0, " Offline Reader     ", 0, 404, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (4, 0, " New Users          ", 0, 405, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (5, 0, " User Limits        ", 0, 406, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (6, 0, " Paging Hours       ", 0, 407, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (7, 0, " External Protocols ", 0, 408, M_CLALL, ProcessSelection, 0, 0);
-      wmenuend (401, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-   wmenuitem (0, 35, " Modem ", 'o', 500, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 35, 8, 59, 3, RED|_LGREY, BLUE|_LGREY, AddModemShadow);
-      wmenuitem (0, 0, " Hardware              ", 0, 501, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (1, 0, " Command Strings       ", 0, 502, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (2, 0, " Answer Control        ", 0, 503, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (3, 0, " Nodelist Flags        ", 0, 504, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (5, 0, " Hangup                ", 0, 505, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (5, 0, " Answer Now      Alt-A ", 0, 506, M_CLALL, ProcessSelection, 0, 0);
-      wmenuend (501, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-   wmenuitem (0, 43, " Manager ", 'a', 600, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 43, 8, 61, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
-      wmenuitem (0, 0, " Event Scheduler ", 0, 601, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (1, 0, " Nodelist        ", 0, 602, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (2, 0, " Compressors     ", 0, 603, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (3, 0, " Nodes           ", 0, 604, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (4, 0, " Menu Files      ", 0, 605, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (5, 0, " User Editor     ", 0, 606, M_CLALL, ProcessSelection, 0, 0);
-      wmenuend (601, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
-   wmenuitem (0, 53, " Help ", 'H', 900, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 53, 8, 76, 3, RED|_LGREY, BLUE|_LGREY, AddModemShadow);
-      wmenuitem (0, 0, " Help index...        ", 0, 901, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (1, 0, " General help...      ", 0, 902, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (2, 0, " Using help...        ", 0, 903, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (3, 0, " Keys help...         ", 0, 904, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (5, 0, " Product informations ", 0, 905, M_CLALL, ProcessSelection, 0, 0);
+   wmenuitem (0, 16, " Mail ", 0, 300, M_HASPD, NULL, 0, 0);
+      wmenubeg (1, 16, 13, 45, 3, RED|_LGREY, BLUE|_LGREY, AddMailShadow);
+      wmenuitem ( 0, 0, " Import Mail          Alt-I ", 0, 101, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 1, 0, " Export echomail            ", 0, 102, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 2, 0, " Pack NetMail               ", 0, 103, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 4, 0, " Process ECHOmail     Alt-P ", 0, 104, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 6, 0, " Process NEWSgroups         ", 0, 116, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 7, 0, " Process E-Mail             ", 0, 118, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 8, 0, " Process TIC files          ", 0, 105, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem (10, 0, " Import from bad msgs.      ", 0, 105, M_CLALL, ProcessSelection, 0, 0);
+      wmenuend (101, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+   wmenuitem (0, 22, " Configure ", 0, 400, M_HASPD, NULL, 0, 0);
+      wmenubeg (1, 22, 13, 43, 3, RED|_LGREY, BLUE|_LGREY, AddConfigureShadow);
+      wmenuitem ( 0, 0, " Global          -> ", 0, 410, 0, NULL, 0, 0);
+         wmenubeg (1, 44, 9, 64, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+         wmenuitem (0, 0, " General Options   ", 0, 201, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (1, 0, " Site Informations ", 0, 202, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (2, 0, " Addresses         ", 0, 204, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (3, 0, " Directory / Paths ", 0, 208, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (4, 0, " Time Adjustment   ", 0, 205, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+         wmenuitem (5, 0, " Internet Options  ", 0, 206, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (6, 0, " Fax Options       ", 0, 207, M_CLALL, ProcessSelection, 0, 0);
+         wmenuend (201, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+      wmenuitem ( 1, 0, " Mailer          -> ", 0, 420, 0, NULL, 0, 0);
+         wmenubeg (2, 44, 9, 66, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+         wmenuitem ( 0, 0, " Miscellaneous       ", 0, 310, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem ( 1, 0, " Mail Processing     ", 0, 311, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem ( 2, 0, " Areafix             ", 0, 312, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem ( 3, 0, " TIC Processor       ", 0, 301, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+         wmenuitem ( 4, 0, " Files Requests      ", 0, 302, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+         wmenuitem ( 5, 0, " External Processing ", 0, 304, M_CLALL, ProcessSelection, 0, 0);
+         wmenuend (310, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+      wmenuitem ( 2, 0, " BBS             -> ", 0, 430, 0, NULL, 0, 0);
+         wmenubeg (3, 44, 12, 65, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+         wmenuitem (0, 0, " Message Areas      ", 0, 401, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (1, 0, " File Areas         ", 0, 402, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (2, 0, " General Options    ", 0, 403, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (3, 0, " Offline Reader     ", 0, 404, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (4, 0, " New Users          ", 0, 405, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (5, 0, " User Limits        ", 0, 406, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (6, 0, " Paging Hours       ", 0, 407, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+         wmenuitem (7, 0, " External Protocols ", 0, 408, M_CLALL, ProcessSelection, 0, 0);
+         wmenuend (401, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+      wmenuitem ( 3, 0, " Modem           -> ", 0, 440, 0, NULL, 0, 0);
+         wmenubeg (4, 44, 9, 67, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+         wmenuitem (0, 0, " Hardware              ", 0, 501, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (1, 0, " Command Strings       ", 0, 502, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (2, 0, " Answer Control        ", 0, 503, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (3, 0, " Nodelist Flags        ", 0, 504, M_CLALL, ProcessSelection, 0, 0);
+         wmenuend (501, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+      wmenuitem ( 5, 0, " Event Scheduler    ", 0, 601, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 6, 0, " Nodelist           ", 0, 602, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 7, 0, " Compressors        ", 0, 603, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 8, 0, " Nodes              ", 0, 604, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 9, 0, " Menu Files         ", 0, 605, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem (10, 0, " User Editor        ", 0, 606, M_CLALL, ProcessSelection, 0, 0);
+      wmenuend (410, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+   wmenuitem (0, 33, " BBS ", 0, 500, M_HASPD, NULL, 0, 0);
+      wmenubeg (1, 33, 6, 55, 3, RED|_LGREY, BLUE|_LGREY, AddBBSShadow);
+      wmenuitem ( 0, 0, " Local Login   Alt-K ", 0, 115, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 2, 0, " Answer Now    Alt-A ", 0, 506, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 3, 0, " Hangup        Alt-H ", 0, 505, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuend (115, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
+   wmenuitem (0, 38, " Help ", 0, 600, M_HASPD, NULL, 0, 0);
+      wmenubeg (1, 38, 8, 61, 3, RED|_LGREY, BLUE|_LGREY, AddHelpShadow);
+      wmenuitem ( 0, 0, " Help index...        ", 0, 901, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem ( 1, 0, " General help...      ", 0, 902, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem ( 2, 0, " Using help...        ", 0, 903, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem ( 3, 0, " Keys help...         ", 0, 904, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem ( 5, 0, " Product informations ", 0, 905, M_CLALL, ProcessSelection, 0, 0);
       wmenuend (901, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
 
    last_sel = (short)((last_sel / 100) * 100);
@@ -1956,12 +1979,34 @@ VOID ProcessMenu (VOID)
          case 116:      // System / Process Newsgroups
             MailProcessorThread ((PVOID)(MAIL_NEWSGROUP|MAIL_STARTTIMER));
             break;
+         case 117: {    // System / EchoMail / Write AREAS.BBS
+            class TAreaManager *Mgr;
+
+            if ((Mgr = new TAreaManager) != NULL) {
+               Mgr->Cfg = Cfg;
+               Mgr->Log = Log;
+               Mgr->UpdateAreasBBS ();
+               delete Mgr;
+            }
+            break;
+         }
          case 118:      // System / Process E-Mail
             MailProcessorThread ((PVOID)(MAIL_EMAIL|MAIL_STARTTIMER));
             break;
          case 119:
             CompileNodelist (TRUE);
             break;
+         case 121: {    // System / EchoMail / Import AREAS.BBS
+            class TAreaManager *Mgr;
+
+            if ((Mgr = new TAreaManager) != NULL) {
+               Mgr->Cfg = Cfg;
+               Mgr->Log = Log;
+               Mgr->ImportAreasBBS ();
+               delete Mgr;
+            }
+            break;
+         }
          case 130:
             kbput (0x2d00);
             break;
@@ -2071,6 +2116,9 @@ VOID ProcessMenu (VOID)
             if ((RetVal = CAnswerDlg ()) == TRUE)
                Cfg->Save ();
             break;
+         case 504:
+            CNodeFlagsDlg ();
+            break;
          case 506:
             Modem->Serial->SendBytes ((UCHAR *)"ATA\r", 4);
             Status = ANSWERING;
@@ -2090,10 +2138,33 @@ VOID ProcessMenu (VOID)
             CNodesDlg ();
             break;
          case 605: {
-            CHAR Temp[128], *p;
+            CHAR Temp[128], *p = NULL;
 
-            sprintf (Temp, "%s*.mnu", Cfg->MenuPath);
-            if ((p = wpickfile (6, 8, 18, 71, 1, WHITE|_LGREY, WHITE|_LGREY, WHITE|_GREEN, 1, Temp, AddShadow)) != NULL)
+            Temp[0] = '\0';
+            if (wopen (10, 15, 12, 65, 1, WHITE|_LGREY, WHITE|_LGREY) > 0) {
+               wshadow (DGREY|_BLACK);
+               wtitle (" Menu Editor ", TCENTER, WHITE|_LGREY);
+
+               wprints (0, 1, WHITE|_GREEN, " Filename ");
+               winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+               winpdef (0, 12, Temp, "????????????????????????????????????", 0, 2, NULL, 0);
+               if (winpread () == W_ESCPRESS)
+                  Temp[0] = '\0';
+               else {
+                  while (strlen (Temp) > 0 && Temp[strlen (Temp) - 1] == ' ')
+                     Temp[strlen (Temp) - 1] = '\0';
+                  p = Temp;
+               }
+               hidecur ();
+               wclose ();
+            }
+
+            if (p != NULL && *p == '\0') {
+               sprintf (Temp, "%s*.mnu", Cfg->MenuPath);
+               p = wpickfile (6, 8, 18, 71, 1, WHITE|_LGREY, WHITE|_LGREY, WHITE|_GREEN, 1, Temp, AddShadow);
+            }
+
+            if (p != NULL)
                CMenuEditorDlg (p);
             break;
          }
@@ -2113,7 +2184,7 @@ VOID ProcessMenu (VOID)
 void main (int argc, char *argv[])
 {
    int i;
-   USHORT Task = 1, Local, Poll, CanExit, EndRun, Interactive;
+   USHORT Task = 1, Local, Poll, CanExit, EndRun, Interactive, Setup;
    USHORT DoImport, DoExport, DoPack, DoNews, DoTic, DoNodelist, DoMail;
    CHAR *Config, *Channel, *Device, Temp[128];
    ULONG Flags, Speed;
@@ -2123,7 +2194,7 @@ void main (int argc, char *argv[])
    Events = NULL;
    Outbound = NULL;
    DoImport = DoExport = DoPack = DoNews = DoTic = DoNodelist = DoMail = FALSE;
-   Interactive = FALSE;
+   Setup = Interactive = FALSE;
    Config = Channel = Device = NULL;
    Speed = 0L;
    Local = Poll = FALSE;
@@ -2166,6 +2237,11 @@ void main (int argc, char *argv[])
       else if (!stricmp (argv[i], "NODELIST")) {
          DoNodelist = TRUE;
          Interactive = TRUE;
+      }
+      else if (!stricmp (argv[i], "SETUP")) {
+         Interactive = FALSE;
+         Setup = TRUE;
+         Daemon = FALSE;
       }
       else if (!strncmp (argv[i], "-p", 2))
          Device = &argv[i][2];
@@ -2242,49 +2318,58 @@ void main (int argc, char *argv[])
 
          EndRun = FALSE;
          while (EndRun == FALSE) {
-            ModemTimer ();
+            if (Setup == FALSE) {
+               ModemTimer ();
 
-            if (Poll == TRUE && Status == WAITFORCALL) {
-               if (CanExit == TRUE)
-                  EndRun = TRUE;
-               else {
-                  Modem->Terminal = FALSE;
-                  strcpy (Modem->NodelistPath, Cfg->NodelistPath);
-                  strcpy (Modem->DialCmd, Cfg->Dial);
-                  Modem->Poll (PollNode);
-                  Status = WAITFORCONNECT;
-                  TimeOut = TimerSet ((ULONG)Cfg->DialTimeout * 100L);
-                  CanExit = TRUE;
+               if (Poll == TRUE && Status == WAITFORCALL) {
+                  if (CanExit == TRUE)
+                     EndRun = TRUE;
+                  else {
+                     Modem->Terminal = FALSE;
+                     strcpy (Modem->NodelistPath, Cfg->NodelistPath);
+                     strcpy (Modem->DialCmd, Cfg->Dial);
+                     Modem->Poll (PollNode);
+                     Status = WAITFORCONNECT;
+                     TimeOut = TimerSet ((ULONG)Cfg->DialTimeout * 100L);
+                     CanExit = TRUE;
+                  }
                }
-            }
 
-            if (Poll == FALSE && TimeUp (EventsT) && Status == WAITFORCALL)
-               EventsTimer (NULL);
+               if (Poll == FALSE && TimeUp (EventsT) && Status == WAITFORCALL)
+                  EventsTimer (NULL);
+            }
 
             if (Daemon == FALSE) {
                if (kbmhit ()) {
                   switch (getxch ()) {
                      case 0x1b:     // ESC - Pulldown menu
                      case 0x011b:
+                     case CTRLA:
                         ProcessMenu ();
                         break;
+                     case 'A':
                      case 0x1E00:   // Alt-A - Auto answer
                         Modem->Serial->SendBytes ((UCHAR *)"ATA\r", 4);
                         Status = ANSWERING;
                         TimeOut = TimerSet (4500L);
                         break;
+                     case 'I':
                      case 0x1700:   // Alt-I - Import mail
                         MailProcessorThread ((PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL));
                         break;
+                     case 'K':
                      case 0x2500:   // Alt-K - Local login
                         LocalThread (NULL);
                         break;
+                     case 'M':
                      case 0x3200:   // Alt-M - Manual Poll
                         CPollDlg ();
                         break;
+                     case 'P':
                      case 0x1900:   // Alt-P - Process ECHOmail
                         MailProcessorThread ((PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL|MAIL_EXPORT|MAIL_PACK|MAIL_STARTTIMER));
                         break;
+                     case 'Q':
                      case 0x1000:   // Alt-Q - Rescan outbound
                         if (Outbound != NULL) {
                            if (Log != NULL)
@@ -2297,12 +2382,15 @@ void main (int argc, char *argv[])
                            RefreshOutbound ();
                         }
                         break;
+                     case 'R':
                      case 0x1300:   // Alt-R - Request files
                         CRequestDlg ();
                         break;
+                     case 'S':
                      case 0x1F00:   // Alt-S - Send files
                         CAttachDlg ();
                         break;
+                     case 'X':
                      case 0x2D00:   // Alt-X - Uscita
                         EndRun = TRUE;
                         break;
