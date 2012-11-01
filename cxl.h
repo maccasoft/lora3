@@ -682,7 +682,7 @@ short      _Cdecl wpickstr(short srow,short scol,short erow,short ecol,short bty
                          short bordattr,short winattr,short barattr,char *strarr[],
                          short initelem,void (*open)(void));
 short      _Cdecl wprintc(short wrow,short wcol,short attr,short ch);
-short      _Cdecl wprintf(const char *format,...);
+/*short      _Cdecl wprintf(const char *format,...);*/
 short      _Cdecl wprints(short wrow,short wcol,short attr,char *str);
 short      _Cdecl wprintsf(short wrow,short wcol,short attr,char *format,char *str);
 short      _Cdecl wputc(short ch);
@@ -693,7 +693,7 @@ short      _Cdecl wreadcur(short *wrow,short *wcol);
 void     _Cdecl wrestore(short *wbuf);
 short      _Cdecl wrjusts(short wrow,short wjcol,short attr,char *str);
 short   *_Cdecl wsave(short srow,short scol,short erow,short ecol);
-short      _Cdecl wscanf(const char *format,...);
+/*short      _Cdecl wscanf(const char *format,...);*/
 short      _Cdecl wscroll(short count,short direc);
 short      _Cdecl wscrollbox(short wsrow,short wscol,short werow,short wecol,short count,
                            short direction);

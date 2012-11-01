@@ -21,10 +21,10 @@ VOID DisplayButton (USHORT y, USHORT x, CHAR *Text, USHORT Shadow)
    Temp[ButtonSize + 1] = '\0';
 
    memset (Temp, ' ', ButtonSize + 1);
-   Temp[ButtonSize] = 'Ü';
+   Temp[ButtonSize] = '|';
    wprints (y, x, Shadow, Temp);
 
-   memset (&Temp[1], 'ß', ButtonSize);
+   memset (&Temp[1], '-', ButtonSize);
    wprints ((short)(y + 1), x, Shadow, Temp);
 
    Temp[ButtonSize] = '\0';

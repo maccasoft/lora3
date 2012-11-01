@@ -114,6 +114,7 @@ BEGIN
 
                 MENUITEM SEPARATOR
                 MENUITEM "~Event Scheduler", 601
+                MENUITEM "~Limits", 608, , MIA_DISABLED
                 MENUITEM "N~odelist", 606
                 MENUITEM "~Translations", 608
                 MENUITEM "~Compressors", 602
@@ -468,8 +469,12 @@ PRESPARAMS PP_FOREGROUNDCOLOR , 0xff0000L
                 PRESPARAMS PP_FONTNAMESIZE "12.Helv Bold Italic"
 PRESPARAMS PP_FOREGROUNDCOLOR , 0x8000L
                 CONTROL "Copyright (c) 1996 by Marco Maccaferri. All rights reserved.", 103, 10, 48, 241, 8, WC_STATIC, SS_TEXT | DT_CENTER | DT_TOP | DT_MNEMONIC | WS_VISIBLE | WS_GROUP
+                PRESPARAMS PP_FONTNAMESIZE "30.Tms Rmn Bold Italic"
+PRESPARAMS PP_FOREGROUNDCOLOR , 0xff0000L
+                CONTROL "Mods by Ken Johnson ken@dynaip.com", 104, 8, 56, 244, 10, WC_STATIC, SS_TEXT | DT_CENTER | DT_TOP | DT_MNEMONIC | WS_VISIBLE | WS_GROUP
+
                 PRESPARAMS PP_FONTNAMESIZE "8.Helv"
-                CONTROL "- Unregistered Evaluation Copy -", 104, 13, 35, 234, 8, WC_STATIC, SS_TEXT | DT_CENTER | DT_TOP | DT_MNEMONIC | WS_VISIBLE | WS_GROUP
+                CONTROL "- Freeware Edition -", 104, 13, 35, 234, 8, WC_STATIC, SS_TEXT | DT_CENTER | DT_TOP | DT_MNEMONIC | WS_VISIBLE | WS_GROUP
                 PRESPARAMS PP_FOREGROUNDCOLOR , 0x0L
                 CONTROL "", 105, 13, 27, 234, 8, WC_STATIC, SS_TEXT | DT_CENTER | DT_TOP | DT_MNEMONIC | WS_VISIBLE | WS_GROUP
                 PRESPARAMS PP_FOREGROUNDCOLOR , 0x0L

@@ -19,6 +19,7 @@
 #include "_ldefs.h"
 #include "ftrans.h"
 #include "lora.h"
+#include "msgbase.h"
 
 #define YOOHOO             0xF1
 #define TSYNC              0xAE
@@ -1924,7 +1925,8 @@ VOID TDetect::Receiver (VOID)
 
                            sprintf (Temp, "The following is the result of a file-request to %s ...", Packet->FromAddress);
                            Packet->Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-                           Packet->Text.Add ("", 1);
+//kj                           Packet->Text.Add ("", 1);
+                           Packet->Text.Add ("");
                            p = "Filename        Bytes   Description";
                            Packet->Text.Add (p, (USHORT)(strlen (p) + 1));
                            p = "--------      -------   -----------";
@@ -1999,7 +2001,8 @@ VOID TDetect::Receiver (VOID)
 
                         // In fondo al messaggio viene appeso il nome del sysop,
                         // l'indirizzo primario e il nome del BBS.
-                        Packet->Text.Add ("", 1);
+//kj                        Packet->Text.Add ("", 1);
+                        Packet->Text.Add ("");
                         sprintf (Temp, "%s, %s", Cfg->SysopName, Cfg->MailAddress.String);
                         Packet->Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
                         sprintf (Temp, "%s", Cfg->SystemName);

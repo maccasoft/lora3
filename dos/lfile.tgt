@@ -12,7 +12,7 @@ EXE
 3
 WString
 5
-dr2eo
+dr2e9
 1
 0
 1
@@ -83,8 +83,8 @@ WString
 1
 21
 WString
-14
--fhwpp386e.pch
+15
+-fh=wpp386e.pch
 0
 22
 WVList
@@ -131,8 +131,8 @@ WVList
 0
 31
 MItem
-30
-c:\sources\ncxl\dos4gw\cxl.lib
+25
+c:\lora299src\dos\cxl.lib
 32
 WString
 3

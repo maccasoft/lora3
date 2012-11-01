@@ -45,7 +45,7 @@
 #if defined(_MSC_VER) || defined(__LINUX__)
 #include <memory.h>
 #else
-#include <mem.h>
+#include <memory.h>
 #endif
 #if defined(__BORLANDC__) || defined(__LINUX__)
 #include <utime.h>

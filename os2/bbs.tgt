@@ -12,7 +12,7 @@ ODLL
 3
 WString
 5
-o_2dn
+o_2d9
 1
 0
 1
@@ -119,8 +119,8 @@ WString
 1
 30
 WString
-14
--fhwpp386d.pch
+15
+-fh=wpp386d.pch
 0
 31
 MRState
@@ -130,10 +130,10 @@ WString
 WPP
 33
 WString
-23
-?????Time optimizations
+21
+?????No optimizations
 1
-1
+0
 34
 MRState
 35
@@ -142,10 +142,10 @@ WString
 WPP
 36
 WString
-26
-?????Fastest possible code
+23
+?????Time optimizations
 1
-0
+1
 37
 MCState
 38

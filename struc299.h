@@ -23,7 +23,7 @@
 // Global definitions                                                  //
 /////////////////////////////////////////////////////////////////////////
 
-#define VERSION            "2.99.41"
+#define VERSION            "2.99.70"
 #define VER_MAJOR          2
 #define VER_MINOR          99
 #define PRODUCT_ID         0x4E
@@ -433,6 +433,7 @@ typedef struct {
    USHORT WaZoo;
    USHORT EMSI;
    USHORT Janus;
+   USHORT Hydra;
 
    USHORT NewAreasStorage;
    CHAR   NewAreasPath[64];

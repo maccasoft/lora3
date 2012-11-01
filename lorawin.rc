@@ -110,6 +110,7 @@ BEGIN
 
                 MENUITEM SEPARATOR
       MENUITEM "&Event Scheduler" 601
+      MENUITEM "&Limits" 608, GRAYED
       MENUITEM "N&odelist" 606
       MENUITEM "&Compressors" 602
       MENUITEM "&Nodes" 604
@@ -140,21 +141,21 @@ END
 ACCELERATOR_1 ACCELERATORS
 BEGIN
    "a", 507, ALT
-        "A", 507, ALT
-        "h", 506, ALT
-        "H", 506, ALT
-        "i", 101, ALT
-        "I", 101, ALT
-        "k", 115, ALT
-        "K", 115, ALT
-        "m", 109, ALT
-        "M", 109, ALT
-        "p", 104, ALT
-        "P", 104, ALT
+   "A", 507, ALT
+   "h", 506, ALT
+   "H", 506, ALT
+   "i", 101, ALT
+   "I", 101, ALT
+   "k", 115, ALT
+   "K", 115, ALT
+   "m", 109, ALT
+   "M", 109, ALT
+   "p", 104, ALT
+   "P", 104, ALT
    "q", 106, ALT
    "Q", 106, ALT
    "r", 107, ALT
-        "R", 107, ALT
+   "R", 107, ALT
    "s", 108, ALT
    "S", 108, ALT
 END

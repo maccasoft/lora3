@@ -229,7 +229,7 @@ typedef struct {
    ULONG  Hash;
 } SQIDX;
 
-class SQUISH : public TMsgBase
+class DLL_EXPORT SQUISH : public TMsgBase
 {
 public:
    SQUISH (void);
@@ -381,7 +381,7 @@ typedef struct {
    USHORT Cost;
 } MSGHDR;
 
-class PACKET : public TMsgBase
+class DLL_EXPORT PACKET : public TMsgBase
 {
 public:
    PACKET (void);
@@ -448,7 +448,7 @@ typedef struct {
    USHORT Up;
 } FIDOMSG;
 
-class FIDOSDM : public TMsgBase
+class DLL_EXPORT FIDOSDM : public TMsgBase
 {
 public:
    FIDOSDM (void);
@@ -534,7 +534,7 @@ typedef struct {
    LONG  replyserialno;     /* REPLYID Serial Numver */
 } ADEPTINDEXES, *PADEPTINDEXES;
 
-class ADEPT : public TMsgBase
+class DLL_EXPORT ADEPT : public TMsgBase
 {
 public:
    ADEPT (void);
@@ -576,7 +576,7 @@ private:
 
 // --------------------------------------------------------------------------
 
-class PASSTHR : public TMsgBase
+class DLL_EXPORT PASSTHR : public TMsgBase
 {
 public:
    PASSTHR (void);
@@ -747,7 +747,7 @@ typedef struct {
    CHAR   Subject[73];
 } HMSGHDR;
 
-class HUDSON : public TMsgBase
+class DLL_EXPORT HUDSON : public TMsgBase
 {
 public:
    HUDSON (void);

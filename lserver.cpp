@@ -506,7 +506,11 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
                   CreateThread (NULL, 8192, (LPTHREAD_START_ROUTINE)WebThread, (PVOID)Data, 0L, &ThreadId);
 #else
+#if defined(__OS2__)
                   _beginthread (WebThread, NULL, 8192U, (PVOID)Data);
+#elif defined(__NT__)
+                  _beginthread (WebThread, NULL, (PVOID)Data);
+#endif                  
 #endif
                }
             }
@@ -524,7 +528,11 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
                   CreateThread (NULL, 8192, (LPTHREAD_START_ROUTINE)FtpThread, (PVOID)Data, 0L, &ThreadId);
 #else
+#if defined(__OS2__)
                   _beginthread (FtpThread, NULL, 32768U, (PVOID)Data);
+#elif defined(__NT__)
+                  _beginthread (FtpThread, NULL, (PVOID)Data);
+#endif                  
 #endif
                }
             }
@@ -542,7 +550,11 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
                   CreateThread (NULL, 8192, (LPTHREAD_START_ROUTINE)BbsThread, (PVOID)Data, 0L, &ThreadId);
 #else
+#if defined(__OS2__)
                   _beginthread (BbsThread, NULL, 32768U, (PVOID)Data);
+#elif defined(__NT__)
+                  _beginthread (BbsThread, NULL, (PVOID)Data);
+#endif                  
 #endif
                }
             }
@@ -559,7 +571,11 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
                   CreateThread (NULL, 8192, (LPTHREAD_START_ROUTINE)PopThread, (PVOID)Data, 0L, &ThreadId);
 #else
+#if defined(__OS2__)
                   _beginthread (PopThread, NULL, 8192, (PVOID)Data);
+#elif defined(__NT__)
+                  _beginthread (PopThread, NULL, (PVOID)Data);
+#endif                  
 #endif
                }
             }
@@ -576,7 +592,11 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
                   CreateThread (NULL, 8192, (LPTHREAD_START_ROUTINE)NewsThread, (PVOID)Data, 0L, &ThreadId);
 #else
+#if defined(__OS2__)
                   _beginthread (NewsThread, NULL, 8192, (PVOID)Data);
+#elif defined(__NT__)
+                  _beginthread (NewsThread, NULL, (PVOID)Data);
+#endif                  
 #endif
                }
             }
@@ -746,7 +766,12 @@ LRESULT CALLBACK FtpDlgProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
          return (0);
    }
 
-   return (WinDefDlgProc (hwnd, msg, mp1, mp2));
+#if defined(__OS2__)
+   return (WinDefWindowProc (hwnd, msg, mp1, mp2));
+#elif defined(__NT__)
+   return (DefWindowProc (hwnd, msg, wParam, lParam));
+#endif
+
 }
 
 #if defined(__OS2__)

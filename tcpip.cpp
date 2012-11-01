@@ -20,6 +20,9 @@
 #define _System      _pascal
 #endif
 
+#if defined(__LINUX__)
+#include <errno.h>
+#endif
 #include "_ldefs.h"
 #include "combase.h"
 
@@ -27,7 +30,13 @@
 VOID WaitThread (PVOID Args)
 {
    FILE *fp;
+#if defined(__LINUX__)
+   int i, s;
+   socklen_t namelen;
+#elif
    int i, s, namelen;
+#endif
+
    struct sockaddr_in client, sock;
    struct hostent *host;
    class TTcpip *Tcp = (class TTcpip *)Args;
@@ -186,7 +195,12 @@ VOID TTcpip::ClosePort (VOID)
 
 USHORT TTcpip::ConnectServer (PSZ pszServer, USHORT usPort)
 {
+#if !defined(__LINUX__)
    int i, namelen;
+#elif
+   int i;
+   socklen_t namelen;
+#endif
    USHORT RetVal = FALSE, Port;
    struct hostent *hostnm;
    struct sockaddr_in server, sock;
@@ -418,7 +432,11 @@ USHORT TTcpip::ReadBytes (UCHAR *bytes, USHORT len)
 
 USHORT TTcpip::PeekPacket (PVOID lpBuffer, USHORT usSize)
 {
+#if !defined(__LINUX__)
    int namelen = sizeof (udp_client);
+#elif
+   socklen_t namelen = sizeof (udp_client);
+#endif
    if (recvfrom (LSock, (char *)lpBuffer, usSize, MSG_PEEK, (struct sockaddr *)&udp_client, &namelen) > 0)
       return (TRUE);
 
@@ -427,7 +445,11 @@ USHORT TTcpip::PeekPacket (PVOID lpBuffer, USHORT usSize)
 
 USHORT TTcpip::GetPacket (PVOID lpBuffer, USHORT usSize)
 {
+#if !defined(__LINUX__)
    int namelen = sizeof (udp_client);
+#elif
+   socklen_t namelen = sizeof (udp_client);
+#endif
    return ((USHORT)recvfrom (LSock, (char *)lpBuffer, usSize, 0, (struct sockaddr *)&udp_client, &namelen));
 }
 
@@ -446,7 +468,12 @@ USHORT TTcpip::WaitClient (VOID)
       _beginthread (WaitThread, NULL, 32767, (PVOID)this);
    }
 #else
+#if !defined(__LINUX__)
    int i, s, namelen;
+#elif
+   int i, s;
+   socklen_t namelen;
+#endif
    struct sockaddr_in client;
    struct hostent *host;
 

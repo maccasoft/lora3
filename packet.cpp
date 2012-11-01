@@ -518,7 +518,7 @@ USHORT PACKET::Open (PSZ pszName, USHORT doScan)
                RetVal = TRUE;
             }
             else {
-               swab ((char *)&pkt2Hdr.CWValidation, (char *)&i, 2);
+//kj               swab ((char *)&pkt2Hdr.CWValidation, (char *)&i, 2);
                pkt2Hdr.CWValidation = i;
                if (pkt2Hdr.Capability != pkt2Hdr.CWValidation || !(pkt2Hdr.Capability & 0x0001)) {
                   sprintf (FromAddress, "%d:%d/%d.%d", pkt2Hdr.OrigZone, pkt2Hdr.OrigNet, pkt2Hdr.OrigNode, 0);

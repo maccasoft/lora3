@@ -71,13 +71,13 @@ WFileName
 8
 comm.tgt
 0
-5
+0
 18
 VComponent
 19
 WRect
 320
-341
+324
 5696
 4096
 0
@@ -108,8 +108,8 @@ msgbase.tgt
 VComponent
 25
 WRect
-972
-1126
+960
+1109
 5696
 4096
 0
@@ -135,13 +135,13 @@ WFileName
 9
 lfile.tgt
 0
-3
+0
 30
 VComponent
 31
 WRect
 448
-2133
+2116
 5696
 4096
 0
@@ -173,7 +173,7 @@ VComponent
 37
 WRect
 1088
-2918
+2901
 5696
 4096
 0
@@ -183,7 +183,7 @@ WFileName
 8
 lora.tgt
 0
-4
+0
 39
 VComponent
 40
@@ -191,7 +191,7 @@ WRect
 1472
 3328
 5696
-4164
+4147
 0
 0
 41
@@ -200,4 +200,4 @@ WFileName
 reader.tgt
 3
 8
-36
+15

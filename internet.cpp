@@ -572,7 +572,9 @@ VOID TInternet::FTP_PUT (PSZ pszFile, USHORT fHash, USHORT fBinary)
    }
 
    if (pszFile != NULL)
-      fp = _fsopen (pszFile, (fBinary == TRUE) ? "rb" : "rt", SH_DENYNO);
+//kj      fp = _fsopen (pszFile, (fBinary == TRUE) ? "rb" : "rt", SH_DENYNO);
+          fp = _fsopen (pszFile, "rb", SH_DENYNO);
+
 
    Size = 0;
    Elapsed = time (NULL);

@@ -12,7 +12,7 @@ OEXE
 3
 WString
 5
-oc2en
+oc2e9
 1
 0
 1
@@ -128,8 +128,8 @@ WString
 1
 33
 WString
-14
--fhwpp386e.pch
+15
+-fh=wpp386e.pch
 0
 34
 MRState
@@ -139,10 +139,10 @@ WString
 WPP
 36
 WString
-23
-?????Time optimizations
+21
+?????No optimizations
 1
-1
+0
 37
 MRState
 38
@@ -151,10 +151,10 @@ WString
 WPP
 39
 WString
-26
-?????Fastest possible code
+23
+?????Time optimizations
 1
-0
+1
 40
 MCState
 41

@@ -728,9 +728,10 @@ USHORT CProductDlg (VOID)
       wcenters (4, BLACK|_LGREY, Temp);
    }
    else
-      wcenters (3, BLACK|_LGREY, "- Unregistered Evaluation Copy -");
+      wcenters (3, BLACK|_LGREY, "- Freeware edition -");
    wcenters (6, WHITE|_LGREY, "Copyright (c) 1996-97 by Marco Maccaferri");
    wcenters (7, WHITE|_LGREY, "All rights reserved");
+   wcenters (8, WHITE|_LGREY, "Mods by Ken Johnson");
 
    do {
       wmenubegc ();
@@ -1904,11 +1905,12 @@ VOID ProcessMenu (VOID)
          wmenuitem (3, 0, " Nodelist Flags        ", 0, 504, M_CLALL, ProcessSelection, 0, 0);
          wmenuend (501, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
       wmenuitem ( 5, 0, " Event Scheduler    ", 0, 601, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem ( 6, 0, " Nodelist           ", 0, 602, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem ( 7, 0, " Compressors        ", 0, 603, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem ( 8, 0, " Nodes              ", 0, 604, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem ( 9, 0, " Menu Files         ", 0, 605, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (10, 0, " User Editor        ", 0, 606, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 6, 0, " Limits             ", 0, 607, M_CLALL|M_NOSEL, ProssessSelection, 0, 0);
+      wmenuitem ( 7, 0, " Nodelist           ", 0, 602, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 8, 0, " Compressors        ", 0, 603, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem ( 9, 0, " Nodes              ", 0, 604, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem (10, 0, " Menu Files         ", 0, 605, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem (11, 0, " User Editor        ", 0, 606, M_CLALL, ProcessSelection, 0, 0);
       wmenuend (410, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
    wmenuitem (0, 33, " BBS ", 0, 500, M_HASPD, NULL, 0, 0);
       wmenubeg (1, 33, 6, 55, 3, RED|_LGREY, BLUE|_LGREY, AddBBSShadow);

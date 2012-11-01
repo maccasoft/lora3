@@ -18,6 +18,7 @@
 
 #include "_ldefs.h"
 #include "lora.h"
+#include "msgbase.h"
 
 TEditor::TEditor (void)
 {
@@ -1118,7 +1119,8 @@ VOID TMsgEditor::Forward (VOID)
       Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
       sprintf (Temp, " * Forwarded by %s", UserName);
       Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
-      Text.Add ("", 1);
+//kj      Text.Add ("", 1);
+      Text.Add ("");
 
       if ((Line = (PSZ)Msg->Text.First ()) != NULL)
          do {
@@ -1490,7 +1492,8 @@ VOID TMsgEditor::Save (VOID)
          sprintf (Temp, "\001PID: %s", NAME_OS);
          Text.Insert (Temp, (USHORT)(strlen (Temp) + 1));
 
-         Text.Add ("", 1);
+//kj         Text.Add ("", 1);
+         Text.Add ("");
          sprintf (Temp, "--- %s v%s", NAME, VERSION);
          Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
          sprintf (Temp, " * Origin: %s (%s)", Origin, Address);

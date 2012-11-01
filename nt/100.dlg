@@ -3,11 +3,12 @@ STYLE DS_3DLOOK | WS_OVERLAPPED | WS_CAPTION | WS_VISIBLE | WS_SYSMENU | WS_THIC
 CAPTION "LoraBBS for Windows"
 FONT 8, "Helv"
 BEGIN
-	CONTROL "LoraBBS",                                                     100, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 7, 213, 8
-	CONTROL "Professional Edition for Win32",                              101, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 21, 213, 8
+   CONTROL "LoraBBS",                                                     100, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 7, 213, 8
+   CONTROL "Professional Edition for Win32",                              101, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 21, 213, 8
    CONTROL "Copyright (c) 1996-97 by Marco Maccaferri. All rights reserved", 102, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 31, 213, 8
-	CONTROL "- Unregistered Evaluation Copy -",                            104, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 44, 213, 8
-	CONTROL "",                                                            105, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 53, 213, 8
-	CONTROL "&Ok",                                                         IDOK, "BUTTON", BS_DEFPUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 90, 70, 40, 14
+   CONTROL "Mods by Ken Johnson ken@dynaip.com",                          103, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 41, 213, 8
+   CONTROL "- Freeware Edition -",                                        104, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 51, 213, 8
+   CONTROL "",                                                            105, "STATIC", SS_CENTER | WS_CHILD | WS_VISIBLE, 3, 58, 213, 8
+   CONTROL "&Ok",                                                         IDOK, "BUTTON", BS_DEFPUSHBUTTON | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 90, 70, 40, 14
 END
 

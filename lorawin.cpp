@@ -2148,7 +2148,11 @@ VOID BbsThread (PVOID Args)
          Flags |= (MAIL_EXPORT|MAIL_PACK);
       if (Events->ProcessTIC == TRUE)
          Flags |= MAIL_TIC;
+#if defined(__OS2__)         
       _beginthread (MailProcessorThread, NULL, 8192, (PVOID)Flags);
+#elif defined(__NT__)
+      _beginthread (MailProcessorThread, NULL, (PVOID)Flags);
+#endif      
    }
    else
       StartTimer (hwndMainClient, 1, MODEM_DELAY);
@@ -2393,7 +2397,11 @@ VOID MailerThread (PVOID Args)
          Flags |= MAIL_TIC;
    }
    if (Flags != MAIL_STARTTIMER)
+#if defined(__OS2__)   
       _beginthread (MailProcessorThread, NULL, 8192, (PVOID)Flags);
+#elif defined(__NT__)
+      _beginthread (MailProcessorThread, NULL, (PVOID)Flags);
+#endif      
    else
       StartTimer (hwndMainClient, 1, MODEM_DELAY);
 
@@ -2510,7 +2518,11 @@ VOID ModemTimer (HWND hwnd)
                         if (Log != NULL)
                            Log->Write ("+Connect %lu", Modem->Speed);
                         StopTimer (hwnd, 1);
+#if defined(__OS2__)                        
                         _beginthread (BbsThread, NULL, 32768U, NULL);
+#elif defined(__NT__)
+                        _beginthread (BbsThread, NULL, NULL);
+#endif                        
                         Status = BBSEXIT;
                      }
                      else
@@ -2550,7 +2562,11 @@ VOID ModemTimer (HWND hwnd)
             }
             else {
                Modem->Terminal = FALSE;
+#if defined(__OS2__)
                _beginthread (SendInitThread, NULL, 8192U, NULL);
+#elif defined(__NT__)
+               _beginthread (SendInitThread, NULL, NULL);
+#endif               
                Status = WAITFOROK;
                TimeOut = TimerSet (500);
             }
@@ -2613,12 +2629,20 @@ VOID ModemTimer (HWND hwnd)
          }
          else if (i == CONNECT) {
             StopTimer (hwnd, 1);
+#if defined(__OS2__)            
             _beginthread (BbsThread, NULL, 32768U, NULL);
+#elif defined(__NT__)
+            _beginthread (BbsThread, NULL, NULL);
+#endif            
             Status = HANGUP;
          }
          else if (i == FAX) {
             StopTimer (hwnd, 1);
+#if defined(__OS2__)            
             _beginthread (FaxReceiveThread, NULL, 8192, NULL);
+#elif defined(__NT__)
+            _beginthread (FaxReceiveThread, NULL, NULL);
+#endif            
             Status = HANGUP;
          }
          else if (TimeUp (TimeOut) == TRUE) {
@@ -2631,12 +2655,20 @@ VOID ModemTimer (HWND hwnd)
       case ANSWERING:
          if ((i = Modem->GetResponse ()) == CONNECT) {
             StopTimer (hwnd, 1);
+#if defined(__OS2__)            
             _beginthread (BbsThread, NULL, 32768U, NULL);
+#elif defined(__NT__)
+            _beginthread (BbsThread, NULL, NULL);
+#endif            
             Status = HANGUP;
          }
          else if (i == FAX) {
             StopTimer (hwnd, 1);
+#if defined(__OS2__)            
             _beginthread (FaxReceiveThread, NULL, 8192, NULL);
+#elif defined(__NT__)
+            _beginthread (FaxReceiveThread, NULL, NULL);
+#endif            
             Status = HANGUP;
          }
          else if (i != NO_RESPONSE && i != RING)
@@ -2661,7 +2693,11 @@ VOID ModemTimer (HWND hwnd)
             if (PollNode[0] != '\0' && Outbound != NULL)
                Outbound->AddAttempt (PollNode, TRUE);
             StopTimer (hwnd, 1);
+#if defined(__OS2__)            
             _beginthread (MailerThread, NULL, 32768U, NULL);
+#elif defined(__NT__)
+            _beginthread (MailerThread, NULL, NULL);
+#endif            
             Status = HANGUP;
          }
          else if (i != NO_RESPONSE) {
@@ -3825,27 +3861,47 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #endif
                Status = INITIALIZE;
                Current = 0;
+#if defined(__OS2__)               
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL|MAIL_STARTTIMER));
+#elif defined(__NT__)
+               _beginthread (MailProcessorThread, NULL, (PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL|MAIL_STARTTIMER));
+#endif               
                break;
 
             case 102:      // System / Export mail
                StopTimer (hwnd, 1);
+#if defined(__OS2__)               
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_EXPORT|MAIL_STARTTIMER));
+#elif defined(__NT__)
+               _beginthread (MailProcessorThread, NULL, (PVOID)(MAIL_EXPORT|MAIL_STARTTIMER));
+#endif               
                break;
 
             case 103:      // System / Pack mail
                StopTimer (hwnd, 1);
+#if defined(__OS2__)               
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_PACK|MAIL_STARTTIMER));
+#elif defined(__NT__)
+               _beginthread (MailProcessorThread, NULL, (PVOID)(MAIL_PACK|MAIL_STARTTIMER));
+#endif               
                break;
 
             case 104:      // System / Process ECHOmail
                StopTimer (hwnd, 1);
+#if defined(__OS2__)               
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL|MAIL_EXPORT|MAIL_PACK|MAIL_STARTTIMER));
+#elif defined(__NT__)
+               _beginthread (MailProcessorThread, NULL, (PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL|MAIL_EXPORT|MAIL_PACK|MAIL_STARTTIMER));
+#endif               
                break;
 
             case 105:      // System / Process TIC
                StopTimer (hwnd, 1);
+#if defined(__OS2__)               
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_TIC|MAIL_STARTTIMER));
+#elif defined(__NT__)
+               _beginthread (MailProcessorThread, NULL, (PVOID)(MAIL_TIC|MAIL_STARTTIMER));
+#endif               
                break;
 
             case 106:      // System / Rebuild Queue
@@ -3886,13 +3942,21 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
             case 115:      // Local login
                StopTimer (hwnd, 1);
+#if defined(__OS2__)
                _beginthread (LocalThread, NULL, 32768U, NULL);
+#elif defined(__NT__)
+               _beginthread (LocalThread, NULL, NULL);
+#endif               
                Status = HANGUP;
                break;
 
             case 116:      // System / Process NEWSgroups
                StopTimer (hwnd, 1);
+#if defined(__OS2__)
                _beginthread (MailProcessorThread, NULL, 32768U, (PVOID)(MAIL_NEWSGROUP|MAIL_STARTTIMER));
+#elid defined(__NT__)
+               _beginthread (MailProcessorThread, NULL, (PVOID)(MAIL_NEWSGROUP|MAIL_STARTTIMER));
+#endif
                break;
 
             case 117: {    // System / EchoMail / Write AREAS.BBS
@@ -3909,17 +3973,29 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
             case 118:      // System / Process E-Mail
                StopTimer (hwnd, 1);
+#if defined(__OS2__)
                _beginthread (MailProcessorThread, NULL, 32768U, (PVOID)(MAIL_EMAIL));
+#elif defined(__NT__)
+               _beginthread (MailProcessorThread, NULL, (PVOID)(MAIL_EMAIL));
+#endif               
                break;
 
             case 119:      // System / Build nodelist index
                StopTimer (hwnd, 1);
+#if defined(__OS2__)               
                _beginthread (NodelistThread, NULL, 8192U, (PVOID)(TRUE));
+#elif defined(__NT__)
+               _beginthread (NodelistThread, NULL, (PVOID)(TRUE));
+#endif               
                break;
 
             case 120:      // System / Import from bad msgs.
                StopTimer (hwnd, 1);
+#if defined(__OS2__)               
                _beginthread (MailProcessorThread, NULL, 32768U, (PVOID)(MAIL_IMPORTBAD|MAIL_STARTTIMER));
+#elif defined(__NT__)
+               _beginthread (MailProcessorThread, NULL, (PVOID)(MAIL_IMPORTBAD|MAIL_STARTTIMER));
+#endif               
                break;
 
             case 121: {    // System / EchoMail / Import AREAS.BBS
@@ -4341,6 +4417,7 @@ int main (int argc, char *argv[])
                   Status = 0;
                   WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
                   hAccel = WinLoadAccelTable (hab, NULLHANDLE, 1);
+                  
                   _beginthread (BackgroundThread, NULL, 8192, NULL);
                }
                else
@@ -4546,7 +4623,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
          if (Setup == FALSE) {
             Status = 0;
             SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-            _beginthread (BackgroundThread, NULL, 8192, NULL);
+            _beginthread (BackgroundThread, NULL, NULL);
          }
          else
             Status = 99;
@@ -4568,7 +4645,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
             Flags |= MAIL_TIC;
          if (DoMail == TRUE)
             Flags |= MAIL_EMAIL;
-         _beginthread (MailProcessorThread, NULL, 8192, (PVOID)Flags);
+         _beginthread (MailProcessorThread, NULL, (PVOID)Flags);
       }
 
       hAccel = LoadAccelerators (hinstCurrent, "ACCELERATOR_1");

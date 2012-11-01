@@ -7,10 +7,12 @@
 #    16/08/96 - Initial coding
 # -----------------------------------------------------------------------------
 
-cc = gcc
-link = gcc
+cc = g++
+link = g++
 lib = ar
-copts = -c -D__LINUX__ -O2
+copts = -g -c -D__LINUX__ -O6 -mpentium -funsigned-char -Wno-sign-compare -fno-exceptions
+#copts = -c -D__LINUX__ -O2
+#copts = -c -D__NT__ -O2 -I /cygdrive/c/borland/bcc55/include
 libopt = rcs
 
 all: libcomm.a libmsgbase.a liblora_api.a libbbs.a \
