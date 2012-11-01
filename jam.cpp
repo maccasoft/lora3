@@ -21,7 +21,7 @@
 
 #define MAX_TEXT     2048
 
-JAM::JAM (void)
+JAM::JAM ()
 {
    fdHdr = fdJdt = fdJdx = -1;
    pSubfield = NULL;
@@ -37,12 +37,12 @@ JAM::JAM (PSZ pszName)
    Open (pszName);
 }
 
-JAM::~JAM (void)
+JAM::~JAM ()
 {
    Close ();
 }
 
-USHORT JAM::Add (VOID)
+USHORT JAM::Add ()
 {
    return (Add (Text));
 }
@@ -225,7 +225,7 @@ USHORT JAM::Add (class TCollection &MsgText)
    return (RetVal);
 }
 
-VOID JAM::Close (VOID)
+VOID JAM::Close ()
 {
    if (fdJdx != -1)
       close (fdJdx);
@@ -274,7 +274,7 @@ USHORT JAM::GetHWM (ULONG &ulMsg)
    return (FALSE);
 }
 
-ULONG JAM::Highest (VOID)
+ULONG JAM::Highest ()
 {
    ULONG RetVal = 0L;
    JAMIDXREC jamIdx;
@@ -299,7 +299,7 @@ USHORT JAM::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG JAM::Lowest (VOID)
+ULONG JAM::Lowest ()
 {
    ULONG RetVal = 0L;
    JAMIDXREC jamIdx;
@@ -344,7 +344,7 @@ ULONG JAM::MsgnToUid (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID JAM::New (VOID)
+VOID JAM::New ()
 {
    From[0] = To[0] = Subject[0] = '\0';
    Crash = Direct = FileAttach = FileRequest = Hold = Immediate = FALSE;
@@ -413,7 +413,7 @@ USHORT JAM::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG JAM::Number (VOID)
+ULONG JAM::Number ()
 {
    return (jamHdrInfo.ActiveMsgs);
 }
@@ -461,7 +461,7 @@ USHORT JAM::Open (PSZ pszName)
    return (RetVal);
 }
 
-VOID JAM::Pack (VOID)
+VOID JAM::Pack ()
 {
    int fdnHdr, fdnJdx, fdnJdt;
    USHORT ToRead, Readed;
@@ -956,7 +956,7 @@ ULONG JAM::UidToMsgn (ULONG ulMsg)
    return (RetVal);
 }
 
-VOID JAM::UnLock (VOID)
+VOID JAM::UnLock ()
 {
 }
 

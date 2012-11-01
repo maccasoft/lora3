@@ -34,7 +34,7 @@ class TUseron
 {
 public:
    TUseron (PSZ pszDataPath);
-   ~TUseron (void);
+   ~TUseron ();
 
    USHORT Task;
    CHAR   Status[32];
@@ -43,12 +43,12 @@ public:
    ULONG  Speed;
    USHORT NoDisturb;
 
-   VOID   Disable (VOID);
-   VOID   Enable (VOID);
-   USHORT First (VOID);
-   USHORT Next (VOID);
+   VOID   Disable ();
+   VOID   Enable ();
+   USHORT First ();
+   USHORT Next ();
    VOID   Read (USHORT nTask);
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    CHAR   DataFile[128];
@@ -62,11 +62,11 @@ TUseron::TUseron (PSZ pszDataPath)
    AdjustPath (strlwr (DataFile));
 }
 
-TUseron::~TUseron (void)
+TUseron::~TUseron ()
 {
 }
 
-VOID TUseron::Enable (VOID)
+VOID TUseron::Enable ()
 {
    int fd;
    USHORT i;
@@ -99,14 +99,14 @@ VOID TUseron::Enable (VOID)
    }
 }
 
-USHORT TUseron::First (VOID)
+USHORT TUseron::First ()
 {
    Task = 0;
 
    return (Next ());
 }
 
-VOID TUseron::Disable (VOID)
+VOID TUseron::Disable ()
 {
    int fd;
    USHORT i;
@@ -133,7 +133,7 @@ VOID TUseron::Disable (VOID)
    }
 }
 
-USHORT TUseron::Next (VOID)
+USHORT TUseron::Next ()
 {
    int fd;
    USHORT RetVal = FALSE;
@@ -160,7 +160,7 @@ USHORT TUseron::Next (VOID)
    return (RetVal);
 }
 
-VOID TUseron::Update (VOID)
+VOID TUseron::Update ()
 {
    int fd;
    USHORT i;
@@ -224,7 +224,7 @@ VOID TUseron::Read (USHORT nTask)
 
 // ----------------------------------------------------------------------
 
-TBbs::TBbs (void)
+TBbs::TBbs ()
 {
    StartCall = 0L;
    Com = Snoop = NULL;
@@ -250,7 +250,7 @@ TBbs::TBbs (void)
    Embedded = new TEmbedded;
 }
 
-TBbs::~TBbs (void)
+TBbs::~TBbs ()
 {
    if (Embedded != NULL)
       delete Embedded;
@@ -264,7 +264,7 @@ TBbs::~TBbs (void)
       delete Snoop;
 }
 
-VOID TBbs::DisableUseronRecord (VOID)
+VOID TBbs::DisableUseronRecord ()
 {
    class TUseron *Useron;
 
@@ -295,7 +295,7 @@ VOID TBbs::SetUseronRecord (PSZ pszStatus)
    }
 }
 
-VOID TBbs::ToggleNoDisturb (VOID)
+VOID TBbs::ToggleNoDisturb ()
 {
    class TUseron *Useron;
 
@@ -307,7 +307,7 @@ VOID TBbs::ToggleNoDisturb (VOID)
    }
 }
 
-VOID TBbs::SetBirthDate (VOID)
+VOID TBbs::SetBirthDate ()
 {
    CHAR Temp[16], *p;
 
@@ -1075,11 +1075,11 @@ VOID TBbs::ExecuteCommand (class TMenu *Menu)
          union REGS inregs, outregs;
 #endif
 
-         Embedded->Printf ("\n%s Professional Edition - Version %s\n", NAME, VERSION);
+         Embedded->Printf ("\nï¿½%s Professional Edition - Version %s\n", NAME, VERSION);
          Embedded->Printf ("Copyright (c) 1996-97 by Marco Maccaferri. All rights reserved.\n");
          Embedded->Printf ("\026\001\013BlueWave Offline Mail System. Copyright 1990-94 by Cutting Edge Computing\n\n");
 
-         Embedded->Printf ("Design and Development by Marco Maccaferri.\n\n");
+         Embedded->Printf ("ï¿½Design and Development by Marco Maccaferri.\n\n");
 
          Embedded->Printf ("\026\001\014For technical support or for more informations on LoraBBS, send mail\nto macca@arci02.bo.cnr.it or \"Marco Maccaferri\" at 2:332/402.\n\n");
 
@@ -1222,7 +1222,7 @@ USHORT TBbs::FileExist (PSZ FileName)
    return (RetVal);
 }
 
-USHORT TBbs::Login (VOID)
+USHORT TBbs::Login ()
 {
    USHORT RetVal = FALSE, Counter, Flags, Answer;
    CHAR Temp[48], *p;
@@ -1689,7 +1689,7 @@ USHORT TBbs::Login (VOID)
    return (RetVal);
 }
 
-VOID TBbs::IEMSILogin (VOID)
+VOID TBbs::IEMSILogin ()
 {
    CHAR Temp[48], *p;
 
@@ -1784,7 +1784,7 @@ VOID TBbs::IEMSILogin (VOID)
    }
 }
 
-VOID TBbs::CheckBirthday (VOID)
+VOID TBbs::CheckBirthday ()
 {
    struct dosdate_t d_date;
 
@@ -1793,7 +1793,7 @@ VOID TBbs::CheckBirthday (VOID)
       Embedded->DisplayFile ("birthday");
 }
 
-VOID TBbs::Run (VOID)
+VOID TBbs::Run ()
 {
    USHORT Logged, Executed, Manual, Hangup;
    USHORT FirstTime, DoTimeWarn, Flags;
@@ -2224,19 +2224,19 @@ VOID TBbs::Run (VOID)
 
 // ----------------------------------------------------------------------
 
-TListings::TListings (void)
+TListings::TListings ()
 {
 }
 
-TListings::~TListings (void)
+TListings::~TListings ()
 {
 }
 
-VOID TListings::Begin (VOID)
+VOID TListings::Begin ()
 {
 }
 
-USHORT TListings::DrawScreen (VOID)
+USHORT TListings::DrawScreen ()
 {
    USHORT i;
 
@@ -2250,7 +2250,7 @@ USHORT TListings::DrawScreen (VOID)
    return (i);
 }
 
-VOID TListings::Down (VOID)
+VOID TListings::Down ()
 {
    USHORT i;
 
@@ -2281,7 +2281,7 @@ VOID TListings::Down (VOID)
    }
 }
 
-VOID TListings::PageDown (VOID)
+VOID TListings::PageDown ()
 {
    USHORT i;
 
@@ -2312,20 +2312,20 @@ VOID TListings::PageDown (VOID)
    PrintCursor (y);
 }
 
-VOID TListings::DownloadTag (VOID)
+VOID TListings::DownloadTag ()
 {
 }
 
-VOID TListings::Exit (VOID)
+VOID TListings::Exit ()
 {
    End = TRUE;
 }
 
-VOID TListings::Tag (VOID)
+VOID TListings::Tag ()
 {
 }
 
-VOID TListings::PageUp (VOID)
+VOID TListings::PageUp ()
 {
    USHORT i;
 
@@ -2357,11 +2357,11 @@ VOID TListings::PageUp (VOID)
    PrintCursor (y);
 }
 
-VOID TListings::PrintTitles (VOID)
+VOID TListings::PrintTitles ()
 {
 }
 
-VOID TListings::PrintLine (VOID)
+VOID TListings::PrintLine ()
 {
 }
 
@@ -2375,12 +2375,12 @@ VOID TListings::RemoveCursor (USHORT y)
    y = y;
 }
 
-VOID TListings::Select (VOID)
+VOID TListings::Select ()
 {
    RetVal = End = TRUE;
 }
 
-USHORT TListings::Run (VOID)
+USHORT TListings::Run ()
 {
    USHORT i, t;
 
@@ -2481,7 +2481,7 @@ USHORT TListings::Run (VOID)
    return (RetVal);
 }
 
-VOID TListings::Up (VOID)
+VOID TListings::Up ()
 {
    USHORT i;
 
@@ -2516,15 +2516,15 @@ VOID TListings::Up (VOID)
 
 // ----------------------------------------------------------------------
 
-TStatus::TStatus (void)
+TStatus::TStatus ()
 {
 }
 
-TStatus::~TStatus (void)
+TStatus::~TStatus ()
 {
 }
 
-VOID TStatus::Clear (VOID)
+VOID TStatus::Clear ()
 {
 }
 

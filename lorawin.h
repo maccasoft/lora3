@@ -52,8 +52,8 @@ extern class  TPMLog  *Log;
 class TModem
 {
 public:
-   TModem (void);
-   ~TModem (void);
+   TModem ();
+   ~TModem ();
 
    CHAR   Device[32];
    CHAR   NodelistPath[64], DialCmd[64];
@@ -69,7 +69,7 @@ public:
    class  TLog *Log;
    class  TSerial *Serial;
 
-   USHORT GetResponse (VOID);
+   USHORT GetResponse ();
    USHORT Initialize (ULONG comhandle = 0L);
    VOID   Poll (PSZ pszNode);
    VOID   SendCommand (PSZ pszCmd);
@@ -109,15 +109,15 @@ struct faxmodem_response
 class TFax
 {
 public:
-   TFax (void);
-   ~TFax (void);
+   TFax ();
+   ~TFax ();
 
    USHORT Format;
    CHAR   DataPath[64];
    class  TSerial *Com;
    class  TLog *Log;
 
-   int    faxreceive (void);
+   int    faxreceive ();
 
 private:
    int    gEnd_of_document, swaptableinit;
@@ -129,12 +129,12 @@ private:
    int    get_fax_file (int page);
    int    read_g3_stream (FILE * fp);
    void   get_faxline (char *p, int nbytes, unsigned int wtime);
-   void   init_swaptable (void);
-   void   init_modem_response (void);
-   void   get_modem_result_code (void);
+   void   init_swaptable ();
+   void   init_modem_response ();
+   void   get_modem_result_code ();
    void   fax_status (char *str);
    void   parse_text_response (char *str);
-   int    faxmodem_receive_page (void);
+   int    faxmodem_receive_page ();
 };
 
 // ----------------------------------------------------------------------------
@@ -145,12 +145,12 @@ public:
 #if defined(__OS2__) || defined(__NT__)
    TPMList (HWND hwnd);
 #elif defined(__LINUX__) || defined(__DOS__)
-   TPMList (void);
+   TPMList ();
 #endif
-   ~TPMList (void);
+   ~TPMList ();
 
    VOID   Add (PSZ Text);
-   VOID   Clear (VOID);
+   VOID   Clear ();
    VOID   Update (PSZ Text);
 
 private:
@@ -170,8 +170,8 @@ private:
 class TTicProcessor
 {
 public:
-   TTicProcessor (void);
-   ~TTicProcessor (void);
+   TTicProcessor ();
+   ~TTicProcessor ();
 
    CHAR   Inbound[128];
    CHAR   Area[64], Name[32], Complete[128];
@@ -186,16 +186,16 @@ public:
    class  TAddress Origin;
    class  TPMList *Output;
 
-   USHORT Check (VOID);
+   USHORT Check ();
    USHORT CheckEchoList (PSZ pszFile, PSZ pszEchoTag);
-   VOID   Delete (VOID);
+   VOID   Delete ();
    VOID   Hatch (class TAddress *Dest);
    VOID   Hatch (class TAddress &Dest);
    VOID   Hatch (PSZ address);
-   VOID   Import (VOID);
-   USHORT ImportTic (VOID);
+   VOID   Import ();
+   USHORT ImportTic ();
    USHORT Open (PSZ pszFile);
-   USHORT OpenNext (VOID);
+   USHORT OpenNext ();
 
 private:
    CHAR   PktName[32];
@@ -218,21 +218,21 @@ typedef struct {
 class TKludges
 {
 public:
-   TKludges (void);
-   ~TKludges (void);
+   TKludges ();
+   ~TKludges ();
 
    USHORT Sort, KeepPoint;
    USHORT Zone, Net, Node, Point;
    CHAR   Address[32], ShortAddress[32];
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT AddString (PSZ pszString);
    USHORT Check (PSZ pszName);
-   VOID   Clear (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
-   VOID   New (VOID);
-   USHORT Next (VOID);
+   VOID   Clear ();
+   VOID   Delete ();
+   USHORT First ();
+   VOID   New ();
+   USHORT Next ();
 
 private:
    class  TCollection Data;
@@ -243,8 +243,8 @@ private:
 class TMailProcessor
 {
 public:
-   TMailProcessor (void);
-   ~TMailProcessor (void);
+   TMailProcessor ();
+   ~TMailProcessor ();
 
    USHORT Packets;
    CHAR   Inbound[64], Outbound[64];
@@ -255,18 +255,18 @@ public:
    class  TPMList *Output;
    class  TStatus *Status;
 
-   VOID   Change (VOID);
+   VOID   Change ();
    USHORT CheckEchoList (PSZ pszFile, PSZ pszEchoTag);
-   VOID   Export (VOID);
-   VOID   ExportNetMail (VOID);
-   VOID   Import (VOID);
-   VOID   ImportBad (VOID);
-   USHORT IsArcmail (VOID);
-   VOID   News (VOID);
+   VOID   Export ();
+   VOID   ExportNetMail ();
+   VOID   Import ();
+   VOID   ImportBad ();
+   USHORT IsArcmail ();
+   VOID   News ();
    VOID   Pack (PSZ pszFile, PSZ pszRoute = NULL);
-   VOID   Mail (VOID);
-   USHORT DoRescan (VOID);
-   USHORT UnpackArcmail (VOID);
+   VOID   Mail ();
+   USHORT DoRescan ();
+   USHORT UnpackArcmail ();
 
 private:
    CHAR   PktName[32];
@@ -293,10 +293,10 @@ private:
    ULONG  ImportEchoMail (PSZ EchoTag, class TMsgBase *InBase = NULL);
    VOID   MakeArcMailName (PSZ pszAddress, CHAR Flag);
    USHORT OpenArea (PSZ pszEchoTag);
-   USHORT OpenNextPacket (VOID);
-   VOID   RouteTo (VOID);
-   VOID   SendTo (VOID);
-   VOID   Poll (VOID);
+   USHORT OpenNextPacket ();
+   VOID   RouteTo ();
+   VOID   SendTo ();
+   VOID   Poll ();
 };
 
 // --------------------------------------------------------------------------
@@ -304,8 +304,8 @@ private:
 class TAreaManager
 {
 public:
-   TAreaManager (void);
-   ~TAreaManager (void);
+   TAreaManager ();
+   ~TAreaManager ();
 
    class  TConfig *Cfg;
    class  TLog *Log;
@@ -316,14 +316,14 @@ public:
    VOID   DoAreaListings (PSZ Address, USHORT Type, USHORT Level, ULONG AccessFlags, ULONG DenyFlags);
    USHORT FilePassive (PSZ address, USHORT flag);
    USHORT FileRemoveAll (PSZ address);
-   VOID   ImportAreasBBS (VOID);
+   VOID   ImportAreasBBS ();
    VOID   ImportDescriptions (PSZ pszFile);
    VOID   ExportDescriptions (PSZ pszFile);
-   VOID   MsgFooter (VOID);
-   VOID   MsgHeader (VOID);
+   VOID   MsgFooter ();
+   VOID   MsgHeader ();
    USHORT Passive (PSZ address, USHORT flag);
-   VOID   ProcessAreafix (VOID);
-   VOID   ProcessRaid (VOID);
+   VOID   ProcessAreafix ();
+   VOID   ProcessRaid ();
    USHORT RemoveAll (PSZ address);
    USHORT RemoveArea (PSZ address, PSZ area);
    VOID   Rescan (PSZ pszEchoTag, PSZ pszAddress, USHORT MaxMsgs = 0);
@@ -333,7 +333,7 @@ public:
    USHORT SetPacketPwd (PSZ address, PSZ pwd);
    USHORT SetPwd (PSZ address, PSZ pwd);
    USHORT SetSessionPwd (PSZ address, PSZ pwd);
-   VOID   UpdateAreasBBS (VOID);
+   VOID   UpdateAreasBBS ();
 
 private:
    class  TNodes *Nodes;
@@ -356,11 +356,11 @@ public:
 #if defined(__OS2__) || defined(__NT__)
    TPMStatus (HWND hwnd);
 #else
-   TPMStatus (void);
+   TPMStatus ();
 #endif
-   ~TPMStatus (void);
+   ~TPMStatus ();
 
-   VOID   Clear (VOID);
+   VOID   Clear ();
    VOID   SetLine (USHORT line, PSZ text, ...);
 
 private:
@@ -375,9 +375,9 @@ public:
 #if defined(__OS2__) || defined(__NT__)
    TPMLog (HWND hwnd);
 #else
-   TPMLog (void);
+   TPMLog ();
 #endif
-   ~TPMLog (void);
+   ~TPMLog ();
 
    USHORT First;
    VOID   Write (PSZ pszFormat, ...);
@@ -418,17 +418,17 @@ class CAddressDlg : public CDialog
 public:
    CAddressDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Change (VOID);
-   VOID   Remove (VOID);
-   VOID   SelChanged (VOID);
+   VOID   Add ();
+   VOID   Change ();
+   VOID   Remove ();
+   VOID   SelChanged ();
 };
 
 class CAnswerDlg : public CDialog
@@ -436,9 +436,9 @@ class CAnswerDlg : public CDialog
 public:
    CAnswerDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CAreafixDlg : public CDialog
@@ -446,9 +446,9 @@ class CAreafixDlg : public CDialog
 public:
    CAreafixDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CBBSGeneralDlg : public CDialog
@@ -456,9 +456,9 @@ class CBBSGeneralDlg : public CDialog
 public:
    CBBSGeneralDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CCommandsDlg : public CDialog
@@ -466,9 +466,9 @@ class CCommandsDlg : public CDialog
 public:
    CCommandsDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CDirectoriesDlg : public CDialog
@@ -476,32 +476,32 @@ class CDirectoriesDlg : public CDialog
 public:
    CDirectoriesDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CEventsDlg : public CDialog
 {
 public:
    CEventsDlg (HWND p_hWnd);
-   ~CEventsDlg (void);
+   ~CEventsDlg ();
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    class  TEvents *Data;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Delete (VOID);
-   VOID   DisplayData (VOID);
-   VOID   List (VOID);
-   VOID   Next (VOID);
-   VOID   Previous (VOID);
-   VOID   ReadData (VOID);
+   VOID   Add ();
+   VOID   Delete ();
+   VOID   DisplayData ();
+   VOID   List ();
+   VOID   Next ();
+   VOID   Previous ();
+   VOID   ReadData ();
 };
 
 class CExternalDlg : public CDialog
@@ -509,9 +509,9 @@ class CExternalDlg : public CDialog
 public:
    CExternalDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CFaxOptDlg : public CDialog
@@ -519,37 +519,37 @@ class CFaxOptDlg : public CDialog
 public:
    CFaxOptDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CFileDlg : public CDialog
 {
 public:
    CFileDlg (HWND p_hWnd);
-   ~CFileDlg (void);
+   ~CFileDlg ();
 
-   VOID   OnAdd (VOID);
-   VOID   OnDelete (VOID);
-   VOID   OnHelp (VOID);
-   USHORT OnInitDialog (VOID);
-   VOID   OnInsert (VOID);
-   VOID   OnNext (VOID);
-   VOID   OnOK (VOID);
-   VOID   OnPrevious (VOID);
-   VOID   Security (VOID);
+   VOID   OnAdd ();
+   VOID   OnDelete ();
+   VOID   OnHelp ();
+   USHORT OnInitDialog ();
+   VOID   OnInsert ();
+   VOID   OnNext ();
+   VOID   OnOK ();
+   VOID   OnPrevious ();
+   VOID   Security ();
 
 private:
    class  TFileData *Data;
    DECLARE_MESSAGE_MAP()
 
-   VOID   DisplayData (VOID);
-   VOID   Links (VOID);
-   VOID   List (VOID);
-   VOID   Move (VOID);
-   VOID   ReadData (VOID);
-   VOID   Search (VOID);
+   VOID   DisplayData ();
+   VOID   Links ();
+   VOID   List ();
+   VOID   Move ();
+   VOID   ReadData ();
+   VOID   Search ();
 };
 
 class CGeneralDlg : public CDialog
@@ -557,9 +557,9 @@ class CGeneralDlg : public CDialog
 public:
    CGeneralDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CHardwareDlg : public CDialog
@@ -567,9 +567,9 @@ class CHardwareDlg : public CDialog
 public:
    CHardwareDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CInternetDlg : public CDialog
@@ -577,9 +577,9 @@ class CInternetDlg : public CDialog
 public:
    CInternetDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CLimitsDlg : public CDialog
@@ -590,18 +590,18 @@ public:
 
    class  TLimits *Limits;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    DECLARE_MESSAGE_MAP ()
 
-   VOID   DisplayData (VOID);
-   VOID   Delete (VOID);
-   VOID   Next (VOID);
-   VOID   Previous (VOID);
-   VOID   Add (VOID);
+   VOID   DisplayData ();
+   VOID   Delete ();
+   VOID   Next ();
+   VOID   Previous ();
+   VOID   Add ();
 };
 
 class CMailprocDlg : public CDialog
@@ -609,20 +609,20 @@ class CMailprocDlg : public CDialog
 public:
    CMailprocDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CMenuDlg : public CDialog
 {
 public:
    CMenuDlg (HWND p_hWnd);
-   ~CMenuDlg (void);
+   ~CMenuDlg ();
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    CHAR   FullFile[256];
@@ -635,47 +635,47 @@ private:
 
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Color (VOID);
-   VOID   Command (VOID);
-   VOID   Delete (VOID);
-   VOID   DisplayData (VOID);
-   VOID   HilightColor (VOID);
-   VOID   Insert (VOID);
-   VOID   List (VOID);
-   VOID   Next (VOID);
-   VOID   Previous (VOID);
-   VOID   Prompt (VOID);
-   VOID   ReadData (VOID);
-   VOID   Security (VOID);
+   VOID   Add ();
+   VOID   Color ();
+   VOID   Command ();
+   VOID   Delete ();
+   VOID   DisplayData ();
+   VOID   HilightColor ();
+   VOID   Insert ();
+   VOID   List ();
+   VOID   Next ();
+   VOID   Previous ();
+   VOID   Prompt ();
+   VOID   ReadData ();
+   VOID   Security ();
 };
 
 class CMessageDlg : public CDialog
 {
 public:
    CMessageDlg (HWND p_hWnd);
-   ~CMessageDlg (void);
+   ~CMessageDlg ();
 
-   VOID   OnAdd (VOID);
-   VOID   OnDelete (VOID);
-   VOID   OnHelp (VOID);
-   USHORT OnInitDialog (VOID);
-   VOID   OnInsert (VOID);
-   VOID   OnNext (VOID);
-   VOID   OnOK (VOID);
-   VOID   OnPrevious (VOID);
+   VOID   OnAdd ();
+   VOID   OnDelete ();
+   VOID   OnHelp ();
+   USHORT OnInitDialog ();
+   VOID   OnInsert ();
+   VOID   OnNext ();
+   VOID   OnOK ();
+   VOID   OnPrevious ();
 
 private:
    class  TMsgData *Data;
    DECLARE_MESSAGE_MAP()
 
-   VOID   DisplayData (VOID);
-   VOID   Links (VOID);
-   VOID   List (VOID);
-   VOID   Move (VOID);
-   VOID   ReadData (VOID);
-   VOID   Search (VOID);
-   VOID   Security (VOID);
+   VOID   DisplayData ();
+   VOID   Links ();
+   VOID   List ();
+   VOID   Move ();
+   VOID   ReadData ();
+   VOID   Search ();
+   VOID   Security ();
 };
 
 class CMiscDlg : public CDialog
@@ -683,9 +683,9 @@ class CMiscDlg : public CDialog
 public:
    CMiscDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CNewUserDlg : public CDialog
@@ -693,10 +693,10 @@ class CNewUserDlg : public CDialog
 public:
    CNewUserDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
-   VOID   NewUserSecurity (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
+   VOID   NewUserSecurity ();
 
 private:
    DECLARE_MESSAGE_MAP();
@@ -709,44 +709,44 @@ class CNodelistDlg : public CDialog
 public:
    CNodelistDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Edit (VOID);
-   VOID   Remove (VOID);
+   VOID   Add ();
+   VOID   Edit ();
+   VOID   Remove ();
 };
 
 class CNodesDlg : public CDialog
 {
 public:
    CNodesDlg (HWND p_hWnd);
-   ~CNodesDlg (void);
+   ~CNodesDlg ();
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    class  TNodes *Data;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Copy (VOID);
-   VOID   Delete (VOID);
-   VOID   DisplayData (VOID);
-   VOID   List (VOID);
-   VOID   Next (VOID);
-   VOID   Other (VOID);
-   VOID   Previous (VOID);
-   VOID   ReadData (VOID);
-   VOID   Security (VOID);
-   VOID   NodeTic (VOID);
-   VOID   NodeEcho (VOID);
+   VOID   Add ();
+   VOID   Copy ();
+   VOID   Delete ();
+   VOID   DisplayData ();
+   VOID   List ();
+   VOID   Next ();
+   VOID   Other ();
+   VOID   Previous ();
+   VOID   ReadData ();
+   VOID   Security ();
+   VOID   NodeTic ();
+   VOID   NodeEcho ();
 };
 
 class CNodeFlagsDlg : public CDialog
@@ -754,16 +754,16 @@ class CNodeFlagsDlg : public CDialog
 public:
    CNodeFlagsDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Change (VOID);
-   VOID   Remove (VOID);
+   VOID   Add ();
+   VOID   Change ();
+   VOID   Remove ();
 };
 
 class COfflineDlg : public CDialog
@@ -771,9 +771,9 @@ class COfflineDlg : public CDialog
 public:
    COfflineDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class COkFileDlg : public CDialog
@@ -781,17 +781,17 @@ class COkFileDlg : public CDialog
 public:
    COkFileDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Change (VOID);
-   VOID   Remove (VOID);
-   VOID   SelChanged (VOID);
+   VOID   Add ();
+   VOID   Change ();
+   VOID   Remove ();
+   VOID   SelChanged ();
 };
 
 class COriginDlg : public CDialog
@@ -799,64 +799,64 @@ class COriginDlg : public CDialog
 public:
    COriginDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    class  TCollection Text;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   ItemSelected (VOID);
-   VOID   Remove (VOID);
-   VOID   Replace (VOID);
+   VOID   Add ();
+   VOID   ItemSelected ();
+   VOID   Remove ();
+   VOID   Replace ();
 };
 
 class CPackerDlg : public CDialog
 {
 public:
    CPackerDlg (HWND p_hWnd);
-   ~CPackerDlg (void);
+   ~CPackerDlg ();
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    class  TPacker *Data;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Delete (VOID);
-   VOID   DisplayData (VOID);
-   VOID   List (VOID);
-   VOID   Next (VOID);
-   VOID   Previous (VOID);
-   VOID   ReadData (VOID);
+   VOID   Add ();
+   VOID   Delete ();
+   VOID   DisplayData ();
+   VOID   List ();
+   VOID   Next ();
+   VOID   Previous ();
+   VOID   ReadData ();
 };
 
 class CProtocolDlg : public CDialog
 {
 public:
    CProtocolDlg (HWND p_hWnd);
-   ~CProtocolDlg (void);
+   ~CProtocolDlg ();
 
-   VOID   OnAdd (VOID);
-   VOID   OnDelete (VOID);
-   VOID   OnHelp (VOID);
-   USHORT OnInitDialog (VOID);
-   VOID   OnNext (VOID);
-   VOID   OnOK (VOID);
-   VOID   OnPrevious (VOID);
+   VOID   OnAdd ();
+   VOID   OnDelete ();
+   VOID   OnHelp ();
+   USHORT OnInitDialog ();
+   VOID   OnNext ();
+   VOID   OnOK ();
+   VOID   OnPrevious ();
 
 private:
    class  TProtocol *Data;
    DECLARE_MESSAGE_MAP()
 
-   VOID   DisplayData (VOID);
-   VOID   List (VOID);
-   VOID   ReadData (VOID);
+   VOID   DisplayData ();
+   VOID   List ();
+   VOID   ReadData ();
 };
 
 class CRaidDlg : public CDialog
@@ -864,9 +864,9 @@ class CRaidDlg : public CDialog
 public:
    CRaidDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CSiteInfoDlg : public CDialog
@@ -874,60 +874,60 @@ class CSiteInfoDlg : public CDialog
 public:
    CSiteInfoDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 };
 
 class CTranslationDlg : public CDialog
 {
 public:
    CTranslationDlg (HWND p_hWnd);
-   ~CTranslationDlg (void);
+   ~CTranslationDlg ();
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    void *Data;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Copy (VOID);
-   VOID   Delete (VOID);
-   VOID   DisplayData (VOID);
-   VOID   List (VOID);
-   VOID   Next (VOID);
-   VOID   Previous (VOID);
-   VOID   ReadData (VOID);
+   VOID   Add ();
+   VOID   Copy ();
+   VOID   Delete ();
+   VOID   DisplayData ();
+   VOID   List ();
+   VOID   Next ();
+   VOID   Previous ();
+   VOID   ReadData ();
 };
 
 class CUserDlg : public CDialog
 {
 public:
    CUserDlg (HWND p_hWnd);
-   ~CUserDlg (void);
+   ~CUserDlg ();
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnHelp (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnHelp ();
+   VOID   OnOK ();
 
 private:
    class  TUser *Data;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Delete (VOID);
-   VOID   DisplayData (VOID);
-   VOID   List (VOID);
-   VOID   Next (VOID);
-   VOID   Other (VOID);
-   VOID   Password (VOID);
-   VOID   Previous (VOID);
-   VOID   ReadData (VOID);
-   VOID   Search (VOID);
-   VOID   Security (VOID);
+   VOID   Add ();
+   VOID   Delete ();
+   VOID   DisplayData ();
+   VOID   List ();
+   VOID   Next ();
+   VOID   Other ();
+   VOID   Password ();
+   VOID   Previous ();
+   VOID   ReadData ();
+   VOID   Search ();
+   VOID   Security ();
 };
 
 #elif defined(__DOS__) || defined(__LINUX__)
@@ -935,31 +935,31 @@ private:
 VOID DisplayButton (USHORT y, USHORT x, CHAR *Text, USHORT Shadow = BLACK|_LGREY);
 USHORT MessageBox (PSZ Caption, PSZ Text);
 
-USHORT CAddressDlg (VOID);
-USHORT CAnswerDlg (VOID);
-USHORT CAreafixDlg (VOID);
-USHORT CBBSGeneralDlg (VOID);
-USHORT CCommandsDlg (VOID);
-USHORT CCompressorDlg (VOID);
-USHORT CDirectoriesDlg (VOID);
-USHORT CEventDlg (VOID);
-USHORT CExternalProcDlg (VOID);
-USHORT CFaxDlg (VOID);
-USHORT CFileDlg (VOID);
-USHORT CGeneralOptDlg (VOID);
-USHORT CHardwareDlg (VOID);
-USHORT CInternetDlg (VOID);
-USHORT CMailerMiscDlg (VOID);
-USHORT CMailProcessingDlg (VOID);
+USHORT CAddressDlg ();
+USHORT CAnswerDlg ();
+USHORT CAreafixDlg ();
+USHORT CBBSGeneralDlg ();
+USHORT CCommandsDlg ();
+USHORT CCompressorDlg ();
+USHORT CDirectoriesDlg ();
+USHORT CEventDlg ();
+USHORT CExternalProcDlg ();
+USHORT CFaxDlg ();
+USHORT CFileDlg ();
+USHORT CGeneralOptDlg ();
+USHORT CHardwareDlg ();
+USHORT CInternetDlg ();
+USHORT CMailerMiscDlg ();
+USHORT CMailProcessingDlg ();
 USHORT CMenuEditorDlg (PSZ pszFile);
-USHORT CMessageDlg (VOID);
-USHORT CNewUsersDlg (VOID);
-USHORT CNodelistDlg (VOID);
-VOID   CNodeFlagsDlg (VOID);
-USHORT CNodesDlg (VOID);
-USHORT COfflineDlg (VOID);
-USHORT CSiteInfoDlg (VOID);
-USHORT CUserDlg (VOID);
+USHORT CMessageDlg ();
+USHORT CNewUsersDlg ();
+USHORT CNodelistDlg ();
+VOID   CNodeFlagsDlg ();
+USHORT CNodesDlg ();
+USHORT COfflineDlg ();
+USHORT CSiteInfoDlg ();
+USHORT CUserDlg ();
 
 #endif
 

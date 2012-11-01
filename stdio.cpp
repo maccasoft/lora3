@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "combase.h"
 
-TStdio::TStdio (void)
+TStdio::TStdio ()
 {
    RxBytes = 0;
    RxPosition = 0;
@@ -28,7 +28,7 @@ TStdio::TStdio (void)
 #endif
 }
 
-TStdio::~TStdio (void)
+TStdio::~TStdio ()
 {
 #if defined(__LINUX__)
    struct vt_mode vtm;
@@ -45,7 +45,7 @@ TStdio::~TStdio (void)
 #endif
 }
 
-USHORT TStdio::BytesReady (VOID)
+USHORT TStdio::BytesReady ()
 {
 #if defined(__LINUX__)
    int i;
@@ -95,23 +95,23 @@ VOID TStdio::BufferBytes (UCHAR *bytes, USHORT len)
 #endif
 }
 
-USHORT TStdio::Carrier (VOID)
+USHORT TStdio::Carrier ()
 {
    return (TRUE);
 }
 
-VOID TStdio::ClearOutbound (VOID)
+VOID TStdio::ClearOutbound ()
 {
 }
 
-VOID TStdio::ClearInbound (VOID)
+VOID TStdio::ClearInbound ()
 {
 #if defined(__LINUX__)
    RxBytes = 0;
 #endif
 }
 
-USHORT TStdio::Initialize (VOID)
+USHORT TStdio::Initialize ()
 {
    USHORT RetVal = TRUE;
 #if defined(__LINUX__)
@@ -140,7 +140,7 @@ USHORT TStdio::Initialize (VOID)
    return (RetVal);
 }
 
-UCHAR TStdio::ReadByte (VOID)
+UCHAR TStdio::ReadByte ()
 {
    UCHAR c;
 
@@ -189,7 +189,7 @@ VOID TStdio::SendBytes (UCHAR *bytes, USHORT len)
 #endif
 }
 
-VOID TStdio::UnbufferBytes (VOID)
+VOID TStdio::UnbufferBytes ()
 {
 #if !defined(__LINUX__)
    fflush (stdout);

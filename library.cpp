@@ -22,20 +22,20 @@
 class TFileAreaListing : public TListings
 {
 public:
-   TFileAreaListing (void);
+   TFileAreaListing ();
 
    CHAR   Command[16];
    class  TConfig *Cfg;
    class  TFileData *Current;
    class  TLanguage *Language;
 
-   VOID   Begin (VOID);
-   USHORT DrawScreen (VOID);
+   VOID   Begin ();
+   USHORT DrawScreen ();
    VOID   PrintCursor (USHORT y);
-   VOID   PrintLine (VOID);
-   VOID   PrintTitles (VOID);
+   VOID   PrintLine ();
+   VOID   PrintTitles ();
    VOID   RemoveCursor (USHORT y);
-   VOID   Select (VOID);
+   VOID   Select ();
 
 private:
 };
@@ -52,7 +52,7 @@ TLibrary::TLibrary (PSZ pszDataPath)
    Current = new TFileData (DataPath);
 }
 
-TLibrary::~TLibrary (void)
+TLibrary::~TLibrary ()
 {
    if (Current != NULL)
       delete Current;
@@ -122,7 +122,7 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
          Embedded->Printf (Language->Text (LNG_FILEDOWNLOADNAME), Files->TotalFiles + 1);
          Embedded->Input (Names, (USHORT)(sizeof (Names) - 1), 0);
 
-         if ((Data = new TFileBase (Cfg->SystemPath, (AnyLibrary == TRUE) ? "" : Current->Key)) != NULL) {
+         if ((Data = new TFileBase (Cfg->SystemPath, (AnyLibrary == TRUE) ? (char *)"" : Current->Key)) != NULL) {
             if ((p = strtok (Names, " ")) != NULL)
                do {
                   if (Data->Read (p) == TRUE) {
@@ -428,7 +428,7 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
    }
 }
 
-VOID TLibrary::TypeFile (VOID)
+VOID TLibrary::TypeFile ()
 {
    CHAR File[128], Names[32], *p;
    class TFileBase *Data;
@@ -605,7 +605,7 @@ USHORT TLibrary::DownloadFile (PSZ pszFile, PSZ pszName, ULONG ulSize)
    return (RetVal);
 }
 
-VOID TLibrary::DownloadList (VOID)
+VOID TLibrary::DownloadList ()
 {
    FILE *fp;
    UCHAR CanDownload = FALSE;
@@ -788,13 +788,13 @@ VOID TLibrary::FileDetails (class TFileBase *File)
    }
 }
 
-VOID TLibrary::ListDownloadedFiles (VOID)
+VOID TLibrary::ListDownloadedFiles ()
 {
    CHAR Range;
    class TFileBase *Data;
 
    if ((Range = (CHAR)SearchRange ()) != 'X') {
-      if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? "" : Current->Key)) != NULL) {
+      if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? (char *)"" : Current->Key)) != NULL) {
          Data->SortByDownload ();
          ListFiles (Data);
          Data->Close ();
@@ -803,7 +803,7 @@ VOID TLibrary::ListDownloadedFiles (VOID)
    }
 }
 
-VOID TLibrary::TagListed (VOID)
+VOID TLibrary::TagListed ()
 {
    USHORT First = TRUE;
    CHAR Names[64], *p;
@@ -814,7 +814,7 @@ VOID TLibrary::TagListed (VOID)
    Embedded->Printf (Language->Text (LNG_FILETAGLISTED), Files->TotalFiles + 1);
    Embedded->Input (Names, (USHORT)(sizeof (Names) - 1), INP_NOCRLF);
 
-   if ((Data = new TFileBase (Cfg->SystemPath, "")) != NULL) {
+   if ((Data = new TFileBase (Cfg->SystemPath, (char *)"")) != NULL) {
       if ((p = strtok (Names, " ")) != NULL)
          do {
             if (First == FALSE)
@@ -1206,13 +1206,13 @@ VOID TLibrary::ListFiles (class TFileBase *Data)
    }
 }
 
-VOID TLibrary::ListRecentFiles (VOID)
+VOID TLibrary::ListRecentFiles ()
 {
    CHAR Range;
    class TFileBase *Data;
 
    if ((Range = (CHAR)SearchRange ()) != 'X') {
-      if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? "" : Current->Key)) != NULL) {
+      if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? (char *)"" : Current->Key)) != NULL) {
          Data->SortByDate ();
          ListFiles (Data);
          Data->Close ();
@@ -1221,7 +1221,7 @@ VOID TLibrary::ListRecentFiles (VOID)
    }
 }
 
-VOID TLibrary::AddTagged (VOID)
+VOID TLibrary::AddTagged ()
 {
    CHAR Names[64], *p;
    ULONG DlTime;
@@ -1259,7 +1259,7 @@ VOID TLibrary::AddTagged (VOID)
    } while (Names[0] != '\0');
 }
 
-VOID TLibrary::ListTagged (VOID)
+VOID TLibrary::ListTagged ()
 {
    ULONG DlTime;
    class TFileTag *Tag = User->FileTag;
@@ -1281,7 +1281,7 @@ VOID TLibrary::ListTagged (VOID)
       Embedded->Printf (Language->Text (LNG_FILENOTAGGED));
 }
 
-VOID TLibrary::DeleteTagged (VOID)
+VOID TLibrary::DeleteTagged ()
 {
    SHORT Index;
    CHAR Temp[32];
@@ -1312,7 +1312,7 @@ VOID TLibrary::DeleteTagged (VOID)
    }
 }
 
-VOID TLibrary::DeleteAllTagged (VOID)
+VOID TLibrary::DeleteAllTagged ()
 {
    class TFileTag *Tag = User->FileTag;
 
@@ -1325,7 +1325,7 @@ VOID TLibrary::DeleteAllTagged (VOID)
    }
 }
 
-VOID TLibrary::RemoveFiles (VOID)
+VOID TLibrary::RemoveFiles ()
 {
    CHAR FileName[32];
    class TFileBase *Data;
@@ -1353,7 +1353,7 @@ VOID TLibrary::RemoveFiles (VOID)
    }
 }
 
-VOID TLibrary::SearchFileName (VOID)
+VOID TLibrary::SearchFileName ()
 {
    CHAR Keyword[32], Range;
    class TFileBase *Data;
@@ -1363,7 +1363,7 @@ VOID TLibrary::SearchFileName (VOID)
 
    if (Keyword[0] != '\0' && Embedded->AbortSession () == FALSE) {
       if ((Range = (CHAR)SearchRange ()) != 'X') {
-         if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? "" : Current->Key)) != NULL) {
+         if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? (char *)"" : Current->Key)) != NULL) {
             Data->SearchFile (Keyword);
             ListFiles (Data);
             Data->Close ();
@@ -1373,7 +1373,7 @@ VOID TLibrary::SearchFileName (VOID)
    }
 }
 
-VOID TLibrary::SearchKeyword (VOID)
+VOID TLibrary::SearchKeyword ()
 {
    CHAR Keyword[32], Range;
    class TFileBase *Data;
@@ -1383,7 +1383,7 @@ VOID TLibrary::SearchKeyword (VOID)
 
    if (Keyword[0] != '\0' && Embedded->AbortSession () == FALSE) {
       if ((Range = (CHAR)SearchRange ()) != 'X') {
-         if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? "" : Current->Key)) != NULL) {
+         if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? (char *)"" : Current->Key)) != NULL) {
             Data->SearchKeyword (Keyword);
             ListFiles (Data);
             Data->Close ();
@@ -1393,13 +1393,13 @@ VOID TLibrary::SearchKeyword (VOID)
    }
 }
 
-VOID TLibrary::SearchNewFiles (VOID)
+VOID TLibrary::SearchNewFiles ()
 {
    CHAR Range;
    class TFileBase *Data;
 
    if ((Range = (CHAR)SearchRange ()) != 'X') {
-      if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? "" : Current->Key)) != NULL) {
+      if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? (char *)"" : Current->Key)) != NULL) {
          Data->SortByDate (User->LastCall);
          ListFiles (Data);
          Data->Close ();
@@ -1408,7 +1408,7 @@ VOID TLibrary::SearchNewFiles (VOID)
    }
 }
 
-USHORT TLibrary::SearchRange (VOID)
+USHORT TLibrary::SearchRange ()
 {
    CHAR Range[4];
 
@@ -1426,7 +1426,7 @@ USHORT TLibrary::SearchRange (VOID)
    return ((USHORT)toupper (Range[0]));
 }
 
-VOID TLibrary::SearchText (VOID)
+VOID TLibrary::SearchText ()
 {
    CHAR Keyword[32], Range;
    class TFileBase *Data;
@@ -1436,7 +1436,7 @@ VOID TLibrary::SearchText (VOID)
 
    if (Keyword[0] != '\0' && Embedded->AbortSession () == FALSE) {
       if ((Range = (CHAR)SearchRange ()) != 'X') {
-         if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? "" : Current->Key)) != NULL) {
+         if ((Data = new TFileBase (Cfg->SystemPath, (Range == 'A') ? (char *)"" : Current->Key)) != NULL) {
             Data->SearchText (Keyword);
             ListFiles (Data);
             Data->Close ();
@@ -1628,7 +1628,7 @@ USHORT TLibrary::SelectArea (PSZ pszArea)
    return (RetVal);
 }
 
-VOID TLibrary::Upload (VOID)
+VOID TLibrary::Upload ()
 {
    SHORT fRet, BatchTransfer, DoTransfer;
    CHAR szAnswer[32], szProtocol[10], szFile[128], *p, *q, *RxFile;
@@ -1961,13 +1961,13 @@ VOID TLibrary::UploadUser (PSZ user)
 
 // ----------------------------------------------------------------------
 
-TFileAreaListing::TFileAreaListing (void)
+TFileAreaListing::TFileAreaListing ()
 {
    Command[0] = '\0';
    Language = NULL;
 }
 
-VOID TFileAreaListing::Begin (VOID)
+VOID TFileAreaListing::Begin ()
 {
    USHORT i, Add;
    CHAR Temp[128];
@@ -2027,7 +2027,7 @@ VOID TFileAreaListing::Begin (VOID)
    }
 }
 
-USHORT TFileAreaListing::DrawScreen (VOID)
+USHORT TFileAreaListing::DrawScreen ()
 {
    USHORT i;
 
@@ -2046,7 +2046,7 @@ USHORT TFileAreaListing::DrawScreen (VOID)
    return (i);
 }
 
-VOID TFileAreaListing::PrintTitles (VOID)
+VOID TFileAreaListing::PrintTitles ()
 {
    Embedded->Printf ("\x0C");
    Embedded->Printf (Language->Text (LNG_FILEAREAHEADER));
@@ -2059,7 +2059,7 @@ VOID TFileAreaListing::PrintTitles (VOID)
    Embedded->PrintfAt (4, 1, "");
 }
 
-VOID TFileAreaListing::PrintLine (VOID)
+VOID TFileAreaListing::PrintLine ()
 {
    Embedded->Printf (Language->Text (LNG_FILEAREALIST), pld->Key, pld->ActiveFiles, pld->Display);
 }
@@ -2074,7 +2074,7 @@ VOID TFileAreaListing::RemoveCursor (USHORT y)
    Embedded->PrintfAt (y, 1, Language->Text (LNG_FILEAREAKEY), (PSZ)List.Value ());
 }
 
-VOID TFileAreaListing::Select (VOID)
+VOID TFileAreaListing::Select ()
 {
    Current->Read ((PSZ)List.Value ());
    if (User != NULL) {

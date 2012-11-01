@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TLog::TLog (void)
+TLog::TLog ()
 {
    fp = NULL;
 
@@ -37,7 +37,7 @@ TLog::TLog (void)
    Months[11] = "Dec";
 }
 
-TLog::~TLog (void)
+TLog::~TLog ()
 {
    if (fp != NULL)
       fclose (fp);
@@ -57,7 +57,7 @@ USHORT TLog::Open (PSZ pszName)
    return (RetVal);
 }
 
-VOID TLog::Suspend (VOID)
+VOID TLog::Suspend ()
 {
    if (fp != NULL) {
       fclose (fp);
@@ -65,7 +65,7 @@ VOID TLog::Suspend (VOID)
    }
 }
 
-VOID TLog::Resume (VOID)
+VOID TLog::Resume ()
 {
    if (fp == NULL)
       fp = fopen (FileName, "a+t");
@@ -91,7 +91,7 @@ VOID TLog::Write (PSZ pszFormat, ...)
    }
 }
 
-VOID TLog::WriteBlank (VOID)
+VOID TLog::WriteBlank ()
 {
    if (fp != NULL) {
       fprintf (fp, "\n");

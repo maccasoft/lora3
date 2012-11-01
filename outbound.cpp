@@ -51,13 +51,13 @@ TOutbound::TOutbound (PSZ pszPath, USHORT usZone, USHORT usNet, USHORT usNode, U
    Add (usZone, usNet, usNode, usPoint, pszDomain);
 }
 
-TOutbound::~TOutbound (void)
+TOutbound::~TOutbound ()
 {
    Files.Clear ();
    Nodes.Clear ();
 }
 
-VOID TOutbound::Clear (VOID)
+VOID TOutbound::Clear ()
 {
    Files.Clear ();
    Nodes.Clear ();
@@ -66,7 +66,7 @@ VOID TOutbound::Clear (VOID)
    New ();
 }
 
-USHORT TOutbound::Add (VOID)
+USHORT TOutbound::Add ()
 {
    USHORT RetVal = FALSE;
    PSZ p;
@@ -782,7 +782,7 @@ VOID TOutbound::PollNode (PSZ address, CHAR flag)
       fclose (fp);
 }
 
-USHORT TOutbound::First (VOID)
+USHORT TOutbound::First ()
 {
    USHORT RetVal = FALSE;
    OUTFILE *Out;
@@ -817,7 +817,7 @@ USHORT TOutbound::First (VOID)
    return (RetVal);
 }
 
-USHORT TOutbound::FirstNode (VOID)
+USHORT TOutbound::FirstNode ()
 {
    USHORT RetVal = FALSE;
    QUEUE *Queue;
@@ -852,7 +852,7 @@ USHORT TOutbound::FirstNode (VOID)
    return (RetVal);
 }
 
-VOID TOutbound::New (VOID)
+VOID TOutbound::New ()
 {
    Zone = Net = Node = Point = 0;
    memset (Domain, 0, sizeof (Domain));
@@ -864,7 +864,7 @@ VOID TOutbound::New (VOID)
    Status = '\0';
 }
 
-USHORT TOutbound::Next (VOID)
+USHORT TOutbound::Next ()
 {
    USHORT RetVal = FALSE;
    OUTFILE *Out;
@@ -899,7 +899,7 @@ USHORT TOutbound::Next (VOID)
    return (RetVal);
 }
 
-USHORT TOutbound::NextNode (VOID)
+USHORT TOutbound::NextNode ()
 {
    USHORT RetVal = FALSE;
    QUEUE *Queue;
@@ -934,7 +934,7 @@ USHORT TOutbound::NextNode (VOID)
    return (RetVal);
 }
 
-VOID TOutbound::Remove (VOID)
+VOID TOutbound::Remove ()
 {
    int fd;
    USHORT More = FALSE, Stop = FALSE;
@@ -1117,7 +1117,7 @@ VOID TOutbound::ClearAttempt (PSZ address)
       } while ((Queue = (QUEUE *)Nodes.Next ()) != NULL);
 }
 
-VOID TOutbound::Update (VOID)
+VOID TOutbound::Update ()
 {
    FILE *fp;
    int fd;

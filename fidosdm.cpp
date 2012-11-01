@@ -35,7 +35,7 @@ typedef struct {
    CHAR  FileName[16];
 } MSGINDEX;
 
-FIDOSDM::FIDOSDM (void)
+FIDOSDM::FIDOSDM ()
 {
    Id = 0L;
    TotalMsgs = 0L;
@@ -51,12 +51,12 @@ FIDOSDM::FIDOSDM (PSZ pszName)
    Open (pszName);
 }
 
-FIDOSDM::~FIDOSDM (void)
+FIDOSDM::~FIDOSDM ()
 {
    Index.Clear ();
 }
 
-USHORT FIDOSDM::Add (VOID)
+USHORT FIDOSDM::Add ()
 {
    return (Add (Text));
 }
@@ -194,7 +194,7 @@ USHORT FIDOSDM::Add (class TCollection &MsgText)
    return (RetVal);
 }
 
-VOID FIDOSDM::Close (VOID)
+VOID FIDOSDM::Close ()
 {
    Id = 0L;
    if (fp != NULL) {
@@ -242,7 +242,7 @@ USHORT FIDOSDM::GetHWM (ULONG &ulMsg)
    return (TRUE);
 }
 
-ULONG FIDOSDM::Highest (VOID)
+ULONG FIDOSDM::Highest ()
 {
    ULONG RetVal = 0L;
    MSGINDEX *msgIndex;
@@ -259,7 +259,7 @@ USHORT FIDOSDM::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG FIDOSDM::Lowest (VOID)
+ULONG FIDOSDM::Lowest ()
 {
    ULONG RetVal = 0L;
    MSGINDEX *msgIndex;
@@ -275,7 +275,7 @@ ULONG FIDOSDM::MsgnToUid (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID FIDOSDM::New (VOID)
+VOID FIDOSDM::New ()
 {
    From[0] = To[0] = Subject[0] = '\0';
    Crash = Direct = FileAttach = FileRequest = Hold = Immediate = FALSE;
@@ -322,7 +322,7 @@ USHORT FIDOSDM::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG FIDOSDM::Number (VOID)
+ULONG FIDOSDM::Number ()
 {
    return (TotalMsgs);
 }
@@ -391,7 +391,7 @@ USHORT FIDOSDM::Open (PSZ pszName)
    return (RetVal);
 }
 
-VOID FIDOSDM::Pack (VOID)
+VOID FIDOSDM::Pack ()
 {
 }
 
@@ -728,7 +728,7 @@ ULONG FIDOSDM::UidToMsgn (ULONG ulMsg)
    return (RetVal);
 }
 
-VOID FIDOSDM::UnLock (VOID)
+VOID FIDOSDM::UnLock ()
 {
 }
 

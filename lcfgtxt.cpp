@@ -396,7 +396,7 @@ USHORT CSecurityDlg (PSZ title, USHORT *level, ULONG *flags, ULONG *deny_flags)
 
 // ----------------------------------------------------------------------
 
-USHORT CRemoveAddressDlg (VOID)
+USHORT CRemoveAddressDlg ()
 {
    short i, start = 0;
    CHAR Temp[128], *p, **Array;
@@ -443,7 +443,7 @@ USHORT CRemoveAddressDlg (VOID)
    return (RetVal);
 }
 
-USHORT CAddressDlg (VOID)
+USHORT CAddressDlg ()
 {
    short i, menu_sel = 996;
    CHAR Temp[64];
@@ -525,7 +525,7 @@ USHORT CAddressDlg (VOID)
    return (RetVal);
 }
 
-USHORT CAnswerDlg (VOID)
+USHORT CAnswerDlg ()
 {
    short menu_sel = 996;
    CHAR Temp[32], *p;
@@ -601,7 +601,7 @@ USHORT CAnswerDlg (VOID)
    return (RetVal);
 }
 
-USHORT CAreafixDlg (VOID)
+USHORT CAreafixDlg ()
 {
    short menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -700,7 +700,7 @@ USHORT CAreafixDlg (VOID)
    return (RetVal);
 }
 
-USHORT CCommandsDlg (VOID)
+USHORT CCommandsDlg ()
 {
    short menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -766,7 +766,7 @@ USHORT CCommandsDlg (VOID)
    return (RetVal);
 }
 
-USHORT CDirectoriesDlg (VOID)
+USHORT CDirectoriesDlg ()
 {
    int menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -1045,7 +1045,7 @@ USHORT CAddEventDlg (USHORT *Start, USHORT *Length, USHORT *WeekDays)
    return (RetVal);
 }
 
-USHORT CEventDlg (VOID)
+USHORT CEventDlg ()
 {
    int menu_sel = 1;
    USHORT RetVal = FALSE, Days;
@@ -1314,7 +1314,7 @@ USHORT CEventDlg (VOID)
 
 // ----------------------------------------------------------------------
 
-USHORT CExternalProcDlg (VOID)
+USHORT CExternalProcDlg ()
 {
    int menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -1377,7 +1377,7 @@ USHORT CExternalProcDlg (VOID)
 
 // ----------------------------------------------------------------------
 
-USHORT CGeneralOptDlg (VOID)
+USHORT CGeneralOptDlg ()
 {
    int menu_sel = 996;
    CHAR Temp[64];
@@ -1452,7 +1452,7 @@ USHORT CGeneralOptDlg (VOID)
    return (RetVal);
 }
 
-USHORT CHardwareDlg (VOID)
+USHORT CHardwareDlg ()
 {
    int menu_sel = 996;
    CHAR Temp[64];
@@ -1538,7 +1538,7 @@ USHORT CHardwareDlg (VOID)
    return (RetVal);
 }
 
-USHORT CFaxDlg (VOID)
+USHORT CFaxDlg ()
 {
    int menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -1594,7 +1594,7 @@ USHORT CFaxDlg (VOID)
    return (RetVal);
 }
 
-USHORT CInternetDlg (VOID)
+USHORT CInternetDlg ()
 {
    short menu_sel = 996;
    CHAR Temp[16];
@@ -1672,7 +1672,7 @@ USHORT CInternetDlg (VOID)
    return (RetVal);
 }
 
-USHORT CMailerMiscDlg (VOID)
+USHORT CMailerMiscDlg ()
 {
    int menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -1748,7 +1748,7 @@ USHORT CMailerMiscDlg (VOID)
    return (RetVal);
 }
 
-USHORT CMailProcessingDlg (VOID)
+USHORT CMailProcessingDlg ()
 {
    int menu_sel = 996;
    CHAR Temp[16];
@@ -2198,7 +2198,7 @@ USHORT CNodesListDlg (PSZ address)
    return (RetVal);
 }
 
-USHORT CNodesDlg (VOID)
+USHORT CNodesDlg ()
 {
    int menu_sel = 1;
    USHORT RetVal = FALSE;
@@ -2344,7 +2344,7 @@ USHORT CNodesDlg (VOID)
 
 // ----------------------------------------------------------------------
 
-USHORT CSiteInfoDlg (VOID)
+USHORT CSiteInfoDlg ()
 {
    int menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -2511,7 +2511,7 @@ USHORT CAddCompressorDlg (PSZ Key, PSZ Display)
    return (RetVal);
 }
 
-USHORT CCompressorDlg (VOID)
+USHORT CCompressorDlg ()
 {
    int menu_sel = 1;
    USHORT RetVal = FALSE;
@@ -2652,7 +2652,7 @@ USHORT CSelectNodelistDlg (class TNodes *Data)
       i = 1;
       List.Clear ();
       do {
-         sprintf (Temp, " %5d ³ %-12.12s ³ %-12.12s ", Data->DefaultZone, Data->Nodelist, Data->Nodediff);
+         sprintf (Temp, " %5d ï¿½ %-12.12s ï¿½ %-12.12s ", Data->DefaultZone, Data->Nodelist, Data->Nodediff);
          List.Add (Temp);
          i++;
       } while (Data->NextNodelist () == TRUE);
@@ -2688,7 +2688,7 @@ USHORT CSelectNodelistDlg (class TNodes *Data)
    return (RetVal);
 }
 
-USHORT CNodelistDlg (VOID)
+USHORT CNodelistDlg ()
 {
    short i, menu_sel = 996, sub_menu_sel = 996;
    CHAR Temp[64], Zone[16], Nodelist[32], Nodediff[32];
@@ -2726,7 +2726,7 @@ USHORT CNodelistDlg (VOID)
       sprintf (Temp, "%5s   %-12.12s   %-12.12s", "Zone", "Nodelist", "Nodediff");
       wprints (0, 2, WHITE|_LGREY, Temp);
       for (i = 1; i <= 10; i++) {
-         sprintf (Temp, " %5s ³ %-12.12s ³ %-12.12s ", "", "", "");
+         sprintf (Temp, " %5s ï¿½ %-12.12s ï¿½ %-12.12s ", "", "", "");
          wprints (i, 1, BLACK|_CYAN, Temp);
       }
 
@@ -2734,7 +2734,7 @@ USHORT CNodelistDlg (VOID)
       if (Data->FirstNodelist () == TRUE)
          do {
             if (i <= 10) {
-               sprintf (Temp, "%5d ³ %-12.12s ³ %-12.12s", Data->DefaultZone, Data->Nodelist, Data->Nodediff);
+               sprintf (Temp, "%5d ï¿½ %-12.12s ï¿½ %-12.12s", Data->DefaultZone, Data->Nodelist, Data->Nodediff);
                wprints (i, 2, BLACK|_CYAN, Temp);
                i++;
             }

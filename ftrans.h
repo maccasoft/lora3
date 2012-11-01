@@ -129,8 +129,8 @@
 class DLL_EXPORT TZModem
 {
 public:
-   TZModem (void);
-   ~TZModem (void);
+   TZModem ();
+   ~TZModem ();
 
    USHORT EndRun, Hangup;
    USHORT FileSent, Maxblklen, Telnet;
@@ -140,13 +140,13 @@ public:
    class  TLog *Log;
    class  TProgress *Progress;
 
-   USHORT AbortSession (VOID);
+   USHORT AbortSession ();
    SHORT  TimedRead (LONG hSec);
-   SHORT  ZInitReceiver (VOID);
+   SHORT  ZInitReceiver ();
    SHORT  ZInitSender (SHORT NothingToDo);
    SHORT  ZReceiveFile (PSZ pszPath);
    SHORT  ZSendFile (PSZ pszFile, PSZ pszName = NULL);
-   VOID   ZEndSender (VOID);
+   VOID   ZEndSender ();
 
 private:
    SHORT Wantfcs32, Txfcs32, Znulls, lastsent, ZCtlesc;
@@ -157,11 +157,11 @@ private:
    CHAR  RxTemp[256], *RxTempPos;
    LONG  Rxtimeout, Rxpos, Txpos, Rxbytes;
 
-   VOID  ZAckBiBi (VOID);
-   SHORT ZDLRead (VOID);
-   SHORT ZGetByte (VOID);
+   VOID  ZAckBiBi ();
+   SHORT ZDLRead ();
+   SHORT ZGetByte ();
    SHORT ZGetHeader (CHAR *hdr);
-   SHORT ZGetHex (VOID);
+   SHORT ZGetHex ();
    LONG  ZGetLong (char *hdr);
    VOID  ZPutHex (SHORT c);
    VOID  ZPutLong (CHAR *hdr, LONG pos);
@@ -180,8 +180,8 @@ private:
 class TFileQueue
 {
 public:
-   TFileQueue (void);
-   ~TFileQueue (void);
+   TFileQueue ();
+   ~TFileQueue ();
 
    USHORT Sent;
    CHAR   Name[32], Complete[128];
@@ -190,14 +190,14 @@ public:
    UCHAR  TruncateAfter;
    ULONG  TotalFiles;
 
-   USHORT Add (VOID);
-   VOID   Clear (VOID);
-   USHORT First (VOID);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
+   USHORT Add ();
+   VOID   Clear ();
+   USHORT First ();
+   VOID   New ();
+   USHORT Next ();
+   USHORT Previous ();
    VOID   Remove (PSZ pszName = NULL);
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    class  TCollection Data;
@@ -208,8 +208,8 @@ private:
 class DLL_EXPORT TTransfer : public TZModem
 {
 public:
-   TTransfer (void);
-   ~TTransfer (void);
+   TTransfer ();
+   ~TTransfer ();
 
    USHORT Task;
    CHAR   Device[16];
@@ -257,8 +257,8 @@ private:
 class TJanus
 {
 public:
-   TJanus (void);
-   ~TJanus (void);
+   TJanus ();
+   ~TJanus ();
 
    USHORT TimeoutSecs;
    USHORT MakeRequests;
@@ -271,7 +271,7 @@ public:
    class  TFileQueue *RxQueue;
    class  TOutbound *Outbound;
 
-   VOID   Transfer (VOID);
+   VOID   Transfer ();
 
 private:
    int    RxFile, TxFile;
@@ -299,11 +299,11 @@ private:
 
    friend VOID SendThread (PVOID Args);
 
-   SHORT  GetByte (VOID);
-   VOID   GetNextFile (VOID);
-   UCHAR  GetPacket (VOID);
-   SHORT  GetRawByte (VOID);
-   LONG   ProcessFileName (VOID);
+   SHORT  GetByte ();
+   VOID   GetNextFile ();
+   UCHAR  GetPacket ();
+   SHORT  GetRawByte ();
+   LONG   ProcessFileName ();
    VOID   SendByte (UCHAR Byte);
    VOID   SendPacket (UCHAR *Buffer, USHORT Len, USHORT Type);
 };
@@ -317,8 +317,8 @@ private:
 class DLL_EXPORT TProgress
 {
 public:
-   TProgress (void);
-   virtual ~TProgress (void);
+   TProgress ();
+   virtual ~TProgress ();
 
    USHORT Type;
    USHORT RxBlockSize, TxBlockSize;
@@ -326,9 +326,9 @@ public:
    ULONG  RxSize, RxPosition;
    ULONG  TxSize, TxPosition;
 
-   virtual VOID   Begin (VOID);
-   virtual VOID   End (VOID);
-   virtual VOID   Update (VOID);
+   virtual VOID   Begin ();
+   virtual VOID   End ();
+   virtual VOID   Update ();
 };
 
 #endif

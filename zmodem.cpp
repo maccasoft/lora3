@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "ftrans.h"
 
-TZModem::TZModem (void)
+TZModem::TZModem ()
 {
    Com = NULL;
    Log = NULL;
@@ -41,11 +41,11 @@ TZModem::TZModem (void)
    Telnet = FALSE;
 }
 
-TZModem::~TZModem (void)
+TZModem::~TZModem ()
 {
 }
 
-USHORT TZModem::AbortSession (VOID)
+USHORT TZModem::AbortSession ()
 {
    USHORT RetVal = FALSE;
 
@@ -106,7 +106,7 @@ SHORT TZModem::TimedRead (LONG hSec)
    return (RetVal);
 }
 
-VOID TZModem::ZAckBiBi (VOID)
+VOID TZModem::ZAckBiBi ()
 {
    int n;
 
@@ -125,7 +125,7 @@ VOID TZModem::ZAckBiBi (VOID)
    }
 }
 
-short TZModem::ZDLRead (void)
+short TZModem::ZDLRead ()
 {
    short c;
 
@@ -402,7 +402,7 @@ void TZModem::ZSendData (char *buf, short length, short frameend)
    }
 }
 
-short TZModem::ZGetByte (void)
+short TZModem::ZGetByte ()
 {
    short c;
 
@@ -421,7 +421,7 @@ short TZModem::ZGetByte (void)
    return (RCDO);
 }
 
-short TZModem::ZGetHex (void)
+short TZModem::ZGetHex ()
 {
    short c, n;
 
@@ -653,7 +653,7 @@ void TZModem::ZPutLong (char *hdr, long pos)
    hdr[ZP3] = (char)(pos >> 24);
 }
 
-SHORT TZModem::ZInitReceiver (VOID)
+SHORT TZModem::ZInitReceiver ()
 {
    short n, errors;
 
@@ -1254,7 +1254,7 @@ short TZModem::ZSendFile (char *file, char *name)
    return (ZERROR);
 }
 
-void TZModem::ZEndSender (void)
+void TZModem::ZEndSender ()
 {
    ULONG TimeOut;
 

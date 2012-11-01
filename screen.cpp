@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "combase.h"
 
-TScreen::TScreen (void)
+TScreen::TScreen ()
 {
    wh = 0;
    Ansi = FALSE;
@@ -30,7 +30,7 @@ TScreen::TScreen (void)
    Counter = 0;
 }
 
-TScreen::~TScreen (void)
+TScreen::~TScreen ()
 {
    if (wh != -1) {
       wactiv (wh);
@@ -45,7 +45,7 @@ TScreen::~TScreen (void)
 #endif
 }
 
-USHORT TScreen::BytesReady (VOID)
+USHORT TScreen::BytesReady ()
 {
    int c;
    USHORT RetVal = FALSE;
@@ -256,22 +256,22 @@ VOID TScreen::BufferBytes (UCHAR *bytes, USHORT len)
       BufferByte (*bytes++);
 }
 
-USHORT TScreen::Carrier (VOID)
+USHORT TScreen::Carrier ()
 {
    return (Running);
 }
 
-VOID TScreen::ClearOutbound (VOID)
+VOID TScreen::ClearOutbound ()
 {
    TxBytes = 0;
 }
 
-VOID TScreen::ClearInbound (VOID)
+VOID TScreen::ClearInbound ()
 {
    RxBytes = 0;
 }
 
-USHORT TScreen::Initialize (VOID)
+USHORT TScreen::Initialize ()
 {
    USHORT RetVal = FALSE;
 
@@ -288,10 +288,10 @@ USHORT TScreen::Initialize (VOID)
 #endif
    if ((wh = wopen (0, 0, (short)(24 - 1), 79, 5, LGREY|_BLACK, LGREY|_BLACK)) != -1) {
       wopen (24, 0, 24, 79, 5, WHITE|_BLUE, WHITE|_BLUE);
-      wprintc (0, 22, WHITE|_BLUE, '³');
-      wprintc (0, 43, WHITE|_BLUE, '³');
-      wprintc (0, 58, WHITE|_BLUE, '³');
-      wprintc (0, 69, WHITE|_BLUE, '³');
+      wprintc (0, 22, WHITE|_BLUE, 'ï¿½');
+      wprintc (0, 43, WHITE|_BLUE, 'ï¿½');
+      wprintc (0, 58, WHITE|_BLUE, 'ï¿½');
+      wprintc (0, 69, WHITE|_BLUE, 'ï¿½');
       wactiv (wh);
       showcur ();
       RetVal = TRUE;
@@ -301,7 +301,7 @@ USHORT TScreen::Initialize (VOID)
    return (RetVal);
 }
 
-UCHAR TScreen::ReadByte (VOID)
+UCHAR TScreen::ReadByte ()
 {
    UCHAR c;
 
@@ -374,7 +374,7 @@ VOID TScreen::SendBytes (UCHAR *bytes, USHORT len)
    videoupdate ();
 }
 
-VOID TScreen::UnbufferBytes (VOID)
+VOID TScreen::UnbufferBytes ()
 {
    videoupdate ();
 }

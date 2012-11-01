@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "msgbase.h"
 
-TDupes::TDupes (void)
+TDupes::TDupes ()
 {
    strcpy (DataFile, "dupes.dat");
    strcpy (IndexFile, "dupes.idx");
@@ -45,7 +45,7 @@ TDupes::TDupes (PSZ pszDataPath)
    dd.EchoTag[0] = '\0';
 }
 
-TDupes::~TDupes (void)
+TDupes::~TDupes ()
 {
 }
 
@@ -79,7 +79,7 @@ USHORT TDupes::Check (PSZ pszEchoTag, class TMsgBase *Msg)
    return (RetVal);
 }
 
-VOID TDupes::Delete (VOID)
+VOID TDupes::Delete ()
 {
    int fd;
    CHAR EchoTag[64];
@@ -170,7 +170,7 @@ USHORT TDupes::Load (PSZ pszEchoTag)
    return (Found);
 }
 
-VOID TDupes::Save (VOID)
+VOID TDupes::Save ()
 {
    int fd, i, readed;
    USHORT Found = FALSE;

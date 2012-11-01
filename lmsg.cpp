@@ -364,7 +364,7 @@ VOID LinkMessages (CHAR *Area)
    }
 }
 
-VOID ReindexMessages (VOID)
+VOID ReindexMessages ()
 {
    class TMsgData *Data;
    class TMsgBase *Msg;
@@ -467,7 +467,7 @@ VOID ExportDescriptions (PSZ pszFile)
    printf ("   %d description(s) exported\n", counter);
 }
 
-void main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
    int i;
    USHORT Purge, Pack, Reindex, Link, WriteDate;
@@ -578,6 +578,8 @@ void main (int argc, char *argv[])
       if (Cfg != NULL)
          delete Cfg;
    }
+
+   return 0;
 }
 
 

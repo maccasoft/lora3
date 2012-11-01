@@ -32,7 +32,7 @@ static PSZ MONTHS[] = {
    "July", "August", "September", "October", "November", "December"
 };
 
-USENET::USENET (void)
+USENET::USENET ()
 {
    Tcp = new TTcpip;
    ulHighest = ulFirst = ulTotal = 0L;
@@ -56,13 +56,13 @@ USENET::USENET (PSZ pszServer, PSZ pszGroup)
    Open (pszServer, pszGroup);
 }
 
-USENET::~USENET (void)
+USENET::~USENET ()
 {
    if (Tcp != NULL)
       delete Tcp;
 }
 
-USHORT USENET::Add (VOID)
+USHORT USENET::Add ()
 {
    return (Add (Text));
 }
@@ -223,7 +223,7 @@ USHORT USENET::Add (class TCollection &MsgText)
    return (retVal);
 }
 
-VOID USENET::Close (VOID)
+VOID USENET::Close ()
 {
    CHAR String[50];
 
@@ -273,7 +273,7 @@ USHORT USENET::GetResponse (PSZ pszResponse, USHORT usMaxLen)
    return (retVal);
 }
 
-ULONG USENET::Highest (VOID)
+ULONG USENET::Highest ()
 {
    return (ulHighest);
 }
@@ -284,7 +284,7 @@ USHORT USENET::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG USENET::Lowest (VOID)
+ULONG USENET::Lowest ()
 {
    return (ulFirst);
 }
@@ -297,7 +297,7 @@ ULONG USENET::MsgnToUid (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID USENET::New (VOID)
+VOID USENET::New ()
 {
    LastReaded = 0L;
    From[0] = To[0] = Subject[0] = '\0';
@@ -335,7 +335,7 @@ USHORT USENET::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG USENET::Number (VOID)
+ULONG USENET::Number ()
 {
    return (ulTotal);
 }
@@ -368,7 +368,7 @@ USHORT USENET::Open (PSZ pszServer, PSZ pszGroup)
    return (retVal);
 }
 
-VOID USENET::Pack (VOID)
+VOID USENET::Pack ()
 {
 }
 
@@ -826,7 +826,7 @@ ULONG USENET::UidToMsgn (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID USENET::UnLock (VOID)
+VOID USENET::UnLock ()
 {
 }
 

@@ -225,7 +225,7 @@ CDialog::CDialog (PSZ dialogTemplate, HWND p_hWnd)
 #endif
 }
 
-CDialog::~CDialog (void)
+CDialog::~CDialog ()
 {
 #if defined(__OS2__)
    if (help_hWnd != NULL)
@@ -234,7 +234,7 @@ CDialog::~CDialog (void)
 #endif
 }
 
-VOID CDialog::Center (VOID)
+VOID CDialog::Center ()
 {
 #if defined(__OS2__)
    RECTL rc;
@@ -255,7 +255,7 @@ VOID CDialog::Center (VOID)
 #endif
 }
 
-LONG CDialog::DoModal (VOID)
+LONG CDialog::DoModal ()
 {
    LONG ulResult = 0L;
    CDIALOG_DATA cDialog;
@@ -844,21 +844,21 @@ VOID CDialog::SPBM_SetLimits (int id, LONG highest, LONG lowest)
 // Windows message processing
 // ----------------------------------------------------------------------
 
-VOID CDialog::OnCancel (VOID)
+VOID CDialog::OnCancel ()
 {
    EndDialog (FALSE);
 }
 
-VOID CDialog::OnHelp (VOID)
+VOID CDialog::OnHelp ()
 {
 }
 
-USHORT CDialog::OnInitDialog (VOID)
+USHORT CDialog::OnInitDialog ()
 {
    return (TRUE);
 }
 
-VOID CDialog::OnOK (VOID)
+VOID CDialog::OnOK ()
 {
    EndDialog (TRUE);
 }

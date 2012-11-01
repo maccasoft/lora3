@@ -27,16 +27,16 @@ public:
    class  TConfig *Cfg;
    class  TMsgBase *Msg;
 
-   VOID   Begin (VOID);
-   USHORT DrawScreen (VOID);
+   VOID   Begin ();
+   USHORT DrawScreen ();
    VOID   PrintCursor (USHORT y);
-   VOID   PrintLine (VOID);
-   VOID   PrintTitles (VOID);
+   VOID   PrintLine ();
+   VOID   PrintTitles ();
    VOID   RemoveCursor (USHORT y);
-   VOID   Select (VOID);
+   VOID   Select ();
 };
 
-VOID TMailList::Begin (VOID)
+VOID TMailList::Begin ()
 {
    USHORT i, Continue;
    LISTDATA ld;
@@ -93,7 +93,7 @@ VOID TMailList::Begin (VOID)
    }
 }
 
-USHORT TMailList::DrawScreen (VOID)
+USHORT TMailList::DrawScreen ()
 {
    USHORT i;
 
@@ -107,7 +107,7 @@ USHORT TMailList::DrawScreen (VOID)
    return (i);
 }
 
-VOID TMailList::PrintTitles (VOID)
+VOID TMailList::PrintTitles ()
 {
    Embedded->Printf ("\x0C\x16\x01\x0B%s \x16\x01\x0A- \x16\x01\x0B%s\026\007\n", "E-Mail", "Electronic Mail");
    if (ToYou == TRUE)
@@ -124,7 +124,7 @@ VOID TMailList::PrintTitles (VOID)
    Embedded->PrintfAt (4, 1, "");
 }
 
-VOID TMailList::PrintLine (VOID)
+VOID TMailList::PrintLine ()
 {
    Embedded->Printf ("\026\001\013%-5.5s  \026\001\016%s\n", pld->Key, pld->Display);
 }
@@ -139,7 +139,7 @@ VOID TMailList::RemoveCursor (USHORT y)
    Embedded->PrintfAt (y, 1, "\x16\x01\x0B%-5.5s\x16\x01\x0E", (PSZ)List.Value ());
 }
 
-VOID TMailList::Select (VOID)
+VOID TMailList::Select ()
 {
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
    CHAR *Text, Temp[96], *p, Display[32];
@@ -219,7 +219,7 @@ VOID TMailList::Select (VOID)
 
 // ----------------------------------------------------------------------
 
-TEMail::TEMail (void)
+TEMail::TEMail ()
 {
    Log = NULL;
    Language = NULL;
@@ -235,13 +235,13 @@ TEMail::TEMail (void)
    strcpy (BasePath, "email");
 }
 
-TEMail::~TEMail (void)
+TEMail::~TEMail ()
 {
    if (Msg != NULL)
       delete Msg;
 }
 
-VOID TEMail::BriefList (VOID)
+VOID TEMail::BriefList ()
 {
    USHORT Found, Continue, Line;
    CHAR Which, Start, Temp[40];
@@ -374,7 +374,7 @@ VOID TEMail::BriefList (VOID)
    }
 }
 
-VOID TEMail::CheckUnread (VOID)
+VOID TEMail::CheckUnread ()
 {
    USHORT i, Unread = 0;
    CHAR *Rotating = "-\\|/";
@@ -425,7 +425,7 @@ VOID TEMail::CheckUnread (VOID)
       Embedded->Printf ("\n\026\001\007Sorry, but you have no mail waiting.\n\006\007\006\007");
 }
 
-VOID TEMail::Delete (VOID)
+VOID TEMail::Delete ()
 {
    CHAR szTemp[20];
    ULONG ulMsg, ulNumber, First;
@@ -562,7 +562,7 @@ VOID TEMail::BuildDate (PSZ format, PSZ dest, MDATE *date)
    *dest = '\0';
 }
 
-VOID TEMail::DisplayCurrent (VOID)
+VOID TEMail::DisplayCurrent ()
 {
    USHORT InitialLine;
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
@@ -634,7 +634,7 @@ VOID TEMail::DisplayCurrent (VOID)
             Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFILE), Msg->Subject);
          else
             Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Msg->Subject);
-         Embedded->BufferedPrintf ("\x16\x01\x13\031Ä\120");
+         Embedded->BufferedPrintf ("\x16\x01\x13\031ï¿½\120");
 
          InitialLine = Line = 6;
       }
@@ -978,7 +978,7 @@ VOID TEMail::StartMessageQuestion (ULONG ulFirst, ULONG ulLast, ULONG &ulMsg, US
    }
 }
 
-VOID TEMail::ReadNext (VOID)
+VOID TEMail::ReadNext ()
 {
    USHORT DoRead = FALSE;
    ULONG Number = 0L;
@@ -1036,7 +1036,7 @@ VOID TEMail::ReadNext (VOID)
    }
 }
 
-VOID TEMail::ReadPrevious (VOID)
+VOID TEMail::ReadPrevious ()
 {
    USHORT DoRead = FALSE;
    ULONG Number = 0L;
@@ -1147,7 +1147,7 @@ VOID TEMail::Read (ULONG Number)
    }
 }
 
-VOID TEMail::DisplayText (VOID)
+VOID TEMail::DisplayText ()
 {
    USHORT gotFrom = FALSE, gotTo = FALSE;
    CHAR *Text, Temp[96], Flags[96];
@@ -1209,7 +1209,7 @@ VOID TEMail::DisplayText (VOID)
    }
 }
 
-VOID TEMail::ReadNonStop (VOID)
+VOID TEMail::ReadNonStop ()
 {
    ULONG Number;
 

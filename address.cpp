@@ -19,17 +19,17 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TAddress::TAddress (void)
+TAddress::TAddress ()
 {
    List.Clear ();
 }
 
-TAddress::~TAddress (void)
+TAddress::~TAddress ()
 {
    List.Clear ();
 }
 
-SHORT TAddress::Add (VOID)
+SHORT TAddress::Add ()
 {
    return (Add (Zone, Net, Node, Point, Domain));
 }
@@ -93,7 +93,7 @@ SHORT TAddress::Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoint,
    return (RetVal);
 }
 
-VOID TAddress::Clear (VOID)
+VOID TAddress::Clear ()
 {
    List.Clear ();
    Zone = Net = Node = Point = 0;
@@ -101,12 +101,12 @@ VOID TAddress::Clear (VOID)
    Domain[0] = String[0] = '\0';
 }
 
-VOID TAddress::Delete (VOID)
+VOID TAddress::Delete ()
 {
    List.Remove ();
 }
 
-SHORT TAddress::First (VOID)
+SHORT TAddress::First ()
 {
    SHORT RetVal = FALSE;
    MAILADDRESS *Addr;
@@ -170,7 +170,7 @@ USHORT TAddress::Merge (PSZ File)
    return (RetVal);
 }
 
-SHORT TAddress::Next (VOID)
+SHORT TAddress::Next ()
 {
    SHORT RetVal = FALSE;
    MAILADDRESS *Addr;
@@ -246,7 +246,7 @@ VOID TAddress::Parse (PSZ pszAddress)
    }
 }
 
-VOID TAddress::Update (VOID)
+VOID TAddress::Update ()
 {
    MAILADDRESS *Addr;
 

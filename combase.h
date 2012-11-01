@@ -27,6 +27,7 @@
 #include <sys\ioctl.h>
 #elif defined(__NT__)
 #elif defined(__LINUX__)
+#include <errno.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -70,23 +71,23 @@ extern "C" {
 class DLL_EXPORT TCom
 {
 public:
-   TCom (void) {};
-   virtual ~TCom (void) {};
+   TCom () {};
+   virtual ~TCom () {};
 
    USHORT  EndRun;
    USHORT  RxBytes, TxBytes;
 
-   virtual USHORT BytesReady (VOID) = 0;
+   virtual USHORT BytesReady () = 0;
    virtual VOID   BufferByte (UCHAR byte) = 0;
    virtual VOID   BufferBytes (UCHAR *bytes, USHORT len) = 0;
-   virtual USHORT Carrier (VOID) = 0;
-   virtual VOID   ClearOutbound (VOID) = 0;
-   virtual VOID   ClearInbound (VOID) = 0;
-   virtual UCHAR  ReadByte (VOID) = 0;
+   virtual USHORT Carrier () = 0;
+   virtual VOID   ClearOutbound () = 0;
+   virtual VOID   ClearInbound () = 0;
+   virtual UCHAR  ReadByte () = 0;
    virtual USHORT ReadBytes (UCHAR *bytes, USHORT len) = 0;
    virtual VOID   SendByte (UCHAR byte) = 0;
    virtual VOID   SendBytes (UCHAR *bytes, USHORT len) = 0;
-   virtual VOID   UnbufferBytes (VOID) = 0;
+   virtual VOID   UnbufferBytes () = 0;
 
    virtual VOID   SetName (PSZ name) = 0;
    virtual VOID   SetCity (PSZ name) = 0;
@@ -111,8 +112,8 @@ protected:
 class DLL_EXPORT TSerial : public TCom
 {
 public:
-   TSerial (void);
-   ~TSerial (void);
+   TSerial ();
+   ~TSerial ();
 
 #if defined(__OS2__) || defined(__NT__) || defined(__LINUX__)
    CHAR   Device[32];
@@ -131,21 +132,21 @@ public:
    struct termios tty;
 #endif
 
-   USHORT BytesReady (VOID);
+   USHORT BytesReady ();
    VOID   BufferByte (UCHAR byte);
    VOID   BufferBytes (UCHAR *bytes, USHORT len);
-   USHORT Carrier (VOID);
-   VOID   ClearOutbound (VOID);
-   VOID   ClearInbound (VOID);
-   USHORT Initialize (VOID);
-   UCHAR  ReadByte (VOID);
+   USHORT Carrier ();
+   VOID   ClearOutbound ();
+   VOID   ClearInbound ();
+   USHORT Initialize ();
+   UCHAR  ReadByte ();
    USHORT ReadBytes (UCHAR *bytes, USHORT len);
    VOID   SendByte (UCHAR byte);
    VOID   SendBytes (UCHAR *bytes, USHORT len);
    VOID   SetDTR (USHORT fStatus);
    VOID   SetRTS (USHORT fStatus);
    VOID   SetParameters (ULONG ulSpeed, USHORT nData, UCHAR nParity, USHORT nStop);
-   VOID   UnbufferBytes (VOID);
+   VOID   UnbufferBytes ();
 
    VOID   SetName (PSZ name);
    VOID   SetCity (PSZ name);
@@ -165,21 +166,21 @@ private:
 class DLL_EXPORT TScreen : public TCom
 {
 public:
-   TScreen (void);
-   ~TScreen (void);
+   TScreen ();
+   ~TScreen ();
 
-   USHORT BytesReady (VOID);
+   USHORT BytesReady ();
    VOID   BufferByte (UCHAR byte);
    VOID   BufferBytes (UCHAR *bytes, USHORT len);
-   USHORT Carrier (VOID);
-   VOID   ClearOutbound (VOID);
-   VOID   ClearInbound (VOID);
-   USHORT Initialize (VOID);
-   UCHAR  ReadByte (VOID);
+   USHORT Carrier ();
+   VOID   ClearOutbound ();
+   VOID   ClearInbound ();
+   USHORT Initialize ();
+   UCHAR  ReadByte ();
    USHORT ReadBytes (UCHAR *bytes, USHORT len);
    VOID   SendByte (UCHAR byte);
    VOID   SendBytes (UCHAR *bytes, USHORT len);
-   VOID   UnbufferBytes (VOID);
+   VOID   UnbufferBytes ();
 
    VOID   SetName (PSZ name);
    VOID   SetCity (PSZ name);
@@ -198,29 +199,29 @@ private:
 class DLL_EXPORT TTcpip : public TCom
 {
 public:
-   TTcpip (void);
-   ~TTcpip (void);
+   TTcpip ();
+   ~TTcpip ();
 
    CHAR   ClientIP[16];
    CHAR   ClientName[128];
    CHAR   HostIP[16];
    ULONG  HostID;
 
-   USHORT BytesReady (VOID);
+   USHORT BytesReady ();
    VOID   BufferByte (UCHAR byte);
    VOID   BufferBytes (UCHAR *bytes, USHORT len);
-   USHORT Carrier (VOID);
-   VOID   ClearOutbound (VOID);
-   VOID   ClearInbound (VOID);
-   VOID   ClosePort (VOID);
+   USHORT Carrier ();
+   VOID   ClearOutbound ();
+   VOID   ClearInbound ();
+   VOID   ClosePort ();
    USHORT ConnectServer (PSZ pszServerName, USHORT usPort);
    USHORT Initialize (USHORT usPort, USHORT usSocket = 0, USHORT usProtocol = IPPROTO_TCP);
-   UCHAR  ReadByte (VOID);
+   UCHAR  ReadByte ();
    USHORT ReadBytes (UCHAR *bytes, USHORT len);
    VOID   SendByte (UCHAR byte);
    VOID   SendBytes (UCHAR *bytes, USHORT len);
-   VOID   UnbufferBytes (VOID);
-   USHORT WaitClient (VOID);
+   VOID   UnbufferBytes ();
+   USHORT WaitClient ();
 
    USHORT GetPacket (PVOID lpBuffer, USHORT usSize);
    USHORT PeekPacket (PVOID lpBuffer, USHORT usSize);
@@ -247,21 +248,21 @@ private:
 class DLL_EXPORT TStdio : public TCom
 {
 public:
-   TStdio (void);
-   ~TStdio (void);
+   TStdio ();
+   ~TStdio ();
 
-   USHORT BytesReady (VOID);
+   USHORT BytesReady ();
    VOID   BufferByte (UCHAR byte);
    VOID   BufferBytes (UCHAR *bytes, USHORT len);
-   USHORT Carrier (VOID);
-   VOID   ClearOutbound (VOID);
-   VOID   ClearInbound (VOID);
-   USHORT Initialize (VOID);
-   UCHAR  ReadByte (VOID);
+   USHORT Carrier ();
+   VOID   ClearOutbound ();
+   VOID   ClearInbound ();
+   USHORT Initialize ();
+   UCHAR  ReadByte ();
    USHORT ReadBytes (UCHAR *bytes, USHORT len);
    VOID   SendByte (UCHAR byte);
    VOID   SendBytes (UCHAR *bytes, USHORT len);
-   VOID   UnbufferBytes (VOID);
+   VOID   UnbufferBytes ();
 
    VOID   SetName (PSZ name);
    VOID   SetCity (PSZ name);
@@ -281,26 +282,26 @@ private:
 class DLL_EXPORT TPipe : public TCom
 {
 public:
-   TPipe (void);
-   ~TPipe (void);
+   TPipe ();
+   ~TPipe ();
 
    CHAR   Name[64], City[64], Level[64];
    ULONG  TimeLeft, Time;
 
-   USHORT BytesReady (VOID);
+   USHORT BytesReady ();
    VOID   BufferByte (UCHAR byte);
    VOID   BufferBytes (UCHAR *bytes, USHORT len);
-   USHORT Carrier (VOID);
-   VOID   ClearOutbound (VOID);
-   VOID   ClearInbound (VOID);
+   USHORT Carrier ();
+   VOID   ClearOutbound ();
+   VOID   ClearInbound ();
    USHORT Initialize (PSZ pszPipeName, PSZ pszCtlName, USHORT usInstances);
    USHORT ConnectServer (PSZ pszPipeName, PSZ pszCtlName);
-   UCHAR  ReadByte (VOID);
+   UCHAR  ReadByte ();
    USHORT ReadBytes (UCHAR *bytes, USHORT len);
    VOID   SendByte (UCHAR byte);
    VOID   SendBytes (UCHAR *bytes, USHORT len);
-   VOID   UnbufferBytes (VOID);
-   USHORT WaitClient (VOID);
+   VOID   UnbufferBytes ();
+   USHORT WaitClient ();
 
    VOID   SetName (PSZ name);
    VOID   SetCity (PSZ name);

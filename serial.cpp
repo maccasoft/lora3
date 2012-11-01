@@ -29,7 +29,7 @@ USHORT DevIOCtl (PVOID pData, USHORT cbData, PVOID pParms, USHORT cbParms, USHOR
 }
 #endif
 
-TSerial::TSerial (void)
+TSerial::TSerial ()
 {
 #if defined(__OS2__)
    hFile = NULLHANDLE;
@@ -57,7 +57,7 @@ TSerial::TSerial (void)
    TxBytes = RxBytes = 0;
 }
 
-TSerial::~TSerial (void)
+TSerial::~TSerial ()
 {
 #if defined(__OS2__)
    if (hFile != NULLHANDLE)
@@ -104,7 +104,7 @@ VOID TSerial::BufferBytes (UCHAR *bytes, USHORT len)
    }
 }
 
-USHORT TSerial::BytesReady (VOID)
+USHORT TSerial::BytesReady ()
 {
    USHORT RetVal = FALSE;
 
@@ -169,7 +169,7 @@ USHORT TSerial::BytesReady (VOID)
    return (RetVal);
 }
 
-USHORT TSerial::Carrier (VOID)
+USHORT TSerial::Carrier ()
 {
 #if defined(__OS2__)
    UCHAR data = 0;
@@ -200,7 +200,7 @@ USHORT TSerial::Carrier (VOID)
 #endif
 }
 
-VOID TSerial::ClearInbound (VOID)
+VOID TSerial::ClearInbound ()
 {
 #if defined(__OS2__)
    UINT data;
@@ -225,7 +225,7 @@ VOID TSerial::ClearInbound (VOID)
 #endif
 }
 
-VOID TSerial::ClearOutbound (VOID)
+VOID TSerial::ClearOutbound ()
 {
 #if defined(__OS2__)
    UINT data;
@@ -250,7 +250,7 @@ VOID TSerial::ClearOutbound (VOID)
 #endif
 }
 
-USHORT TSerial::Initialize (VOID)
+USHORT TSerial::Initialize ()
 {
    USHORT RetVal = FALSE;
 
@@ -345,7 +345,7 @@ fclose (fpd);
    return (RetVal);
 }
 
-UCHAR TSerial::ReadByte (VOID)
+UCHAR TSerial::ReadByte ()
 {
    UCHAR c = 0;
 
@@ -709,7 +709,7 @@ VOID TSerial::SendBytes (UCHAR *bytes, USHORT len)
 #endif
 }
 
-VOID TSerial::UnbufferBytes (VOID)
+VOID TSerial::UnbufferBytes ()
 {
 #if defined(__OS2__)
    ULONG Written;

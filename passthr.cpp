@@ -19,16 +19,16 @@
 #include "_ldefs.h"
 #include "msgbase.h"
 
-PASSTHR::PASSTHR (void)
+PASSTHR::PASSTHR ()
 {
    Id = 0L;
 }
 
-PASSTHR::~PASSTHR (void)
+PASSTHR::~PASSTHR ()
 {
 }
 
-USHORT PASSTHR::Add (VOID)
+USHORT PASSTHR::Add ()
 {
    return (Add (Text));
 }
@@ -90,7 +90,7 @@ USHORT PASSTHR::Add (class TCollection &MsgText)
    return (TRUE);
 }
 
-VOID PASSTHR::Close (VOID)
+VOID PASSTHR::Close ()
 {
 }
 
@@ -106,7 +106,7 @@ USHORT PASSTHR::GetHWM (ULONG &ulMsg)
    return (TRUE);
 }
 
-ULONG PASSTHR::Highest (VOID)
+ULONG PASSTHR::Highest ()
 {
    return (0L);
 }
@@ -117,7 +117,7 @@ USHORT PASSTHR::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG PASSTHR::Lowest (VOID)
+ULONG PASSTHR::Lowest ()
 {
    return (0L);
 }
@@ -127,7 +127,7 @@ ULONG PASSTHR::MsgnToUid (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID PASSTHR::New (VOID)
+VOID PASSTHR::New ()
 {
    From[0] = To[0] = Subject[0] = '\0';
    Crash = Direct = FileAttach = FileRequest = Hold = Immediate = FALSE;
@@ -147,12 +147,12 @@ USHORT PASSTHR::Next (ULONG &ulMsg)
    return (FALSE);
 }
 
-ULONG PASSTHR::Number (VOID)
+ULONG PASSTHR::Number ()
 {
    return (0L);
 }
 
-VOID PASSTHR::Pack (VOID)
+VOID PASSTHR::Pack ()
 {
 }
 
@@ -192,7 +192,7 @@ ULONG PASSTHR::UidToMsgn (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID PASSTHR::UnLock (VOID)
+VOID PASSTHR::UnLock ()
 {
 }
 

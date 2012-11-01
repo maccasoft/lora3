@@ -20,7 +20,7 @@
 #include "lora.h"
 #include "msgbase.h"
 
-TEditor::TEditor (void)
+TEditor::TEditor ()
 {
    Embedded = NULL;
    Text.Clear ();
@@ -31,19 +31,19 @@ TEditor::TEditor (void)
    UseFullScreen = FALSE;
 }
 
-TEditor::~TEditor (void)
+TEditor::~TEditor ()
 {
    Clear ();
 }
 
-USHORT TEditor::AppendText (VOID)
+USHORT TEditor::AppendText ()
 {
    Text.Last ();
-   Embedded->Printf ("\n\x16\x01\012Continue entering text. Type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself when you are\ndone. (Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+   Embedded->Printf ("\n\x16\x01\012Continue entering text. Type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself when you are\ndone. (Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
    return (InputText ());
 }
 
-VOID TEditor::ChangeText (VOID)
+VOID TEditor::ChangeText ()
 {
    USHORT i, usRows, usEditLine;
    CHAR szTemp[20], *szText, *szLine, *szReplace;
@@ -112,12 +112,12 @@ VOID TEditor::ChangeText (VOID)
    Embedded->Printf ("\n\x16\x01\012New line now reads:\n\n\x16\x01\016%3d: \x16\x01\013%s\n", usEditLine, Text.Value ());
 }
 
-VOID TEditor::Clear (VOID)
+VOID TEditor::Clear ()
 {
    Text.Clear ();
 }
 
-VOID TEditor::DeleteLine (VOID)
+VOID TEditor::DeleteLine ()
 {
    USHORT i, usRows, usEditLine;
    CHAR szTemp[10];
@@ -258,7 +258,7 @@ PSZ TEditor::GetString (CHAR *pszBuffer, USHORT usMaxlen)
    return (pszBuffer);
 }
 
-USHORT TEditor::InputText (VOID)
+USHORT TEditor::InputText ()
 {
    USHORT RetVal = FALSE, Number;
    CHAR *Line;
@@ -294,7 +294,7 @@ USHORT TEditor::InputText (VOID)
    return (RetVal);
 }
 
-USHORT TEditor::InsertLines (VOID)
+USHORT TEditor::InsertLines ()
 {
    USHORT i, usRows, usEditLine;
    CHAR szTemp[20];
@@ -321,12 +321,12 @@ USHORT TEditor::InsertLines (VOID)
    for (i = 1; i < usEditLine; i++)
       Text.Next ();
 
-   Embedded->Printf ("\n\x16\x01\012Continue entering text. Type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself when you are\ndone. (Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+   Embedded->Printf ("\n\x16\x01\012Continue entering text. Type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself when you are\ndone. (Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½", Width - 10);
 
    return (InputText ());
 }
 
-VOID TEditor::ListText (VOID)
+VOID TEditor::ListText ()
 {
    USHORT usLine, usRow;
    PSZ pszLine;
@@ -342,7 +342,7 @@ VOID TEditor::ListText (VOID)
    }
 }
 
-VOID TEditor::RetypeLine (VOID)
+VOID TEditor::RetypeLine ()
 {
    USHORT i, usRows, usEditLine;
    CHAR szTemp[10], *szLine;
@@ -762,11 +762,11 @@ VOID TEditor::BuildDate (PSZ format, PSZ dest, MDATE *date)
    *dest = '\0';
 }
 
-VOID TEditor::DisplayScreen (VOID)
+VOID TEditor::DisplayScreen ()
 {
 }
 
-USHORT TEditor::FullScreen (VOID)
+USHORT TEditor::FullScreen ()
 {
    int i;
    unsigned int bytes;
@@ -862,7 +862,7 @@ USHORT TEditor::FullScreen (VOID)
                   c = 0;
                }
             }
-            Embedded->PrintfAt (6, 2, "\x16\x01\x13\031Ä\006\x16\x01\x03");
+            Embedded->PrintfAt (6, 2, "\x16\x01\x13\031ï¿½\006\x16\x01\x03");
             Display (lineStart);
          }
          else if (c == CTRLN) {
@@ -888,7 +888,7 @@ USHORT TEditor::FullScreen (VOID)
                   c = 0x4F00;
                }
             }
-            Embedded->PrintfAt (6, 2, "\x16\x01\x13\031Ä\006\x16\x01\x03");
+            Embedded->PrintfAt (6, 2, "\x16\x01\x13\031ï¿½\006\x16\x01\x03");
          }
          else if (c == CTRLL) {  // ^L = Redraw
             for (i = 0; i < 51; i++)
@@ -1048,7 +1048,7 @@ USHORT TEditor::FullScreen (VOID)
 
 // --------------------------------------------------------------------
 
-TMsgEditor::TMsgEditor (void)
+TMsgEditor::TMsgEditor ()
 {
    Log = NULL;
    Embedded = NULL;
@@ -1060,11 +1060,11 @@ TMsgEditor::TMsgEditor (void)
    Msgn = Number = 0L;
 }
 
-TMsgEditor::~TMsgEditor (void)
+TMsgEditor::~TMsgEditor ()
 {
 }
 
-VOID TMsgEditor::DisplayScreen (VOID)
+VOID TMsgEditor::DisplayScreen ()
 {
    CHAR Temp[96], *p = "Press Control-N for help";
    MDATE Written;
@@ -1084,7 +1084,7 @@ VOID TMsgEditor::DisplayScreen (VOID)
    Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFROM), UserName, Address, Temp);
    Embedded->BufferedPrintf (Language->Text (LNG_MESSAGETO), To, "", "");
    Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Subject);
-   Embedded->BufferedPrintf ("\x16\x01\x13\031Ä%c \x16\x01\x1E%s \x16\x01\x13Ä", (CHAR)(80 - strlen (p) - 3), p);
+   Embedded->BufferedPrintf ("\x16\x01\x13\031ï¿½%c \x16\x01\x1E%s \x16\x01\x13ï¿½", (CHAR)(80 - strlen (p) - 3), p);
    Embedded->BufferedPrintf ("\x16\x01\x03");
 
    StartRow = 7;
@@ -1093,7 +1093,7 @@ VOID TMsgEditor::DisplayScreen (VOID)
    Height = 18;
 }
 
-VOID TMsgEditor::Forward (VOID)
+VOID TMsgEditor::Forward ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[128];
@@ -1132,7 +1132,7 @@ VOID TMsgEditor::Forward (VOID)
    }
 }
 
-VOID TMsgEditor::InputSubject (VOID)
+VOID TMsgEditor::InputSubject ()
 {
    if (Subject[0] != '\0')
       Embedded->Printf ("\n\026\001\017Subject: \026\001\014%s\n", Subject);
@@ -1140,7 +1140,7 @@ VOID TMsgEditor::InputSubject (VOID)
    Embedded->Input (Subject, (USHORT)(sizeof (Subject) - 1), 0);
 }
 
-USHORT TMsgEditor::InputTo (VOID)
+USHORT TMsgEditor::InputTo ()
 {
    USHORT RetVal = FALSE;
 
@@ -1155,7 +1155,7 @@ USHORT TMsgEditor::InputTo (VOID)
    return (RetVal);
 }
 
-VOID TMsgEditor::Menu (VOID)
+VOID TMsgEditor::Menu ()
 {
    USHORT Stop = FALSE;
    CHAR Cmd[2];
@@ -1236,7 +1236,7 @@ VOID TMsgEditor::Menu (VOID)
    }
 }
 
-USHORT TMsgEditor::Modify (VOID)
+USHORT TMsgEditor::Modify ()
 {
    USHORT RetVal = FALSE;
    PSZ Line;
@@ -1250,7 +1250,7 @@ USHORT TMsgEditor::Modify (VOID)
       strcpy (To, Msg->To);
       strcpy (Subject, Msg->Subject);
 
-      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
       if ((RetVal = InputText ()) == FALSE)
          Save ();
    }
@@ -1258,7 +1258,7 @@ USHORT TMsgEditor::Modify (VOID)
    return (RetVal);
 }
 
-VOID TMsgEditor::QuoteText (VOID)
+VOID TMsgEditor::QuoteText ()
 {
    USHORT Line, Current;
    USHORT Start, End;
@@ -1305,7 +1305,7 @@ VOID TMsgEditor::QuoteText (VOID)
    }
 }
 
-USHORT TMsgEditor::Reply (VOID)
+USHORT TMsgEditor::Reply ()
 {
    FILE *fp;
    USHORT RetVal = FALSE;
@@ -1388,7 +1388,7 @@ USHORT TMsgEditor::Reply (VOID)
       }
    }
    else {
-      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
       if ((RetVal = InputText ()) == FALSE)
          Save ();
    }
@@ -1396,7 +1396,7 @@ USHORT TMsgEditor::Reply (VOID)
    return (RetVal);
 }
 
-USHORT TMsgEditor::Write (VOID)
+USHORT TMsgEditor::Write ()
 {
    FILE *fp;
    USHORT RetVal = FALSE;
@@ -1444,7 +1444,7 @@ USHORT TMsgEditor::Write (VOID)
             }
          }
          else {
-            Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+            Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
             if ((RetVal = InputText ()) == FALSE)
                Save ();
          }
@@ -1456,7 +1456,7 @@ USHORT TMsgEditor::Write (VOID)
    return (RetVal);
 }
 
-VOID TMsgEditor::Save (VOID)
+VOID TMsgEditor::Save ()
 {
    CHAR Temp[128], *p;
 
@@ -1510,17 +1510,17 @@ VOID TMsgEditor::Save (VOID)
 
 // --------------------------------------------------------------------
 
-TCommentEditor::TCommentEditor (void)
+TCommentEditor::TCommentEditor ()
 {
    Embedded = NULL;
    File = NULL;
 }
 
-TCommentEditor::~TCommentEditor (void)
+TCommentEditor::~TCommentEditor ()
 {
 }
 
-VOID TCommentEditor::Menu (VOID)
+VOID TCommentEditor::Menu ()
 {
    USHORT Stop = FALSE;
    CHAR Cmd[2];
@@ -1558,7 +1558,7 @@ VOID TCommentEditor::Menu (VOID)
                break;
             case 'N':
                Text.Clear ();
-               Embedded->Printf ("\n\x16\x01\012Type your comment now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+               Embedded->Printf ("\n\x16\x01\012Type your comment now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
                if (InputText () == FALSE) {
                   Save ();
                   Stop = TRUE;
@@ -1583,7 +1583,7 @@ VOID TCommentEditor::Menu (VOID)
    }
 }
 
-VOID TCommentEditor::Save (VOID)
+VOID TCommentEditor::Save ()
 {
    if (File != NULL) {
       if (Text.First () != NULL)
@@ -1593,12 +1593,12 @@ VOID TCommentEditor::Save (VOID)
    }
 }
 
-USHORT TCommentEditor::Write (VOID)
+USHORT TCommentEditor::Write ()
 {
    USHORT RetVal;
 
    Text.Clear ();
-   Embedded->Printf ("\n\x16\x01\012Type your comment now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+   Embedded->Printf ("\n\x16\x01\012Type your comment now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
    if ((RetVal = InputText ()) == FALSE)
       Save ();
 
@@ -1607,7 +1607,7 @@ USHORT TCommentEditor::Write (VOID)
 
 // --------------------------------------------------------------------
 
-TMailEditor::TMailEditor (void)
+TMailEditor::TMailEditor ()
 {
    Log = NULL;
    Embedded = NULL;
@@ -1625,11 +1625,11 @@ TMailEditor::TMailEditor (void)
    strcpy (AreaTitle, "E-Mail");
 }
 
-TMailEditor::~TMailEditor (void)
+TMailEditor::~TMailEditor ()
 {
 }
 
-VOID TMailEditor::DisplayScreen (VOID)
+VOID TMailEditor::DisplayScreen ()
 {
    CHAR Temp[96];
    CHAR *p = "Press Control-N for help";
@@ -1650,7 +1650,7 @@ VOID TMailEditor::DisplayScreen (VOID)
    Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFROM), UserName, Address, Temp);
    Embedded->BufferedPrintf (Language->Text (LNG_MESSAGETO), To, ToAddress, "");
    Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Subject);
-   Embedded->BufferedPrintf ("\x16\x01\x13\031Ä%c \x16\x01\x1E%s \x16\x01\x13Ä", (CHAR)(80 - strlen (p) - 3), p);
+   Embedded->BufferedPrintf ("\x16\x01\x13\031ï¿½%c \x16\x01\x1E%s \x16\x01\x13ï¿½", (CHAR)(80 - strlen (p) - 3), p);
    Embedded->BufferedPrintf ("\x16\x01\x03");
 
    StartRow = 7;
@@ -1659,7 +1659,7 @@ VOID TMailEditor::DisplayScreen (VOID)
    Height = 18;
 }
 
-USHORT TMailEditor::InputSubject (VOID)
+USHORT TMailEditor::InputSubject ()
 {
    Embedded->Printf ("%s\026\001\003Subject: \026\001\016", (Subject[0] == '\0') ? "" : "\n");
    Embedded->Input (Subject, (USHORT)(sizeof (Subject) - 1), 0);
@@ -1667,7 +1667,7 @@ USHORT TMailEditor::InputSubject (VOID)
    return (TRUE);
 }
 
-USHORT TMailEditor::InputTo (VOID)
+USHORT TMailEditor::InputTo ()
 {
    USHORT RetVal = FALSE, Loop;
    class TUser *User;
@@ -1707,7 +1707,7 @@ USHORT TMailEditor::InputTo (VOID)
    return (RetVal);
 }
 
-USHORT TMailEditor::InputAddress (VOID)
+USHORT TMailEditor::InputAddress ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[64];
@@ -1740,7 +1740,7 @@ USHORT TMailEditor::InputAddress (VOID)
    return (RetVal);
 }
 
-VOID TMailEditor::Menu (VOID)
+VOID TMailEditor::Menu ()
 {
    USHORT Stop = FALSE;
    CHAR Cmd[2];
@@ -1788,7 +1788,7 @@ VOID TMailEditor::Menu (VOID)
                break;
 //            case 'N':
 //               Text.Clear ();
-//               Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿", Width - 10);
+//               Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½", Width - 10);
 //               if (InputText () == FALSE) {
 //                  Save ();
 //                  Stop = TRUE;
@@ -1818,7 +1818,7 @@ VOID TMailEditor::Menu (VOID)
    }
 }
 
-USHORT TMailEditor::Modify (VOID)
+USHORT TMailEditor::Modify ()
 {
    USHORT RetVal = FALSE;
    PSZ Line;
@@ -1832,7 +1832,7 @@ USHORT TMailEditor::Modify (VOID)
       strcpy (To, Msg->To);
       strcpy (Subject, Msg->Subject);
 
-      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
       if ((RetVal = InputText ()) == FALSE)
          Save ();
    }
@@ -1840,7 +1840,7 @@ USHORT TMailEditor::Modify (VOID)
    return (RetVal);
 }
 
-VOID TMailEditor::QuoteText (VOID)
+VOID TMailEditor::QuoteText ()
 {
    USHORT Line, Current;
    USHORT Start, End;
@@ -1887,7 +1887,7 @@ VOID TMailEditor::QuoteText (VOID)
    }
 }
 
-USHORT TMailEditor::Reply (VOID)
+USHORT TMailEditor::Reply ()
 {
    FILE *fp;
    USHORT RetVal = FALSE;
@@ -2006,7 +2006,7 @@ USHORT TMailEditor::Reply (VOID)
       }
    }
    else {
-      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+      Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
       if ((RetVal = InputText ()) == FALSE)
          Save ();
    }
@@ -2014,7 +2014,7 @@ USHORT TMailEditor::Reply (VOID)
    return (RetVal);
 }
 
-VOID TMailEditor::Save (VOID)
+VOID TMailEditor::Save ()
 {
    CHAR *p, Temp[64];
    USHORT CloseBase = FALSE, First, Mapped;
@@ -2191,7 +2191,7 @@ VOID TMailEditor::Save (VOID)
       delete Msg;
 }
 
-USHORT TMailEditor::Write (VOID)
+USHORT TMailEditor::Write ()
 {
    FILE *fp;
    USHORT RetVal = FALSE, Continue = TRUE;
@@ -2277,7 +2277,7 @@ USHORT TMailEditor::Write (VOID)
          }
       }
       else {
-         Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    Ú\031Ä%c¿\n", Width - 10);
+         Embedded->Printf ("\n\x16\x01\012Type your message now. When done, type '\x16\x01\x0B/OK\x16\x01\012' on a line by itself.\n(Or, type '\x16\x01\x0B/SAVE\x16\x01\012' to save and proceed, without editing).\n\n    ï¿½\031ï¿½%cï¿½\n", Width - 10);
          if ((RetVal = InputText ()) == FALSE)
             Save ();
       }

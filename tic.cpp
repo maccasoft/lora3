@@ -20,17 +20,17 @@
 #include "msgbase.h"
 #include "lorawin.h"
 
-TTicProcessor::TTicProcessor (void)
+TTicProcessor::TTicProcessor ()
 {
    Output = NULL;
    Log = NULL;
 }
 
-TTicProcessor::~TTicProcessor (void)
+TTicProcessor::~TTicProcessor ()
 {
 }
 
-USHORT TTicProcessor::Check (VOID)
+USHORT TTicProcessor::Check ()
 {
    USHORT RetVal = FALSE;
    class TNodes *Nodes;
@@ -46,7 +46,7 @@ USHORT TTicProcessor::Check (VOID)
    return (RetVal);
 }
 
-VOID TTicProcessor::Delete (VOID)
+VOID TTicProcessor::Delete ()
 {
    if (Log != NULL)
    Log->Write ("+Deleting %s", CurrentFile);
@@ -184,7 +184,7 @@ VOID TTicProcessor::Hatch (class TAddress &Dest)
    }
 }
 
-VOID TTicProcessor::Import (VOID)
+VOID TTicProcessor::Import ()
 {
    Description = new TCollection;
    SeenBy = new TKludges;
@@ -237,7 +237,7 @@ USHORT TTicProcessor::CheckEchoList (PSZ pszFile, PSZ pszEchoTag)
    return (RetVal);
 }
 
-USHORT TTicProcessor::ImportTic (VOID)
+USHORT TTicProcessor::ImportTic ()
 {
    int i, a, fds, fdd;
    USHORT RetVal = FALSE, Found = FALSE, Bad = FALSE, Create;
@@ -295,8 +295,13 @@ USHORT TTicProcessor::ImportTic (VOID)
             strcpy (Data->Key, Temp);
             sprintf (Data->Display, "New area %s", Area);
             sprintf (Data->Download, "%s%s", Cfg->NewTicPath, Area);
+#if defined(__LINUX__)
+            mkdir (Data->Download, 0666);
+            strcat (Data->Download, "/");
+#else
             mkdir (Data->Download);
             strcat (Data->Download, "\\");
+#endif
             strcpy (Data->Upload, Data->Download);
             Data->DownloadLevel = Data->Level = Cfg->NewAreasLevel;
             Data->DownloadFlags = Data->AccessFlags = Cfg->NewAreasFlags;
@@ -623,7 +628,7 @@ USHORT TTicProcessor::Open (PSZ pszFile)
    return (RetVal);
 }
 
-USHORT TTicProcessor::OpenNext (VOID)
+USHORT TTicProcessor::OpenNext ()
 {
    DIR *dir;
    USHORT RetVal = FALSE;

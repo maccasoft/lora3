@@ -29,8 +29,8 @@ public:
    UCHAR  foreground;
    UCHAR  background;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 CColorDlg::CColorDlg (HWND p_hWnd) : CDialog ("29", p_hWnd)
@@ -39,7 +39,7 @@ CColorDlg::CColorDlg (HWND p_hWnd) : CDialog ("29", p_hWnd)
    foreground = background = 0;
 }
 
-USHORT CColorDlg::OnInitDialog (VOID)
+USHORT CColorDlg::OnInitDialog ()
 {
    Center ();
 
@@ -77,7 +77,7 @@ USHORT CColorDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CColorDlg::OnOK (VOID)
+VOID CColorDlg::OnOK ()
 {
    foreground = (UCHAR)LM_QuerySelection (103);
    background = (UCHAR)LM_QuerySelection (104);
@@ -98,8 +98,8 @@ class CNewUserSecurityDlg : public CDialog
 public:
    CNewUserSecurityDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 BEGIN_MESSAGE_MAP (CNewUserDlg, CDialog)
@@ -110,12 +110,12 @@ CNewUserDlg::CNewUserDlg (HWND p_hWnd) : CDialog ("21", p_hWnd)
 {
 }
 
-VOID CNewUserDlg::OnHelp (VOID)
+VOID CNewUserDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 21);
 }
 
-USHORT CNewUserDlg::OnInitDialog (VOID)
+USHORT CNewUserDlg::OnInitDialog ()
 {
    class TLimits *Limits;
 
@@ -167,7 +167,7 @@ UCHAR CNewUserDlg::GetSelection (USHORT id, USHORT num)
    return (0);
 }
 
-VOID CNewUserDlg::OnOK (VOID)
+VOID CNewUserDlg::OnOK ()
 {
    Cfg->UseAnsi = GetSelection (102, 4);
    Cfg->UseAvatar = GetSelection (107, 4);
@@ -195,7 +195,7 @@ VOID CNewUserDlg::OnOK (VOID)
    EndDialog (TRUE);
 }
 
-VOID CNewUserDlg::NewUserSecurity (VOID)
+VOID CNewUserDlg::NewUserSecurity ()
 {
    class CNewUserSecurityDlg *Dlg;
 
@@ -211,7 +211,7 @@ CNewUserSecurityDlg::CNewUserSecurityDlg (HWND p_hWnd) : CDialog ("18", p_hWnd)
 {
 }
 
-USHORT CNewUserSecurityDlg::OnInitDialog (VOID)
+USHORT CNewUserSecurityDlg::OnInitDialog ()
 {
    USHORT i;
    ULONG Test;
@@ -234,7 +234,7 @@ USHORT CNewUserSecurityDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CNewUserSecurityDlg::OnOK (VOID)
+VOID CNewUserSecurityDlg::OnOK ()
 {
    USHORT i;
    ULONG Test;
@@ -413,8 +413,8 @@ public:
 
    class  TMenu *Data;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CMenuPromptDlg : public CDialog
@@ -425,12 +425,12 @@ public:
    DECLARE_MESSAGE_MAP ()
    class  TMenu *Menu;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
-   VOID   Color (VOID);
-   VOID   HilightColor (VOID);
+   VOID   Color ();
+   VOID   HilightColor ();
 };
 
 class CMenuListDlg : public CDialog
@@ -441,10 +441,10 @@ public:
    int    old_item;
    class  TMenu *Data;
 
-   VOID   OnCancel (VOID);
-   VOID   OnChanged (VOID);
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   VOID   OnCancel ();
+   VOID   OnChanged ();
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    CHAR   Temp[128];
@@ -459,13 +459,13 @@ public:
    USHORT id;
    CHAR   text[64];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Selection (VOID);
+   VOID   Selection ();
 };
 
 BEGIN_MESSAGE_MAP (CMenuDlg, CDialog)
@@ -487,18 +487,18 @@ CMenuDlg::CMenuDlg (HWND p_hWnd) : CDialog ("8", p_hWnd)
    Menu = NULL;
 }
 
-CMenuDlg::~CMenuDlg (void)
+CMenuDlg::~CMenuDlg ()
 {
    if (Menu != NULL)
       delete Menu;
 }
 
-VOID CMenuDlg::OnHelp (VOID)
+VOID CMenuDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 8);
 }
 
-USHORT CMenuDlg::OnInitDialog (VOID)
+USHORT CMenuDlg::OnInitDialog ()
 {
    CHAR Temp[128];
 
@@ -562,7 +562,7 @@ USHORT CMenuDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CMenuDlg::OnOK (VOID)
+VOID CMenuDlg::OnOK ()
 {
    ReadData ();
    Menu->Update ();
@@ -570,7 +570,7 @@ VOID CMenuDlg::OnOK (VOID)
    SetFocus (102);
 }
 
-VOID CMenuDlg::DisplayData (VOID)
+VOID CMenuDlg::DisplayData ()
 {
    USHORT i;
    CHAR Temp[64];
@@ -635,7 +635,7 @@ VOID CMenuDlg::DisplayData (VOID)
    SetDlgItemText (112, Menu->Argument);
 }
 
-VOID CMenuDlg::ReadData (VOID)
+VOID CMenuDlg::ReadData ()
 {
    USHORT Value;
 
@@ -650,7 +650,7 @@ VOID CMenuDlg::ReadData (VOID)
    Menu->FirstTime = (UCHAR)BM_QueryCheck (114);
 }
 
-VOID CMenuDlg::Next (VOID)
+VOID CMenuDlg::Next ()
 {
    ReadData ();
    Menu->Update ();
@@ -659,7 +659,7 @@ VOID CMenuDlg::Next (VOID)
    SetFocus (102);
 }
 
-VOID CMenuDlg::Previous (VOID)
+VOID CMenuDlg::Previous ()
 {
    ReadData ();
    Menu->Update ();
@@ -668,7 +668,7 @@ VOID CMenuDlg::Previous (VOID)
    SetFocus (102);
 }
 
-VOID CMenuDlg::Add (VOID)
+VOID CMenuDlg::Add ()
 {
    ReadData ();
    Menu->Update ();
@@ -678,7 +678,7 @@ VOID CMenuDlg::Add (VOID)
    SetFocus (102);
 }
 
-VOID CMenuDlg::Insert (VOID)
+VOID CMenuDlg::Insert ()
 {
    ReadData ();
    Menu->Update ();
@@ -688,7 +688,7 @@ VOID CMenuDlg::Insert (VOID)
    SetFocus (102);
 }
 
-VOID CMenuDlg::Delete (VOID)
+VOID CMenuDlg::Delete ()
 {
    if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
       Menu->Delete ();
@@ -697,7 +697,7 @@ VOID CMenuDlg::Delete (VOID)
    }
 }
 
-VOID CMenuDlg::Security (VOID)
+VOID CMenuDlg::Security ()
 {
    class CMenuSecurityDlg *Dlg;
 
@@ -708,7 +708,7 @@ VOID CMenuDlg::Security (VOID)
    }
 }
 
-VOID CMenuDlg::Prompt (VOID)
+VOID CMenuDlg::Prompt ()
 {
    class CMenuPromptDlg *Dlg;
 
@@ -719,7 +719,7 @@ VOID CMenuDlg::Prompt (VOID)
    }
 }
 
-VOID CMenuDlg::List (VOID)
+VOID CMenuDlg::List ()
 {
    class CMenuListDlg *Dlg;
 
@@ -736,7 +736,7 @@ VOID CMenuDlg::List (VOID)
    }
 }
 
-VOID CMenuDlg::Color (VOID)
+VOID CMenuDlg::Color ()
 {
    class CColorDlg *Dlg;
 
@@ -748,7 +748,7 @@ VOID CMenuDlg::Color (VOID)
    }
 }
 
-VOID CMenuDlg::HilightColor (VOID)
+VOID CMenuDlg::HilightColor ()
 {
    class CColorDlg *Dlg;
 
@@ -760,7 +760,7 @@ VOID CMenuDlg::HilightColor (VOID)
    }
 }
 
-VOID CMenuDlg::Command (VOID)
+VOID CMenuDlg::Command ()
 {
    class CMenuCommandDlg *Dlg;
 
@@ -789,7 +789,7 @@ CMenuCommandDlg::CMenuCommandDlg (HWND p_hWnd) : CDialog ("54", p_hWnd)
    id = 0;
 }
 
-USHORT CMenuCommandDlg::OnInitDialog (VOID)
+USHORT CMenuCommandDlg::OnInitDialog ()
 {
    int i;
 
@@ -860,7 +860,7 @@ USHORT CMenuCommandDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CMenuCommandDlg::Selection (VOID)
+VOID CMenuCommandDlg::Selection ()
 {
    int i;
    CHAR Temp[64];
@@ -918,7 +918,7 @@ VOID CMenuCommandDlg::Selection (VOID)
    }
 }
 
-VOID CMenuCommandDlg::OnOK (VOID)
+VOID CMenuCommandDlg::OnOK ()
 {
    USHORT item;
 
@@ -964,7 +964,7 @@ CMenuSecurityDlg::CMenuSecurityDlg (HWND p_hWnd) : CDialog ("18", p_hWnd)
 {
 }
 
-USHORT CMenuSecurityDlg::OnInitDialog (VOID)
+USHORT CMenuSecurityDlg::OnInitDialog ()
 {
    USHORT i;
    ULONG Test;
@@ -986,7 +986,7 @@ USHORT CMenuSecurityDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CMenuSecurityDlg::OnOK (VOID)
+VOID CMenuSecurityDlg::OnOK ()
 {
    USHORT i;
    ULONG Test;
@@ -1018,7 +1018,7 @@ CMenuPromptDlg::CMenuPromptDlg (HWND p_hWnd) : CDialog ("19", p_hWnd)
 {
 }
 
-USHORT CMenuPromptDlg::OnInitDialog (VOID)
+USHORT CMenuPromptDlg::OnInitDialog ()
 {
    Center ();
 
@@ -1033,7 +1033,7 @@ USHORT CMenuPromptDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CMenuPromptDlg::OnOK (VOID)
+VOID CMenuPromptDlg::OnOK ()
 {
    GetDlgItemText (102, Menu->Prompt, GetDlgItemTextLength (102));
    Menu->PromptColor = (UCHAR)SPBM_QueryValue (104);
@@ -1042,7 +1042,7 @@ VOID CMenuPromptDlg::OnOK (VOID)
    EndDialog (TRUE);
 }
 
-VOID CMenuPromptDlg::Color (VOID)
+VOID CMenuPromptDlg::Color ()
 {
    class CColorDlg *Dlg;
 
@@ -1054,7 +1054,7 @@ VOID CMenuPromptDlg::Color (VOID)
    }
 }
 
-VOID CMenuPromptDlg::HilightColor (VOID)
+VOID CMenuPromptDlg::HilightColor ()
 {
    class CColorDlg *Dlg;
 
@@ -1077,7 +1077,7 @@ CMenuListDlg::CMenuListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
    old_item = 0;
 }
 
-USHORT CMenuListDlg::OnInitDialog (VOID)
+USHORT CMenuListDlg::OnInitDialog ()
 {
    int i;
    ULONG CrcCurrent, Crc;
@@ -1131,7 +1131,7 @@ USHORT CMenuListDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CMenuListDlg::OnOK (VOID)
+VOID CMenuListDlg::OnOK ()
 {
    int i, item;
 
@@ -1145,7 +1145,7 @@ VOID CMenuListDlg::OnOK (VOID)
    EndDialog (TRUE);
 }
 
-VOID CMenuListDlg::OnCancel (VOID)
+VOID CMenuListDlg::OnCancel ()
 {
    int i;
 
@@ -1167,8 +1167,8 @@ public:
 
    class  TFileData *Data;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CFileListDlg : public CDialog
@@ -1180,9 +1180,9 @@ public:
    CHAR   Area[32];
    CHAR   Search[128];
 
-   VOID   OnChanged (VOID);
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   VOID   OnChanged ();
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    int    Selected;
@@ -1198,8 +1198,8 @@ public:
    CHAR   Key[16];
    CHAR   Description[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CFileAskStringDlg : public CDialog
@@ -1209,8 +1209,8 @@ public:
 
    CHAR   String[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CFileEchoLinkDlg : public CDialog
@@ -1220,18 +1220,18 @@ public:
 
    class  TFileData *Data;
 
-   VOID   OnCancel (VOID);
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   VOID   OnCancel ();
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    CHAR   OldSelect[64];
    class  TFilechoLink *Link;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Delete (VOID);
-   VOID   SelChanged (VOID);
+   VOID   Add ();
+   VOID   Delete ();
+   VOID   SelChanged ();
 };
 
 BEGIN_MESSAGE_MAP (CFileDlg, CDialog)
@@ -1252,18 +1252,18 @@ CFileDlg::CFileDlg (HWND p_hWnd) : CDialog ("10", p_hWnd)
    Data = NULL;
 }
 
-CFileDlg::~CFileDlg (void)
+CFileDlg::~CFileDlg ()
 {
    if (Data != NULL)
       delete Data;
 }
 
-VOID CFileDlg::OnHelp (VOID)
+VOID CFileDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 10);
 }
 
-VOID CFileDlg::DisplayData (VOID)
+VOID CFileDlg::DisplayData ()
 {
    SetDlgItemText (102, Data->Key);
    SetDlgItemText (104, Data->Display);
@@ -1275,7 +1275,7 @@ VOID CFileDlg::DisplayData (VOID)
    SetDlgItemText (127, Data->EchoTag);
 }
 
-VOID CFileDlg::ReadData (VOID)
+VOID CFileDlg::ReadData ()
 {
    GetDlgItemText (104, Data->Display, GetDlgItemTextLength (104));
    GetDlgItemText (106, Data->Upload, GetDlgItemTextLength (106));
@@ -1286,7 +1286,7 @@ VOID CFileDlg::ReadData (VOID)
    GetDlgItemText (127, Data->EchoTag, GetDlgItemTextLength (127));
 }
 
-VOID CFileDlg::OnAdd (VOID)
+VOID CFileDlg::OnAdd ()
 {
    class CAddFileDlg *Dlg;
 
@@ -1303,7 +1303,7 @@ VOID CFileDlg::OnAdd (VOID)
    SetFocus (102);
 }
 
-VOID CFileDlg::OnDelete (VOID)
+VOID CFileDlg::OnDelete ()
 {
    if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
       Data->Delete ();
@@ -1312,7 +1312,7 @@ VOID CFileDlg::OnDelete (VOID)
    }
 }
 
-VOID CFileDlg::OnInsert (VOID)
+VOID CFileDlg::OnInsert ()
 {
    class CAddFileDlg *Dlg;
 
@@ -1329,7 +1329,7 @@ VOID CFileDlg::OnInsert (VOID)
    SetFocus (102);
 }
 
-USHORT CFileDlg::OnInitDialog (VOID)
+USHORT CFileDlg::OnInitDialog ()
 {
    Center ();
    Data = new TFileData (Cfg->SystemPath);
@@ -1348,19 +1348,19 @@ USHORT CFileDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CFileDlg::OnPrevious (VOID)
+VOID CFileDlg::OnPrevious ()
 {
    if (Data->Previous () == TRUE)
       DisplayData ();
 }
 
-VOID CFileDlg::OnNext (VOID)
+VOID CFileDlg::OnNext ()
 {
    if (Data->Next () == TRUE)
       DisplayData ();
 }
 
-VOID CFileDlg::OnOK (VOID)
+VOID CFileDlg::OnOK ()
 {
    CHAR Temp[32];
    class TFileBase *File;
@@ -1382,7 +1382,7 @@ VOID CFileDlg::OnOK (VOID)
    Data->Update (Temp);
 }
 
-VOID CFileDlg::Security (VOID)
+VOID CFileDlg::Security ()
 {
    class CFileSecurityDlg *Dlg;
 
@@ -1393,7 +1393,7 @@ VOID CFileDlg::Security (VOID)
    }
 }
 
-VOID CFileDlg::List (VOID)
+VOID CFileDlg::List ()
 {
    class CFileListDlg *Dlg;
 
@@ -1407,7 +1407,7 @@ VOID CFileDlg::List (VOID)
    }
 }
 
-VOID CFileDlg::Move (VOID)
+VOID CFileDlg::Move ()
 {
    CHAR Key[32];
    class CFileListDlg *Dlg;
@@ -1433,7 +1433,7 @@ VOID CFileDlg::Move (VOID)
    }
 }
 
-VOID CFileDlg::Search (VOID)
+VOID CFileDlg::Search ()
 {
    class CFileListDlg *Dlg;
    class CFileAskStringDlg *Ask;
@@ -1455,7 +1455,7 @@ VOID CFileDlg::Search (VOID)
    }
 }
 
-VOID CFileDlg::Links (VOID)
+VOID CFileDlg::Links ()
 {
    class CFileEchoLinkDlg *Dlg;
 
@@ -1472,7 +1472,7 @@ CFileSecurityDlg::CFileSecurityDlg (HWND p_hWnd) : CDialog ("16", p_hWnd)
 {
 }
 
-USHORT CFileSecurityDlg::OnInitDialog (VOID)
+USHORT CFileSecurityDlg::OnInitDialog ()
 {
    USHORT i;
    ULONG Test;
@@ -1518,7 +1518,7 @@ USHORT CFileSecurityDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CFileSecurityDlg::OnOK (VOID)
+VOID CFileSecurityDlg::OnOK ()
 {
    USHORT i;
    ULONG Test;
@@ -1578,7 +1578,7 @@ CFileListDlg::CFileListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
    Selected = -1;
 }
 
-USHORT CFileListDlg::OnInitDialog (VOID)
+USHORT CFileListDlg::OnInitDialog ()
 {
    USHORT i = 0, select = 0;
    class TFileData *File;
@@ -1637,7 +1637,7 @@ USHORT CFileListDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CFileListDlg::OnOK (VOID)
+VOID CFileListDlg::OnOK ()
 {
    int item;
 
@@ -1653,7 +1653,7 @@ CFileAskStringDlg::CFileAskStringDlg (HWND p_hWnd) : CDialog ("26", p_hWnd)
 {
 }
 
-USHORT CFileAskStringDlg::OnInitDialog (VOID)
+USHORT CFileAskStringDlg::OnInitDialog ()
 {
    Center ();
 
@@ -1663,7 +1663,7 @@ USHORT CFileAskStringDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CFileAskStringDlg::OnOK (VOID)
+VOID CFileAskStringDlg::OnOK ()
 {
    GetDlgItemText (128, GetDlgItemTextLength (128), String);
    EndDialog (TRUE);
@@ -1675,7 +1675,7 @@ CAddFileDlg::CAddFileDlg (HWND p_hWnd) : CDialog ("35", p_hWnd)
 {
 }
 
-USHORT CAddFileDlg::OnInitDialog (VOID)
+USHORT CAddFileDlg::OnInitDialog ()
 {
    Center ();
 
@@ -1685,7 +1685,7 @@ USHORT CAddFileDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CAddFileDlg::OnOK (VOID)
+VOID CAddFileDlg::OnOK ()
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), Key);
    GetDlgItemText (104, GetDlgItemTextLength (104), Description);
@@ -1710,7 +1710,7 @@ CFileEchoLinkDlg::CFileEchoLinkDlg (HWND p_hWnd) : CDialog ("37", p_hWnd)
    OldSelect[0] = '\0';
 }
 
-USHORT CFileEchoLinkDlg::OnInitDialog (VOID)
+USHORT CFileEchoLinkDlg::OnInitDialog ()
 {
    Center ();
 
@@ -1726,7 +1726,7 @@ USHORT CFileEchoLinkDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CFileEchoLinkDlg::SelChanged (VOID)
+VOID CFileEchoLinkDlg::SelChanged ()
 {
    USHORT item;
    CHAR Temp[64];
@@ -1751,7 +1751,7 @@ VOID CFileEchoLinkDlg::SelChanged (VOID)
    }
 }
 
-VOID CFileEchoLinkDlg::OnOK (VOID)
+VOID CFileEchoLinkDlg::OnOK ()
 {
    if (Link != NULL) {
       Link->Save ();
@@ -1761,7 +1761,7 @@ VOID CFileEchoLinkDlg::OnOK (VOID)
    EndDialog (TRUE);
 }
 
-VOID CFileEchoLinkDlg::OnCancel (VOID)
+VOID CFileEchoLinkDlg::OnCancel ()
 {
    if (Link != NULL)
       delete Link;
@@ -1769,7 +1769,7 @@ VOID CFileEchoLinkDlg::OnCancel (VOID)
    EndDialog (FALSE);
 }
 
-VOID CFileEchoLinkDlg::Add (VOID)
+VOID CFileEchoLinkDlg::Add ()
 {
    CHAR Temp[128];
 
@@ -1782,7 +1782,7 @@ VOID CFileEchoLinkDlg::Add (VOID)
    SetFocus (128);
 }
 
-VOID CFileEchoLinkDlg::Delete (VOID)
+VOID CFileEchoLinkDlg::Delete ()
 {
    USHORT item;
 
@@ -1804,8 +1804,8 @@ public:
 
    class  TMsgData *Data;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CMessageListDlg : public CDialog
@@ -1817,9 +1817,9 @@ public:
    CHAR   Area[32];
    CHAR   Search[128];
 
-   VOID   OnChanged (VOID);
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   VOID   OnChanged ();
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    int    Selected;
@@ -1835,8 +1835,8 @@ public:
    CHAR   Key[16];
    CHAR   Description[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CAskStringDlg : public CDialog
@@ -1846,8 +1846,8 @@ public:
 
    CHAR   String[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CEchoLinkDlg : public CDialog
@@ -1857,18 +1857,18 @@ public:
 
    class  TMsgData *Data;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
-   VOID   OnCancel (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
+   VOID   OnCancel ();
 
 private:
    CHAR   OldSelect[64];
    class  TEchoLink *Link;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   Delete (VOID);
-   VOID   SelChanged (VOID);
+   VOID   Add ();
+   VOID   Delete ();
+   VOID   SelChanged ();
 };
 
 BEGIN_MESSAGE_MAP (CMessageDlg, CDialog)
@@ -1889,18 +1889,18 @@ CMessageDlg::CMessageDlg (HWND p_hWnd) : CDialog ("9", p_hWnd)
    Data = NULL;
 }
 
-CMessageDlg::~CMessageDlg (void)
+CMessageDlg::~CMessageDlg ()
 {
    if (Data != NULL)
       delete Data;
 }
 
-VOID CMessageDlg::OnHelp (VOID)
+VOID CMessageDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 9);
 }
 
-USHORT CMessageDlg::OnInitDialog (VOID)
+USHORT CMessageDlg::OnInitDialog ()
 {
    FILE *fp;
    CHAR Temp[128];
@@ -1954,7 +1954,7 @@ USHORT CMessageDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CMessageDlg::DisplayData (VOID)
+VOID CMessageDlg::DisplayData ()
 {
    SetDlgItemText (102, Data->Key);
    SetDlgItemText (104, Data->Display);
@@ -2003,7 +2003,7 @@ VOID CMessageDlg::DisplayData (VOID)
       CB_SelectItem (111, (USHORT)(Data->OriginIndex + 1));
 }
 
-VOID CMessageDlg::ReadData (VOID)
+VOID CMessageDlg::ReadData ()
 {
    FILE *fp;
    USHORT index;
@@ -2072,7 +2072,7 @@ VOID CMessageDlg::ReadData (VOID)
    }
 }
 
-VOID CMessageDlg::OnAdd (VOID)
+VOID CMessageDlg::OnAdd ()
 {
    class CAddMessageDlg *Dlg;
 
@@ -2100,7 +2100,7 @@ VOID CMessageDlg::OnAdd (VOID)
    SetFocus (102);
 }
 
-VOID CMessageDlg::OnDelete (VOID)
+VOID CMessageDlg::OnDelete ()
 {
    if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
       Data->Delete ();
@@ -2109,7 +2109,7 @@ VOID CMessageDlg::OnDelete (VOID)
    }
 }
 
-VOID CMessageDlg::OnInsert (VOID)
+VOID CMessageDlg::OnInsert ()
 {
    class CAddMessageDlg *Dlg;
 
@@ -2137,19 +2137,19 @@ VOID CMessageDlg::OnInsert (VOID)
    SetFocus (102);
 }
 
-VOID CMessageDlg::OnPrevious (VOID)
+VOID CMessageDlg::OnPrevious ()
 {
    if (Data->Previous () == TRUE)
       DisplayData ();
 }
 
-VOID CMessageDlg::OnNext (VOID)
+VOID CMessageDlg::OnNext ()
 {
    if (Data->Next () == TRUE)
       DisplayData ();
 }
 
-VOID CMessageDlg::OnOK (VOID)
+VOID CMessageDlg::OnOK ()
 {
    CHAR Temp[32];
    class TUser *User;
@@ -2166,7 +2166,7 @@ VOID CMessageDlg::OnOK (VOID)
    Data->Update (Temp);
 }
 
-VOID CMessageDlg::Security (VOID)
+VOID CMessageDlg::Security ()
 {
    class CMessageSecurityDlg *Dlg;
 
@@ -2177,7 +2177,7 @@ VOID CMessageDlg::Security (VOID)
    }
 }
 
-VOID CMessageDlg::List (VOID)
+VOID CMessageDlg::List ()
 {
    class CMessageListDlg *Dlg;
 
@@ -2191,7 +2191,7 @@ VOID CMessageDlg::List (VOID)
    }
 }
 
-VOID CMessageDlg::Move (VOID)
+VOID CMessageDlg::Move ()
 {
    CHAR Key[32];
    class CMessageListDlg *Dlg;
@@ -2217,7 +2217,7 @@ VOID CMessageDlg::Move (VOID)
    }
 }
 
-VOID CMessageDlg::Links (VOID)
+VOID CMessageDlg::Links ()
 {
    class CEchoLinkDlg *Dlg;
 
@@ -2228,7 +2228,7 @@ VOID CMessageDlg::Links (VOID)
    }
 }
 
-VOID CMessageDlg::Search (VOID)
+VOID CMessageDlg::Search ()
 {
    class CMessageListDlg *Dlg;
    class CAskStringDlg *Ask;
@@ -2256,7 +2256,7 @@ CMessageSecurityDlg::CMessageSecurityDlg (HWND p_hWnd) : CDialog ("15", p_hWnd)
 {
 }
 
-USHORT CMessageSecurityDlg::OnInitDialog (VOID)
+USHORT CMessageSecurityDlg::OnInitDialog ()
 {
    USHORT i;
    ULONG Test;
@@ -2290,7 +2290,7 @@ USHORT CMessageSecurityDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CMessageSecurityDlg::OnOK (VOID)
+VOID CMessageSecurityDlg::OnOK ()
 {
    USHORT i;
    ULONG Test;
@@ -2337,7 +2337,7 @@ CMessageListDlg::CMessageListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
    Selected = -1;
 }
 
-USHORT CMessageListDlg::OnInitDialog (VOID)
+USHORT CMessageListDlg::OnInitDialog ()
 {
    USHORT i =  0, select = 0;
    class TMsgData *Msg;
@@ -2396,7 +2396,7 @@ USHORT CMessageListDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CMessageListDlg::OnOK (VOID)
+VOID CMessageListDlg::OnOK ()
 {
    int item;
 
@@ -2412,7 +2412,7 @@ CAskStringDlg::CAskStringDlg (HWND p_hWnd) : CDialog ("26", p_hWnd)
 {
 }
 
-USHORT CAskStringDlg::OnInitDialog (VOID)
+USHORT CAskStringDlg::OnInitDialog ()
 {
    Center ();
 
@@ -2422,7 +2422,7 @@ USHORT CAskStringDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CAskStringDlg::OnOK (VOID)
+VOID CAskStringDlg::OnOK ()
 {
    GetDlgItemText (128, GetDlgItemTextLength (128), String);
    EndDialog (TRUE);
@@ -2445,7 +2445,7 @@ CEchoLinkDlg::CEchoLinkDlg (HWND p_hWnd) : CDialog ("24", p_hWnd)
    OldSelect[0] = '\0';
 }
 
-USHORT CEchoLinkDlg::OnInitDialog (VOID)
+USHORT CEchoLinkDlg::OnInitDialog ()
 {
    Center ();
 
@@ -2470,7 +2470,7 @@ USHORT CEchoLinkDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CEchoLinkDlg::OnOK (VOID)
+VOID CEchoLinkDlg::OnOK ()
 {
    if (Link->Check (OldSelect) == TRUE) {
       Link->ReceiveOnly = (UCHAR)BM_QueryCheck (104);
@@ -2488,7 +2488,7 @@ VOID CEchoLinkDlg::OnOK (VOID)
    EndDialog (TRUE);
 }
 
-VOID CEchoLinkDlg::OnCancel (VOID)
+VOID CEchoLinkDlg::OnCancel ()
 {
    if (Link != NULL)
       delete Link;
@@ -2496,7 +2496,7 @@ VOID CEchoLinkDlg::OnCancel (VOID)
    EndDialog (FALSE);
 }
 
-VOID CEchoLinkDlg::Add (VOID)
+VOID CEchoLinkDlg::Add ()
 {
    CHAR Temp[128];
 
@@ -2509,7 +2509,7 @@ VOID CEchoLinkDlg::Add (VOID)
    SetFocus (128);
 }
 
-VOID CEchoLinkDlg::Delete (VOID)
+VOID CEchoLinkDlg::Delete ()
 {
    USHORT item;
    CHAR Temp[64];
@@ -2542,7 +2542,7 @@ VOID CEchoLinkDlg::Delete (VOID)
    SetFocus (128);
 }
 
-VOID CEchoLinkDlg::SelChanged (VOID)
+VOID CEchoLinkDlg::SelChanged ()
 {
    USHORT item;
    CHAR Temp[64];
@@ -2573,7 +2573,7 @@ CAddMessageDlg::CAddMessageDlg (HWND p_hWnd) : CDialog ("35", p_hWnd)
 {
 }
 
-USHORT CAddMessageDlg::OnInitDialog (VOID)
+USHORT CAddMessageDlg::OnInitDialog ()
 {
    Center ();
 
@@ -2583,7 +2583,7 @@ USHORT CAddMessageDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CAddMessageDlg::OnOK (VOID)
+VOID CAddMessageDlg::OnOK ()
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), Key);
    GetDlgItemText (104, GetDlgItemTextLength (104), Description);
@@ -2605,8 +2605,8 @@ public:
    ULONG  Flags;
    ULONG  DenyFlags;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 BEGIN_MESSAGE_MAP (CLimitsDlg, CDialog)
@@ -2627,12 +2627,12 @@ CLimitsDlg::~CLimitsDlg ()
       delete Limits;
 }
 
-VOID CLimitsDlg::OnHelp (VOID)
+VOID CLimitsDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 4);
 }
 
-USHORT CLimitsDlg::OnInitDialog (VOID)
+USHORT CLimitsDlg::OnInitDialog ()
 {
    Center ();
 
@@ -2671,7 +2671,7 @@ USHORT CLimitsDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CLimitsDlg::DisplayData (VOID)
+VOID CLimitsDlg::DisplayData ()
 {
    USHORT i;
    ULONG Test;
@@ -2735,7 +2735,7 @@ VOID CLimitsDlg::DisplayData (VOID)
    SetFocus (102);
 }
 
-VOID CLimitsDlg::OnOK (VOID)
+VOID CLimitsDlg::OnOK ()
 {
    USHORT i;
    CHAR Temp[64];
@@ -2779,7 +2779,7 @@ VOID CLimitsDlg::OnOK (VOID)
    }
 }
 
-VOID CLimitsDlg::Delete (VOID)
+VOID CLimitsDlg::Delete ()
 {
    if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
       Limits->Delete ();
@@ -2787,19 +2787,19 @@ VOID CLimitsDlg::Delete (VOID)
    }
 }
 
-VOID CLimitsDlg::Previous (VOID)
+VOID CLimitsDlg::Previous ()
 {
    if (Limits->Previous () == TRUE)
       DisplayData ();
 }
 
-VOID CLimitsDlg::Next (VOID)
+VOID CLimitsDlg::Next ()
 {
    if (Limits->Next () == TRUE)
       DisplayData ();
 }
 
-VOID CLimitsDlg::Add (VOID)
+VOID CLimitsDlg::Add ()
 {
    Limits->New ();
    Limits->Add ();
@@ -2815,12 +2815,12 @@ CBBSGeneralDlg::CBBSGeneralDlg (HWND p_hWnd) : CDialog ("22", p_hWnd)
 {
 }
 
-VOID CBBSGeneralDlg::OnHelp (VOID)
+VOID CBBSGeneralDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 22);
 }
 
-USHORT CBBSGeneralDlg::OnInitDialog (VOID)
+USHORT CBBSGeneralDlg::OnInitDialog ()
 {
    Center ();
 
@@ -2869,7 +2869,7 @@ USHORT CBBSGeneralDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CBBSGeneralDlg::OnOK (VOID)
+VOID CBBSGeneralDlg::OnOK ()
 {
    GetDlgItemText (104, GetDlgItemTextLength (104), Cfg->UserFile);
    GetDlgItemText (116, GetDlgItemTextLength (116), Cfg->MenuPath);
@@ -2925,9 +2925,9 @@ public:
    CHAR   Search[128];
    class  TUser *Data;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
-   VOID   OnUser (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
+   VOID   OnUser ();
 
 private:
    int i, toSelect;
@@ -2943,8 +2943,8 @@ public:
 
    class  TUser *Data;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CUserAskStringDlg : public CDialog
@@ -2954,8 +2954,8 @@ public:
 
    CHAR   String[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CAddUserDlg : public CDialog
@@ -2966,8 +2966,8 @@ public:
    CHAR   Name[48];
    CHAR   Password[16];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CPasswordDlg : public CDialog
@@ -2977,8 +2977,8 @@ public:
 
    CHAR   Password[16];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 class CUserOtherDlg : public CDialog
@@ -2988,8 +2988,8 @@ public:
 
    class  TUser *User;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 BEGIN_MESSAGE_MAP (CUserDlg, CDialog)
@@ -3009,18 +3009,18 @@ CUserDlg::CUserDlg (HWND p_hWnd) : CDialog ("17", p_hWnd)
    Data = NULL;
 }
 
-CUserDlg::~CUserDlg (void)
+CUserDlg::~CUserDlg ()
 {
    if (Data != NULL)
       delete Data;
 }
 
-VOID CUserDlg::OnHelp (VOID)
+VOID CUserDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 17);
 }
 
-USHORT CUserDlg::OnInitDialog (VOID)
+USHORT CUserDlg::OnInitDialog ()
 {
 #if !defined(__POINT__)
    class TLimits *Limits;
@@ -3058,13 +3058,13 @@ USHORT CUserDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CUserDlg::OnOK (VOID)
+VOID CUserDlg::OnOK ()
 {
    ReadData ();
    Data->Update ();
 }
 
-VOID CUserDlg::DisplayData (VOID)
+VOID CUserDlg::DisplayData ()
 {
    CHAR Temp[64];
 
@@ -3101,7 +3101,7 @@ VOID CUserDlg::DisplayData (VOID)
    BM_SetCheck (25, Data->MailCheck);
 }
 
-VOID CUserDlg::ReadData (VOID)
+VOID CUserDlg::ReadData ()
 {
    CHAR Temp[64];
 
@@ -3138,7 +3138,7 @@ VOID CUserDlg::ReadData (VOID)
    Data->MailCheck = (CHAR)BM_QueryCheck (25);
 }
 
-VOID CUserDlg::Add (VOID)
+VOID CUserDlg::Add ()
 {
    class CAddUserDlg *Dlg;
 
@@ -3161,7 +3161,7 @@ VOID CUserDlg::Add (VOID)
    }
 }
 
-VOID CUserDlg::Delete (VOID)
+VOID CUserDlg::Delete ()
 {
    if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
       Data->Delete ();
@@ -3173,7 +3173,7 @@ VOID CUserDlg::Delete (VOID)
    }
 }
 
-VOID CUserDlg::List (VOID)
+VOID CUserDlg::List ()
 {
    class CUserListDlg *Dlg;
 
@@ -3185,7 +3185,7 @@ VOID CUserDlg::List (VOID)
    }
 }
 
-VOID CUserDlg::Password (VOID)
+VOID CUserDlg::Password ()
 {
    class CPasswordDlg *Dlg;
 
@@ -3196,19 +3196,19 @@ VOID CUserDlg::Password (VOID)
    }
 }
 
-VOID CUserDlg::Next (VOID)
+VOID CUserDlg::Next ()
 {
    if (Data->Next () == TRUE)
       DisplayData ();
 }
 
-VOID CUserDlg::Previous (VOID)
+VOID CUserDlg::Previous ()
 {
    if (Data->Previous () == TRUE)
       DisplayData ();
 }
 
-VOID CUserDlg::Security (VOID)
+VOID CUserDlg::Security ()
 {
    class CUserSecurityDlg *Dlg;
 
@@ -3219,7 +3219,7 @@ VOID CUserDlg::Security (VOID)
    }
 }
 
-VOID CUserDlg::Other (VOID)
+VOID CUserDlg::Other ()
 {
    class CUserOtherDlg *Dlg;
 
@@ -3230,7 +3230,7 @@ VOID CUserDlg::Other (VOID)
    }
 }
 
-VOID CUserDlg::Search (VOID)
+VOID CUserDlg::Search ()
 {
    class CUserListDlg *Dlg;
    class CUserAskStringDlg *Ask;
@@ -3263,7 +3263,7 @@ CUserListDlg::CUserListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
    Found = TRUE;
 }
 
-USHORT CUserListDlg::OnInitDialog (VOID)
+USHORT CUserListDlg::OnInitDialog ()
 {
    SetWindowTitle ("Users List");
 
@@ -3292,7 +3292,7 @@ USHORT CUserListDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CUserListDlg::OnUser (VOID)
+VOID CUserListDlg::OnUser ()
 {
    USHORT Found = TRUE;
    CHAR Temp[128];
@@ -3343,7 +3343,7 @@ VOID CUserListDlg::OnUser (VOID)
 #endif
 }
 
-VOID CUserListDlg::OnOK (VOID)
+VOID CUserListDlg::OnOK ()
 {
    int item;
    CHAR Temp[64];
@@ -3362,7 +3362,7 @@ CUserSecurityDlg::CUserSecurityDlg (HWND p_hWnd) : CDialog ("18", p_hWnd)
 {
 }
 
-USHORT CUserSecurityDlg::OnInitDialog (VOID)
+USHORT CUserSecurityDlg::OnInitDialog ()
 {
    USHORT i;
    ULONG Test;
@@ -3385,7 +3385,7 @@ USHORT CUserSecurityDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CUserSecurityDlg::OnOK (VOID)
+VOID CUserSecurityDlg::OnOK ()
 {
    USHORT i;
    ULONG Test;
@@ -3412,7 +3412,7 @@ CUserOtherDlg::CUserOtherDlg (HWND p_hWnd) : CDialog ("38", p_hWnd)
 {
 }
 
-USHORT CUserOtherDlg::OnInitDialog (VOID)
+USHORT CUserOtherDlg::OnInitDialog ()
 {
    Center ();
 
@@ -3424,7 +3424,7 @@ USHORT CUserOtherDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CUserOtherDlg::OnOK (VOID)
+VOID CUserOtherDlg::OnOK ()
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), User->InetAddress);
    User->ImportPOP3Mail = (UCHAR)BM_QueryCheck (103);
@@ -3440,7 +3440,7 @@ CUserAskStringDlg::CUserAskStringDlg (HWND p_hWnd) : CDialog ("26", p_hWnd)
 {
 }
 
-USHORT CUserAskStringDlg::OnInitDialog (VOID)
+USHORT CUserAskStringDlg::OnInitDialog ()
 {
    Center ();
 
@@ -3450,7 +3450,7 @@ USHORT CUserAskStringDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CUserAskStringDlg::OnOK (VOID)
+VOID CUserAskStringDlg::OnOK ()
 {
    GetDlgItemText (128, GetDlgItemTextLength (128), String);
    EndDialog (TRUE);
@@ -3462,7 +3462,7 @@ CAddUserDlg::CAddUserDlg (HWND p_hWnd) : CDialog ("34", p_hWnd)
 {
 }
 
-USHORT CAddUserDlg::OnInitDialog (VOID)
+USHORT CAddUserDlg::OnInitDialog ()
 {
    Center ();
 
@@ -3472,7 +3472,7 @@ USHORT CAddUserDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CAddUserDlg::OnOK (VOID)
+VOID CAddUserDlg::OnOK ()
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), Name);
    GetDlgItemText (104, GetDlgItemTextLength (104), Password);
@@ -3486,7 +3486,7 @@ CPasswordDlg::CPasswordDlg (HWND p_hWnd) : CDialog ("36", p_hWnd)
 {
 }
 
-USHORT CPasswordDlg::OnInitDialog (VOID)
+USHORT CPasswordDlg::OnInitDialog ()
 {
    Center ();
 
@@ -3495,7 +3495,7 @@ USHORT CPasswordDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CPasswordDlg::OnOK (VOID)
+VOID CPasswordDlg::OnOK ()
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), Password);
 
@@ -3511,12 +3511,12 @@ COfflineDlg::COfflineDlg (HWND p_hWnd) : CDialog ("42", p_hWnd)
 {
 }
 
-VOID COfflineDlg::OnHelp (VOID)
+VOID COfflineDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 42);
 }
 
-USHORT COfflineDlg::OnInitDialog (VOID)
+USHORT COfflineDlg::OnInitDialog ()
 {
    Center ();
 
@@ -3531,7 +3531,7 @@ USHORT COfflineDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID COfflineDlg::OnOK (VOID)
+VOID COfflineDlg::OnOK ()
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), Cfg->TempPath);
    GetDlgItemText (104, GetDlgItemTextLength (104), Cfg->OLRPacketName);
@@ -3553,8 +3553,8 @@ public:
 
    class  TProtocol *Data;
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    DECLARE_MESSAGE_MAP ()
@@ -3568,8 +3568,8 @@ public:
    CHAR   Key[16];
    CHAR   Description[64];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 BEGIN_MESSAGE_MAP (CProtocolDlg, CDialog)
@@ -3585,18 +3585,18 @@ CProtocolDlg::CProtocolDlg (HWND p_hWnd) : CDialog ("44", p_hWnd)
    Data = NULL;
 }
 
-CProtocolDlg::~CProtocolDlg (void)
+CProtocolDlg::~CProtocolDlg ()
 {
    if (Data != NULL)
       delete Data;
 }
 
-VOID CProtocolDlg::OnHelp (VOID)
+VOID CProtocolDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 44);
 }
 
-USHORT CProtocolDlg::OnInitDialog (VOID)
+USHORT CProtocolDlg::OnInitDialog ()
 {
    Center ();
    Data = new TProtocol (Cfg->SystemPath);
@@ -3624,7 +3624,7 @@ USHORT CProtocolDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CProtocolDlg::DisplayData (VOID)
+VOID CProtocolDlg::DisplayData ()
 {
    BM_SetCheck (110, Data->Active);
    SetDlgItemText (102, Data->Key);
@@ -3645,7 +3645,7 @@ VOID CProtocolDlg::DisplayData (VOID)
    BM_SetCheck (139, Data->ChangeToUploadPath);
 }
 
-VOID CProtocolDlg::ReadData (VOID)
+VOID CProtocolDlg::ReadData ()
 {
    Data->Active = (CHAR)BM_QueryCheck (110);
    GetDlgItemText (102, GetDlgItemTextLength (102), Data->Key);
@@ -3666,7 +3666,7 @@ VOID CProtocolDlg::ReadData (VOID)
    Data->ChangeToUploadPath = (CHAR)BM_QueryCheck (139);
 }
 
-VOID CProtocolDlg::OnAdd (VOID)
+VOID CProtocolDlg::OnAdd ()
 {
    class CAddProtocolDlg *Dlg;
 
@@ -3683,7 +3683,7 @@ VOID CProtocolDlg::OnAdd (VOID)
    SetFocus (102);
 }
 
-VOID CProtocolDlg::OnDelete (VOID)
+VOID CProtocolDlg::OnDelete ()
 {
    if (MessageBox ("Are you sure ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
       Data->Delete ();
@@ -3692,25 +3692,25 @@ VOID CProtocolDlg::OnDelete (VOID)
    }
 }
 
-VOID CProtocolDlg::OnPrevious (VOID)
+VOID CProtocolDlg::OnPrevious ()
 {
    if (Data->Previous () == TRUE)
       DisplayData ();
 }
 
-VOID CProtocolDlg::OnNext (VOID)
+VOID CProtocolDlg::OnNext ()
 {
    if (Data->Next () == TRUE)
       DisplayData ();
 }
 
-VOID CProtocolDlg::OnOK (VOID)
+VOID CProtocolDlg::OnOK ()
 {
    ReadData ();
    Data->Update ();
 }
 
-VOID CProtocolDlg::List (VOID)
+VOID CProtocolDlg::List ()
 {
    class CProtocolListDlg *Dlg;
 
@@ -3732,7 +3732,7 @@ CProtocolListDlg::CProtocolListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
 {
 }
 
-USHORT CProtocolListDlg::OnInitDialog (VOID)
+USHORT CProtocolListDlg::OnInitDialog ()
 {
    CHAR Temp[16];
    class TProtocol *Protocol;
@@ -3765,7 +3765,7 @@ USHORT CProtocolListDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CProtocolListDlg::OnOK (VOID)
+VOID CProtocolListDlg::OnOK ()
 {
    int item;
    CHAR Temp[32];
@@ -3784,7 +3784,7 @@ CAddProtocolDlg::CAddProtocolDlg (HWND p_hWnd) : CDialog ("45", p_hWnd)
 {
 }
 
-USHORT CAddProtocolDlg::OnInitDialog (VOID)
+USHORT CAddProtocolDlg::OnInitDialog ()
 {
    Center ();
 
@@ -3794,7 +3794,7 @@ USHORT CAddProtocolDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CAddProtocolDlg::OnOK (VOID)
+VOID CAddProtocolDlg::OnOK ()
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), Key);
    GetDlgItemText (104, GetDlgItemTextLength (104), Description);

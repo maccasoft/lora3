@@ -47,7 +47,7 @@ TPMList::TPMList (HWND hwnd)
    DoWrite = FALSE;
 }
 #elif defined(__LINUX__) || defined(__DOS__)
-TPMList::TPMList (void)
+TPMList::TPMList ()
 {
    time_t t;
    struct tm *ltm;
@@ -69,7 +69,7 @@ TPMList::TPMList (void)
 }
 #endif
 
-TPMList::~TPMList (void)
+TPMList::~TPMList ()
 {
 #if defined(__DOS__) || defined(__LINUX__)
    if (window != 0) {
@@ -134,7 +134,7 @@ VOID TPMList::Update (PSZ Text)
    }
 }
 
-VOID TPMList::Clear (VOID)
+VOID TPMList::Clear ()
 {
 #if defined(__OS2__)
    WinSendMsg (hwndList, WM_USER, MPFROMSHORT (WMU_CLEAROUTBOUND), 0L);
@@ -154,18 +154,18 @@ VOID TPMList::Clear (VOID)
 // Mail kludges
 // ----------------------------------------------------------------------------
 
-TKludges::TKludges (void)
+TKludges::TKludges ()
 {
    Data.Clear ();
    Sort = TRUE;
 }
 
-TKludges::~TKludges (void)
+TKludges::~TKludges ()
 {
    Data.Clear ();
 }
 
-USHORT TKludges::Add (VOID)
+USHORT TKludges::Add ()
 {
    USHORT Insert = FALSE;
    CHAR Temp[64];
@@ -280,19 +280,19 @@ USHORT TKludges::Check (PSZ pszAddress)
    return (RetVal);
 }
 
-VOID TKludges::Clear (VOID)
+VOID TKludges::Clear ()
 {
    Data.Clear ();
    New ();
 }
 
-VOID TKludges::Delete (VOID)
+VOID TKludges::Delete ()
 {
    if (Data.Value () != NULL)
       Data.Remove ();
 }
 
-USHORT TKludges::First (VOID)
+USHORT TKludges::First ()
 {
    USHORT RetVal = FALSE;
    KLUDGES *El;
@@ -313,7 +313,7 @@ USHORT TKludges::First (VOID)
    return (RetVal);
 }
 
-VOID TKludges::New (VOID)
+VOID TKludges::New ()
 {
    Zone = 0;
    Net = 0;
@@ -321,7 +321,7 @@ VOID TKludges::New (VOID)
    Point = 0;
 }
 
-USHORT TKludges::Next (VOID)
+USHORT TKludges::Next ()
 {
    USHORT RetVal = FALSE;
    KLUDGES *El;
@@ -362,7 +362,7 @@ USHORT TKludges::Next (VOID)
 // Mail processor
 // ----------------------------------------------------------------------------
 
-TMailProcessor::TMailProcessor (void)
+TMailProcessor::TMailProcessor ()
 {
    Output = NULL;
    Status = NULL;
@@ -370,7 +370,7 @@ TMailProcessor::TMailProcessor (void)
    Bad = Duplicate = NetMail = MsgTossed = 0L;
 }
 
-TMailProcessor::~TMailProcessor (void)
+TMailProcessor::~TMailProcessor ()
 {
 }
 
@@ -457,7 +457,7 @@ VOID TMailProcessor::MakeArcMailName (PSZ pszAddress, CHAR Flag)
    }
 }
 
-VOID TMailProcessor::News (VOID)
+VOID TMailProcessor::News ()
 {
    CHAR *Base;
    ULONG Number, Tossed, SentArea, Msgn;
@@ -617,7 +617,7 @@ VOID TMailProcessor::News (VOID)
    }
 }
 
-VOID TMailProcessor::Mail (VOID)
+VOID TMailProcessor::Mail ()
 {
    CHAR Host[128], Name[32], *p, ToUs;
    ULONG Number, Msgn;

@@ -48,7 +48,7 @@ class  TPMLog *Log;
 class  TEvents *Events;
 class  TOutbound *Outbound;
 
-VOID DisplayScreen (VOID)
+VOID DisplayScreen ()
 {
    CHAR Temp[128];
 
@@ -75,7 +75,7 @@ VOID DisplayScreen (VOID)
    }
 }
 
-VOID RefreshOutbound (VOID)
+VOID RefreshOutbound ()
 {
    USHORT i;
    CHAR Flags[16], Temp[128], Status[32];
@@ -123,7 +123,7 @@ VOID RefreshOutbound (VOID)
    }
 }
 
-VOID ClearScreen (VOID)
+VOID ClearScreen ()
 {
    wcloseall ();
    showcur ();
@@ -131,7 +131,7 @@ VOID ClearScreen (VOID)
    closevideo ();
 }
 
-USHORT CPollDlg (VOID)
+USHORT CPollDlg ()
 {
    short i;
    CHAR Temp[64], String[128], Flag[8];
@@ -215,7 +215,7 @@ USHORT CPollDlg (VOID)
    return (FALSE);
 }
 
-USHORT CRequestDlg (VOID)
+USHORT CRequestDlg ()
 {
    FILE *fp;
    short i;
@@ -368,7 +368,7 @@ USHORT CRequestDlg (VOID)
    return (FALSE);
 }
 
-USHORT CAttachDlg (VOID)
+USHORT CAttachDlg ()
 {
    FILE *fp;
    short i;
@@ -519,7 +519,7 @@ USHORT CAttachDlg (VOID)
    return (FALSE);
 }
 
-USHORT CRescanDlg (VOID)
+USHORT CRescanDlg ()
 {
    short i;
    CHAR Temp[64], String[128], *t, *p;
@@ -605,7 +605,7 @@ USHORT CRescanDlg (VOID)
    return (FALSE);
 }
 
-USHORT CNewEcholinkDlg (VOID)
+USHORT CNewEcholinkDlg ()
 {
    short i;
    CHAR Temp[64], String[128], *t, *p;
@@ -703,7 +703,7 @@ USHORT CNewEcholinkDlg (VOID)
 // Product informations dialog
 // ----------------------------------------------------------------------
 
-USHORT CProductDlg (VOID)
+USHORT CProductDlg ()
 {
    int menu_sel = 996;
    CHAR Temp[128], RegName[64], RegNumber[32];
@@ -721,14 +721,7 @@ USHORT CProductDlg (VOID)
 #elif defined(__LINUX__)
    wcenters (1, BLUE|_LGREY, "Professional Edition for Linux");
 #endif
-   if (ValidateKey ("bbs", RegName, RegNumber) != KEY_UNREGISTERED) {
-      sprintf (Temp, "Registered to %s", RegName);
-      wcenters (3, BLACK|_LGREY, Temp);
-      sprintf (Temp, "Serial Number %s", RegNumber);
-      wcenters (4, BLACK|_LGREY, Temp);
-   }
-   else
-      wcenters (3, BLACK|_LGREY, "- Freeware edition -");
+   wcenters (3, BLACK|_LGREY, "- Freeware edition -");
    wcenters (6, WHITE|_LGREY, "Copyright (c) 1996-97 by Marco Maccaferri");
    wcenters (7, WHITE|_LGREY, "All rights reserved");
    wcenters (8, WHITE|_LGREY, "Mods by Ken Johnson");
@@ -754,7 +747,7 @@ USHORT CProductDlg (VOID)
 // Windowed log file display
 // ---------------------------------------------------------------------------
 
-TPMLog::TPMLog (void)
+TPMLog::TPMLog ()
 {
    if (Daemon == FALSE) {
       if ((window = wopen (2, 1, 11, 47, 5, LGREY|_BLACK, WHITE|_BLACK)) != 0)
@@ -764,7 +757,7 @@ TPMLog::TPMLog (void)
    Display = TRUE;
 }
 
-TPMLog::~TPMLog (void)
+TPMLog::~TPMLog ()
 {
    if (window != 0) {
       wactiv (window);
@@ -805,15 +798,15 @@ VOID TPMLog::Write (PSZ pszFormat, ...)
 // Status window manager
 // ----------------------------------------------------------------------------
 
-TPMStatus::TPMStatus (void)
+TPMStatus::TPMStatus ()
 {
 }
 
-TPMStatus::~TPMStatus (void)
+TPMStatus::~TPMStatus ()
 {
 }
 
-VOID TPMStatus::Clear (VOID)
+VOID TPMStatus::Clear ()
 {
    fill_ (22, 1, 23, 78, ' ', LGREY|_BLACK);
    videoupdate ();
@@ -840,25 +833,25 @@ VOID TPMStatus::SetLine (USHORT line, PSZ text, ...)
 class TPMProgress : public TProgress
 {
 public:
-   TPMProgress (void);
-   ~TPMProgress (void);
+   TPMProgress ();
+   ~TPMProgress ();
 
-   VOID   Begin (VOID);
-   VOID   End (VOID);
-   VOID   Update (VOID);
+   VOID   Begin ();
+   VOID   End ();
+   VOID   Update ();
 
 private:
 };
 
-TPMProgress::TPMProgress (void)
+TPMProgress::TPMProgress ()
 {
 }
 
-TPMProgress::~TPMProgress (void)
+TPMProgress::~TPMProgress ()
 {
 }
 
-VOID TPMProgress::Begin (VOID)
+VOID TPMProgress::Begin ()
 {
    CHAR Temp[128];
 
@@ -871,7 +864,7 @@ VOID TPMProgress::Begin (VOID)
    videoupdate ();
 }
 
-VOID TPMProgress::Update (VOID)
+VOID TPMProgress::Update ()
 {
    CHAR Temp[128];
 
@@ -884,7 +877,7 @@ VOID TPMProgress::Update (VOID)
    videoupdate ();
 }
 
-VOID TPMProgress::End (VOID)
+VOID TPMProgress::End ()
 {
    fill_ (22, 1, 23, 78, ' ', LGREY|_BLACK);
    videoupdate ();
@@ -899,24 +892,24 @@ VOID TPMProgress::End (VOID)
 class TPMMailStatus : public TMailerStatus
 {
 public:
-   TPMMailStatus (void);
-   ~TPMMailStatus (void);
+   TPMMailStatus ();
+   ~TPMMailStatus ();
 
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    CHAR   Temp[128];
 };
 
-TPMMailStatus::TPMMailStatus (void)
+TPMMailStatus::TPMMailStatus ()
 {
 }
 
-TPMMailStatus::~TPMMailStatus (void)
+TPMMailStatus::~TPMMailStatus ()
 {
 }
 
-VOID TPMMailStatus::Update (VOID)
+VOID TPMMailStatus::Update ()
 {
    CHAR Line[128], Num[16];
 
@@ -946,12 +939,12 @@ VOID TPMMailStatus::Update (VOID)
    memcpy (&Line[(CENTER_LINE - strlen (Temp)) / 2], Temp, strlen (Temp) + 1);
    prints (15, 4, LGREY|_BLACK, Line);
 
-   strcpy (Temp, " ÚÄÄÄÄMailPKTÄÄÄÄÄÄÄDataÄÄÄÄÄ¿     ÚÄÄÄÄMailPKTÄÄÄÄÄÄÄDataÄÄÄÄÄ¿ ");
+   strcpy (Temp, " ï¿½ï¿½ï¿½ï¿½ï¿½MailPKTï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Dataï¿½ï¿½ï¿½ï¿½Ä¿     ï¿½ï¿½ï¿½ï¿½ï¿½MailPKTï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Dataï¿½ï¿½ï¿½ï¿½Ä¿ ");
    memset (Line, ' ', sizeof (Line));
    memcpy (&Line[(CENTER_LINE - strlen (Temp)) / 2], Temp, strlen (Temp) + 1);
    prints (17, 4, LCYAN|_BLACK, Line);
 
-   strcpy (Temp, "úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúú   úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúú");
+   strcpy (Temp, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
    if (InPktFiles == 0xFFFFU)
       strcpy (Num, "N/A");
    else
@@ -976,7 +969,7 @@ VOID TPMMailStatus::Update (VOID)
    memcpy (&Line[(CENTER_LINE - strlen (Temp)) / 2], Temp, strlen (Temp) + 1);
    prints (18, 4, LCYAN|_BLACK, Line);
 
-   strcpy (Temp, "úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúú   úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúú");
+   strcpy (Temp, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
    if (InPktFiles == 0xFFFFU)
       strcpy (Num, "N/A");
    else
@@ -1001,7 +994,7 @@ VOID TPMMailStatus::Update (VOID)
    memcpy (&Line[(CENTER_LINE - strlen (Temp)) / 2], Temp, strlen (Temp) + 1);
    prints (19, 4, LCYAN|_BLACK, Line);
 
-   strcpy (Temp, " ÀÄÄÄÄÄÄINBOUND TRAFFICÄÄÄÄÄÄÙ     ÀÄÄÄÄÄOUTBOUND TRAFFICÄÄÄÄÄÄÙ ");
+   strcpy (Temp, " ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½INBOUND TRAFFICï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½     ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½OUTBOUND TRAFFICï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ");
    memset (Line, ' ', sizeof (Line));
    memcpy (&Line[(CENTER_LINE - strlen (Temp)) / 2], Temp, strlen (Temp) + 1);
    prints (20, 4, LCYAN|_BLACK, Line);
@@ -1387,63 +1380,34 @@ VOID SendInitThread (PVOID Args)
    Modem->SendCommand (Cfg->Initialize[Current]);
 }
 
-VOID ModemTimer (VOID)
+VOID ModemTimer ()
 {
    USHORT i;
 
    switch (Status) {
       case 0:
-         if (Log != NULL && ValidateKey ("bbs", NULL, NULL) == KEY_UNREGISTERED) {
-            Log->Write ("!WARNING: No license key found");
-            Log->Write ("!Your system is limited to 2 lines");
-/*
-            if ((i = CheckExpiration ()) == 0) {
-               Log->Write ("!This evaluation copy has expired");
-               Status = 200;
+         if (Modem == NULL && Cfg != NULL) {
+            if ((Modem = new TModem) != NULL) {
+               Modem->Log = Log;
+               strcpy (Modem->Device, Cfg->Device);
+               Modem->Speed = Cfg->Speed;
+               Modem->LockSpeed = Cfg->LockSpeed;
+               if (Cfg->Ring[0] != '\0')
+                  strcpy (Modem->Ring, Cfg->Ring);
+               Modem->Initialize ();
+               Status = INITIALIZE;
+               Current = 0;
             }
-            else
-               Log->Write ("!You have %d days left for evaluation", i);
-*/
          }
-         switch (ValidateKey ("bbs", NULL, NULL)) {
-            case KEY_UNREGISTERED:
-            case KEY_BASIC:
-               if (Cfg->TaskNumber > 2) {
-                  Log->Write ("!Invalid line number (%d)", Cfg->TaskNumber);
-                  Status = 200;
-               }
-               break;
-            case KEY_ADVANCED:
-               if (Cfg->TaskNumber > 5) {
-                  Log->Write ("!Invalid line number (%d)", Cfg->TaskNumber);
-                  Status = 200;
-               }
-               break;
-         }
-         if (Status != 200) {
-            if (Modem == NULL && Cfg != NULL) {
-               if ((Modem = new TModem) != NULL) {
-                  Modem->Log = Log;
-                  strcpy (Modem->Device, Cfg->Device);
-                  Modem->Speed = Cfg->Speed;
-                  Modem->LockSpeed = Cfg->LockSpeed;
-                  if (Cfg->Ring[0] != '\0')
-                     strcpy (Modem->Ring, Cfg->Ring);
-                  Modem->Initialize ();
-                  Status = INITIALIZE;
-                  Current = 0;
-               }
-            }
-            if (Outbound != NULL) {
-               if (Log != NULL)
-                  Log->Write ("+Building the outbound queue");
-               Outbound->BuildQueue (Cfg->Outbound);
-               if (Outbound->FirstNode () == FALSE)
-                  Outbound->New ();
-               if (Log != NULL)
-                  Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
-               RefreshOutbound ();
-            }
+         if (Outbound != NULL) {
+            if (Log != NULL)
+               Log->Write ("+Building the outbound queue");
+            Outbound->BuildQueue (Cfg->Outbound);
+            if (Outbound->FirstNode () == FALSE)
+               Outbound->New ();
+            if (Log != NULL)
+               Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
+            RefreshOutbound ();
          }
          break;
 
@@ -1778,19 +1742,19 @@ VOID EventsTimer (PVOID Args)
       videoupdate ();
 }
 
-VOID AddShadow (VOID)
+VOID AddShadow ()
 {
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddFileShadow (VOID)
+VOID AddFileShadow ()
 {
    whline (2, 0, 27, 3, RED|_LGREY);
    whline (4, 0, 27, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddUtilityShadow (VOID)
+VOID AddUtilityShadow ()
 {
    whline (1, 0, 31, 3, RED|_LGREY);
    whline (5, 0, 31, 3, RED|_LGREY);
@@ -1798,7 +1762,7 @@ VOID AddUtilityShadow (VOID)
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddMailShadow (VOID)
+VOID AddMailShadow ()
 {
    whline (3, 0, 31, 3, RED|_LGREY);
    whline (5, 0, 31, 3, RED|_LGREY);
@@ -1806,25 +1770,25 @@ VOID AddMailShadow (VOID)
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddConfigureShadow (VOID)
+VOID AddConfigureShadow ()
 {
    whline (4, 0, 31, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddBBSShadow (VOID)
+VOID AddBBSShadow ()
 {
    whline (1, 0, 31, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
-VOID AddHelpShadow (VOID)
+VOID AddHelpShadow ()
 {
    whline (4, 0, 31, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
-VOID ProcessSelection (VOID)
+VOID ProcessSelection ()
 {
    struct _item_t *item;
 
@@ -1832,7 +1796,7 @@ VOID ProcessSelection (VOID)
    last_sel = item->tagid;
 }
 
-VOID ProcessMenu (VOID)
+VOID ProcessMenu ()
 {
    USHORT RetVal = FALSE;
 
@@ -1905,7 +1869,7 @@ VOID ProcessMenu (VOID)
          wmenuitem (3, 0, " Nodelist Flags        ", 0, 504, M_CLALL, ProcessSelection, 0, 0);
          wmenuend (501, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
       wmenuitem ( 5, 0, " Event Scheduler    ", 0, 601, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem ( 6, 0, " Limits             ", 0, 607, M_CLALL|M_NOSEL, ProssessSelection, 0, 0);
+      wmenuitem ( 6, 0, " Limits             ", 0, 607, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
       wmenuitem ( 7, 0, " Nodelist           ", 0, 602, M_CLALL, ProcessSelection, 0, 0);
       wmenuitem ( 8, 0, " Compressors        ", 0, 603, M_CLALL, ProcessSelection, 0, 0);
       wmenuitem ( 9, 0, " Nodes              ", 0, 604, M_CLALL, ProcessSelection, 0, 0);
@@ -2183,7 +2147,7 @@ VOID ProcessMenu (VOID)
       Cfg->Reload ();
 }
 
-void main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
    int i;
    USHORT Task = 1, Local, Poll, CanExit, EndRun, Interactive, Setup;
@@ -2440,4 +2404,6 @@ void main (int argc, char *argv[])
       delete Outbound;
 
    ClearScreen ();
+
+   return 0;
 }

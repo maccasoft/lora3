@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TFileData::TFileData (void)
+TFileData::TFileData ()
 {
    fdDat = fdIdx = -1;
    strcpy (DataFile, "file.dat");
@@ -39,7 +39,7 @@ TFileData::TFileData (PSZ pszDataPath)
    AdjustPath (strlwr (IdxFile));
 }
 
-TFileData::~TFileData (void)
+TFileData::~TFileData ()
 {
    if (fdDat != -1)
       close (fdDat);
@@ -47,7 +47,7 @@ TFileData::~TFileData (void)
       close (fdIdx);
 }
 
-USHORT TFileData::Add (VOID)
+USHORT TFileData::Add ()
 {
    USHORT RetVal = FALSE, DoClose = FALSE;
    FILES *File;
@@ -130,7 +130,7 @@ VOID TFileData::Class2Struct (FILES *File)
    strcpy (File->FileList, FileList);
 }
 
-VOID TFileData::Delete (VOID)
+VOID TFileData::Delete ()
 {
    int fdNew;
    ULONG Position;
@@ -193,7 +193,7 @@ VOID TFileData::Delete (VOID)
    }
 }
 
-USHORT TFileData::First (VOID)
+USHORT TFileData::First ()
 {
    USHORT RetVal = FALSE;
 
@@ -266,7 +266,7 @@ USHORT TFileData::Insert (class TFileData *Data)
    return (Insert ());
 }
 
-USHORT TFileData::Insert (VOID)
+USHORT TFileData::Insert ()
 {
    int fdNew;
    USHORT retVal = FALSE;
@@ -329,7 +329,7 @@ USHORT TFileData::Insert (VOID)
    return (retVal);
 }
 
-USHORT TFileData::Last (VOID)
+USHORT TFileData::Last ()
 {
    USHORT RetVal = FALSE, IsValid = FALSE;
    FILES *File;
@@ -376,7 +376,7 @@ USHORT TFileData::Last (VOID)
    return (RetVal);
 }
 
-VOID TFileData::New (VOID)
+VOID TFileData::New ()
 {
    memset (Display, 0, sizeof (Display));
    memset (Key, 0, sizeof (Key));
@@ -399,7 +399,7 @@ VOID TFileData::New (VOID)
    memset (EchoTag, 0, sizeof (EchoTag));
 }
 
-USHORT TFileData::Next (VOID)
+USHORT TFileData::Next ()
 {
    USHORT RetVal = FALSE, IsValid = FALSE;
    FILES *File;
@@ -427,7 +427,7 @@ USHORT TFileData::Next (VOID)
    return (RetVal);
 }
 
-VOID TFileData::Pack (VOID)
+VOID TFileData::Pack ()
 {
    int fdNewIdx, fdNewDat;
    INDEX Idx;
@@ -476,7 +476,7 @@ VOID TFileData::Pack (VOID)
    }
 }
 
-USHORT TFileData::Previous (VOID)
+USHORT TFileData::Previous ()
 {
    USHORT RetVal = FALSE, IsValid = FALSE;
    FILES *File;
@@ -581,7 +581,7 @@ USHORT TFileData::ReadEcho (PSZ pszEchoTag)
    return (retVal);
 }
 
-USHORT TFileData::ReRead (VOID)
+USHORT TFileData::ReRead ()
 {
    USHORT RetVal = FALSE;
 
@@ -734,7 +734,7 @@ USHORT TFileData::Update (PSZ pszNewKey)
 
 #define ECHOLINK_INDEX     32
 
-TFilechoLink::TFilechoLink (void)
+TFilechoLink::TFilechoLink ()
 {
    Data.Clear ();
    strcpy (DataFile, "fecholnk.dat");
@@ -760,12 +760,12 @@ TFilechoLink::TFilechoLink (PSZ pszDataPath)
    Skip4D = FALSE;
 }
 
-TFilechoLink::~TFilechoLink (void)
+TFilechoLink::~TFilechoLink ()
 {
    Data.Clear ();
 }
 
-USHORT TFilechoLink::Add (VOID)
+USHORT TFilechoLink::Add ()
 {
    USHORT Insert = FALSE;
    ECHOLINK Buffer, *Current;
@@ -947,19 +947,19 @@ USHORT TFilechoLink::Check (PSZ pszAddress)
    return (RetVal);
 }
 
-VOID TFilechoLink::Clear (VOID)
+VOID TFilechoLink::Clear ()
 {
    Data.Clear ();
    New ();
 }
 
-VOID TFilechoLink::Delete (VOID)
+VOID TFilechoLink::Delete ()
 {
    if (Data.Value () != NULL)
       Data.Remove ();
 }
 
-USHORT TFilechoLink::First (VOID)
+USHORT TFilechoLink::First ()
 {
    USHORT RetVal = FALSE;
    ECHOLINK *El;
@@ -1024,7 +1024,7 @@ VOID TFilechoLink::Load (PSZ pszEchoTag)
    First ();
 }
 
-VOID TFilechoLink::New (VOID)
+VOID TFilechoLink::New ()
 {
    Zone = 0;
    Net = 0;
@@ -1038,7 +1038,7 @@ VOID TFilechoLink::New (VOID)
    Skip = FALSE;
 }
 
-USHORT TFilechoLink::Next (VOID)
+USHORT TFilechoLink::Next ()
 {
    USHORT RetVal = FALSE;
    ECHOLINK *El;
@@ -1094,7 +1094,7 @@ USHORT TFilechoLink::Next (VOID)
    return (RetVal);
 }
 
-USHORT TFilechoLink::Previous (VOID)
+USHORT TFilechoLink::Previous ()
 {
    USHORT RetVal = FALSE;
    ECHOLINK *El;
@@ -1125,7 +1125,7 @@ USHORT TFilechoLink::Previous (VOID)
    return (RetVal);
 }
 
-VOID TFilechoLink::Save (VOID)
+VOID TFilechoLink::Save ()
 {
    int fd, i, Count, Changed;
    ULONG Position;
@@ -1174,7 +1174,7 @@ VOID TFilechoLink::Save (VOID)
    }
 }
 
-VOID TFilechoLink::Update (VOID)
+VOID TFilechoLink::Update ()
 {
    ECHOLINK *Buffer;
 

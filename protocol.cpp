@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TProtocol::TProtocol (void)
+TProtocol::TProtocol ()
 {
    fdDat = -1;
    strcpy (DataFile, "protocol.dat");
@@ -33,7 +33,7 @@ TProtocol::TProtocol (PSZ path)
    AdjustPath (strlwr (DataFile));
 }
 
-TProtocol::~TProtocol (void)
+TProtocol::~TProtocol ()
 {
    if (fdDat != -1)
       close (fdDat);
@@ -84,7 +84,7 @@ VOID TProtocol::Class2Struct (PROTOCOL *proto)
    proto->CpsPos = CpsPos;
 }
 
-VOID TProtocol::Add (VOID)
+VOID TProtocol::Add ()
 {
    USHORT DoClose = FALSE;
 
@@ -105,7 +105,7 @@ VOID TProtocol::Add (VOID)
    }
 }
 
-VOID TProtocol::Delete (VOID)
+VOID TProtocol::Delete ()
 {
    int fdNew;
    USHORT DoClose = FALSE;
@@ -154,7 +154,7 @@ VOID TProtocol::Delete (VOID)
    }
 }
 
-USHORT TProtocol::First (VOID)
+USHORT TProtocol::First ()
 {
    USHORT retVal = FALSE;
 
@@ -169,13 +169,13 @@ USHORT TProtocol::First (VOID)
    return (retVal);
 }
 
-VOID TProtocol::New (VOID)
+VOID TProtocol::New ()
 {
    memset (&prot, 0, sizeof (PROTOCOL));
    Struct2Class (&prot);
 }
 
-USHORT TProtocol::Next (VOID)
+USHORT TProtocol::Next ()
 {
    USHORT retVal = FALSE;
 
@@ -189,7 +189,7 @@ USHORT TProtocol::Next (VOID)
    return (retVal);
 }
 
-USHORT TProtocol::Previous (VOID)
+USHORT TProtocol::Previous ()
 {
    USHORT retVal = FALSE;
 
@@ -233,7 +233,7 @@ USHORT TProtocol::Read (PSZ key)
    return (RetVal);
 }
 
-VOID TProtocol::Update (VOID)
+VOID TProtocol::Update ()
 {
    USHORT retVal = FALSE;
 

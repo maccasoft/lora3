@@ -66,7 +66,7 @@ static ULONG StringCrc32 (CHAR *pszString, ULONG ulCrc)
 }
 */
 
-TUser::TUser (void)
+TUser::TUser ()
 {
    strcpy (DatFile, "users.dat");
    strcpy (IdxFile, "users.idx");
@@ -88,7 +88,7 @@ TUser::TUser (PSZ pszUserFile)
    FileTag = new TFileTag (pszUserFile);
 }
 
-TUser::~TUser (void)
+TUser::~TUser ()
 {
    if (fdDat != -1)
       close (fdDat);
@@ -101,7 +101,7 @@ TUser::~TUser (void)
       delete MsgTag;
 }
 
-VOID TUser::Struct2Class (VOID)
+VOID TUser::Struct2Class ()
 {
    strcpy (Name, Usr.Name);
    Password = Usr.Password;
@@ -169,7 +169,7 @@ VOID TUser::Struct2Class (VOID)
    CurrentCRC = StringCrc32 (Name, 0xFFFFFFFFL);
 }
 
-VOID TUser::Class2Struct (VOID)
+VOID TUser::Class2Struct ()
 {
    memset (&Usr, 0, sizeof (Usr));
    Usr.Size = sizeof (Usr);
@@ -237,7 +237,7 @@ VOID TUser::Class2Struct (VOID)
    strcpy (Usr.PwdText, PwdText);
 }
 
-USHORT TUser::Add (VOID)
+USHORT TUser::Add ()
 {
    USHORT RetVal = FALSE;
 
@@ -273,7 +273,7 @@ USHORT TUser::Add (VOID)
    return (RetVal);
 }
 
-USHORT TUser::Age (VOID)
+USHORT TUser::Age ()
 {
    USHORT RetVal = 0;
    struct dosdate_t d_date;
@@ -323,7 +323,7 @@ USHORT TUser::CheckPassword (PSZ pszPassword)
    return (RetVal);
 }
 
-VOID TUser::Clear (VOID)
+VOID TUser::Clear ()
 {
    memset (&Usr, 0, sizeof (USER));
    Struct2Class ();
@@ -332,7 +332,7 @@ VOID TUser::Clear (VOID)
    FileTag->Clear ();
 }
 
-USHORT TUser::Delete (VOID)
+USHORT TUser::Delete ()
 {
    USHORT RetVal = FALSE, DoClose = FALSE;
    ULONG NameCrc;
@@ -375,7 +375,7 @@ USHORT TUser::Delete (VOID)
    return (RetVal);
 }
 
-USHORT TUser::First (VOID)
+USHORT TUser::First ()
 {
    USHORT RetVal = FALSE;
 
@@ -451,7 +451,7 @@ USHORT TUser::GetData (PSZ pszName, USHORT fCheckRealName)
    return (RetVal);
 }
 
-USHORT TUser::Next (VOID)
+USHORT TUser::Next ()
 {
    USHORT RetVal = FALSE;
 
@@ -477,7 +477,7 @@ VOID TUser::SetPassword (PSZ pszPassword)
    Password = StringCrc32 (strupr (pszPassword), 0xFFFFFFFFL);
 }
 
-VOID TUser::Pack (VOID)
+VOID TUser::Pack ()
 {
    int fdNew;
 
@@ -534,7 +534,7 @@ VOID TUser::Pack (VOID)
    }
 }
 
-USHORT TUser::Previous (VOID)
+USHORT TUser::Previous ()
 {
    USHORT RetVal = FALSE;
 
@@ -563,7 +563,7 @@ USHORT TUser::Previous (VOID)
    return (RetVal);
 }
 
-VOID TUser::Reindex (VOID)
+VOID TUser::Reindex ()
 {
    ULONG Position;
 
@@ -604,7 +604,7 @@ VOID TUser::Reindex (VOID)
 
 // Aggiorna i dati relativi ad un nominativo.
 // -----------------------------------------------------------------------------
-USHORT TUser::Update (VOID)
+USHORT TUser::Update ()
 {
    USHORT RetVal = FALSE, DoClose = FALSE;
 
@@ -683,7 +683,7 @@ USHORT TUser::Update (VOID)
 
 // --------------------------------------------------------------------------
 
-TMsgTag::TMsgTag (void)
+TMsgTag::TMsgTag ()
 {
    Data.Clear ();
    strcpy (DatFile, "msgtags.dat");
@@ -705,12 +705,12 @@ TMsgTag::TMsgTag (PSZ pszUserFile)
    strcpy (p, "msgtags.dat");
 }
 
-TMsgTag::~TMsgTag (void)
+TMsgTag::~TMsgTag ()
 {
    Data.Clear ();
 }
 
-VOID TMsgTag::Add (VOID)
+VOID TMsgTag::Add ()
 {
    MSGTAGS Buffer;
 
@@ -793,7 +793,7 @@ VOID TMsgTag::Change (ULONG OldId, ULONG NewId)
    }
 }
 
-VOID TMsgTag::Clear (VOID)
+VOID TMsgTag::Clear ()
 {
    Data.Clear ();
 
@@ -803,7 +803,7 @@ VOID TMsgTag::Clear (VOID)
    OlderMsg = 0L;
 }
 
-USHORT TMsgTag::First (VOID)
+USHORT TMsgTag::First ()
 {
    USHORT RetVal = FALSE;
    MSGTAGS *Buffer;
@@ -819,7 +819,7 @@ USHORT TMsgTag::First (VOID)
    return (RetVal);
 }
 
-VOID TMsgTag::Load (VOID)
+VOID TMsgTag::Load ()
 {
    int fd, i, Count;
    MSGTAGS *Buffer;
@@ -848,7 +848,7 @@ VOID TMsgTag::Load (VOID)
    }
 }
 
-VOID TMsgTag::New (VOID)
+VOID TMsgTag::New ()
 {
    Tagged = FALSE;
    Area[0] = '\0';
@@ -856,7 +856,7 @@ VOID TMsgTag::New (VOID)
    OlderMsg = 0L;
 }
 
-USHORT TMsgTag::Next (VOID)
+USHORT TMsgTag::Next ()
 {
    USHORT RetVal = FALSE;
    MSGTAGS *Buffer;
@@ -872,7 +872,7 @@ USHORT TMsgTag::Next (VOID)
    return (RetVal);
 }
 
-USHORT TMsgTag::Previous (VOID)
+USHORT TMsgTag::Previous ()
 {
    USHORT RetVal = FALSE;
    MSGTAGS *Buffer;
@@ -903,7 +903,7 @@ USHORT TMsgTag::Read (PSZ pszArea)
    return (RetVal);
 }
 
-VOID TMsgTag::Save (VOID)
+VOID TMsgTag::Save ()
 {
    int fd, i, Count, Changed;
    ULONG Position;
@@ -953,7 +953,7 @@ VOID TMsgTag::Save (VOID)
    }
 }
 
-VOID TMsgTag::Update (VOID)
+VOID TMsgTag::Update ()
 {
    MSGTAGS Buffer;
 
@@ -969,7 +969,7 @@ VOID TMsgTag::Update (VOID)
 
 // --------------------------------------------------------------------------
 
-TFileTag::TFileTag (void)
+TFileTag::TFileTag ()
 {
    TotalFiles = 0;
    TotalBytes = 0L;
@@ -999,12 +999,12 @@ TFileTag::TFileTag (PSZ pszUserFile)
    strcpy (p, "filetags.dat");
 }
 
-TFileTag::~TFileTag (void)
+TFileTag::~TFileTag ()
 {
    Data.Clear ();
 }
 
-USHORT TFileTag::Add (VOID)
+USHORT TFileTag::Add ()
 {
    USHORT RetVal = FALSE;
    FILETAGS Buffer;
@@ -1115,7 +1115,7 @@ USHORT TFileTag::Check (PSZ pszName)
    return (RetVal);
 }
 
-VOID TFileTag::Clear (VOID)
+VOID TFileTag::Clear ()
 {
    Data.Clear ();
    New ();
@@ -1123,7 +1123,7 @@ VOID TFileTag::Clear (VOID)
    TotalFiles = 0;
 }
 
-USHORT TFileTag::First (VOID)
+USHORT TFileTag::First ()
 {
    USHORT RetVal = FALSE;
    FILETAGS *Buffer;
@@ -1142,7 +1142,7 @@ USHORT TFileTag::First (VOID)
    return (RetVal);
 }
 
-VOID TFileTag::Load (VOID)
+VOID TFileTag::Load ()
 {
    int fd, i, Count;
    FILETAGS *Buffer;
@@ -1179,7 +1179,7 @@ VOID TFileTag::Load (VOID)
    }
 }
 
-VOID TFileTag::New (VOID)
+VOID TFileTag::New ()
 {
    Area[0] = '\0';
    Name[0] = '\0';
@@ -1189,7 +1189,7 @@ VOID TFileTag::New (VOID)
    Index = (USHORT)(Data.Elements + 1);
 }
 
-USHORT TFileTag::Next (VOID)
+USHORT TFileTag::Next ()
 {
    USHORT RetVal = FALSE;
    FILETAGS *Buffer;
@@ -1208,7 +1208,7 @@ USHORT TFileTag::Next (VOID)
    return (RetVal);
 }
 
-USHORT TFileTag::Previous (VOID)
+USHORT TFileTag::Previous ()
 {
    USHORT RetVal = FALSE;
    FILETAGS *Buffer;
@@ -1227,7 +1227,7 @@ USHORT TFileTag::Previous (VOID)
    return (RetVal);
 }
 
-VOID TFileTag::Reindex (VOID)
+VOID TFileTag::Reindex ()
 {
    USHORT LastIndex;
    FILETAGS *ft;
@@ -1300,7 +1300,7 @@ USHORT TFileTag::Select (USHORT usIndex)
    return (RetVal);
 }
 
-VOID TFileTag::Save (VOID)
+VOID TFileTag::Save ()
 {
    int fd, i, Count, Changed;
    ULONG Position;
@@ -1349,7 +1349,7 @@ VOID TFileTag::Save (VOID)
    }
 }
 
-VOID TFileTag::Update (VOID)
+VOID TFileTag::Update ()
 {
    FILETAGS *Buffer;
 

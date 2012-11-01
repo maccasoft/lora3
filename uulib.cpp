@@ -26,12 +26,12 @@ CHAR *Table64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+
 
 #define DEC64(c) (((c) == '=') ? 0 : strchr (Table64, c) - Table64)
 
-TUULib::TUULib (void)
+TUULib::TUULib ()
 {
    MaxLines = 0;
 }
 
-TUULib::~TUULib (void)
+TUULib::~TUULib ()
 {
 }
 

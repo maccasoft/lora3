@@ -24,7 +24,7 @@ PSZ adeptMonths[] = {
    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-ADEPT::ADEPT (void)
+ADEPT::ADEPT ()
 {
    fdTxt = fdHdr = fdIdx = -1;
    Current = Id = 0L;
@@ -38,12 +38,12 @@ ADEPT::ADEPT (PSZ pszName)
    Open (pszName);
 }
 
-ADEPT::~ADEPT (void)
+ADEPT::~ADEPT ()
 {
    Close ();
 }
 
-USHORT ADEPT::Add (VOID)
+USHORT ADEPT::Add ()
 {
    return (Add (Text));
 }
@@ -185,7 +185,7 @@ USHORT ADEPT::Add (class TCollection &MsgText)
    return (RetVal);
 }
 
-VOID ADEPT::Close (VOID)
+VOID ADEPT::Close ()
 {
    if (fdIdx != -1)
       close (fdIdx);
@@ -220,7 +220,7 @@ USHORT ADEPT::GetHWM (ULONG &ulMsg)
    return (FALSE);
 }
 
-ULONG ADEPT::Highest (VOID)
+ULONG ADEPT::Highest ()
 {
    ULONG RetVal = 0L, Position;
    LONG Current;
@@ -248,7 +248,7 @@ USHORT ADEPT::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG ADEPT::Lowest (VOID)
+ULONG ADEPT::Lowest ()
 {
    ULONG RetVal = 0L, Position;
 
@@ -270,7 +270,7 @@ ULONG ADEPT::MsgnToUid (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID ADEPT::New (VOID)
+VOID ADEPT::New ()
 {
    From[0] = To[0] = Subject[0] = '\0';
    Crash = Direct = FileAttach = FileRequest = Hold = Immediate = FALSE;
@@ -327,7 +327,7 @@ USHORT ADEPT::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG ADEPT::Number (VOID)
+ULONG ADEPT::Number ()
 {
    return (TotalMsgs);
 }
@@ -360,7 +360,7 @@ USHORT ADEPT::Open (PSZ pszName)
    return (RetVal);
 }
 
-VOID ADEPT::Pack (VOID)
+VOID ADEPT::Pack ()
 {
    int fdHdrNew, fdTxtNew, fdIdxNew;
    USHORT Max;
@@ -660,7 +660,7 @@ ULONG ADEPT::UidToMsgn (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID ADEPT::UnLock (VOID)
+VOID ADEPT::UnLock ()
 {
 }
 

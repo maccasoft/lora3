@@ -100,7 +100,7 @@ class TPMLog : public TLog
 {
 public:
    TPMLog (HWND hwnd);
-   ~TPMLog (void);
+   ~TPMLog ();
 
    VOID   Write (PSZ pszFormat, ...);
    VOID   WriteSend (PSZ pszFormat, ...);
@@ -120,7 +120,7 @@ TPMLog::TPMLog (HWND hwnd)
 #endif
 }
 
-TPMLog::~TPMLog (void)
+TPMLog::~TPMLog ()
 {
 #if defined(__OS2__)
    DosCloseMutexSem (hmtx);

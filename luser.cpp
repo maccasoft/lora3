@@ -48,7 +48,7 @@ VOID PurgeUsers (USHORT Days, USHORT Level)
    }
 }
 
-VOID PackUsers (VOID)
+VOID PackUsers ()
 {
    class TUser *User;
 
@@ -60,7 +60,7 @@ VOID PackUsers (VOID)
    }
 }
 
-void main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
    int i;
    USHORT Pack, Purge, Level;
@@ -119,5 +119,7 @@ void main (int argc, char *argv[])
       else
          printf (" * Nothing to do\n\n");
    }
+
+   return 0;
 }
 

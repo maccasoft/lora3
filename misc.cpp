@@ -592,7 +592,7 @@ VOID DLL_EXPORT SpawnExternal (PSZ Command)
 #endif
 }
 
-ULONG DLL_EXPORT AvailableMemory (VOID)
+ULONG DLL_EXPORT AvailableMemory ()
 {
    ULONG Value = 0L;
 

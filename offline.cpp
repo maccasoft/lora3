@@ -25,20 +25,20 @@ public:
    class  TConfig *Cfg;
    class  TLanguage *Language;
 
-   VOID   Begin (VOID);
+   VOID   Begin ();
    VOID   PrintCursor (USHORT y);
-   VOID   PrintLine (VOID);
-   VOID   PrintTitles (VOID);
+   VOID   PrintLine ();
+   VOID   PrintTitles ();
    VOID   RemoveCursor (USHORT y);
-   VOID   Select (VOID);
-   VOID   Tag (VOID);
+   VOID   Select ();
+   VOID   Tag ();
 
 private:
 };
 
 // ----------------------------------------------------------------------
 
-TOffline::TOffline (void)
+TOffline::TOffline ()
 {
    Cfg = NULL;
    Log = NULL;
@@ -55,7 +55,7 @@ TOffline::TOffline (void)
    Msg = NULL;
 }
 
-TOffline::~TOffline (void)
+TOffline::~TOffline ()
 {
    if (User != NULL) {
       sprintf (Work, "%s%s", Cfg->TempPath, User->MailBox);
@@ -145,7 +145,7 @@ VOID TOffline::AddKludges (class TCollection &Text, class TMsgData *Data)
    }
 }
 
-VOID TOffline::ManageTagged (VOID)
+VOID TOffline::ManageTagged ()
 {
    USHORT Line, Tagged;
    CHAR Areas[32], *p;
@@ -184,7 +184,7 @@ VOID TOffline::ManageTagged (VOID)
             if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
                if (Data->First () == TRUE) {
                   Embedded->BufferedPrintf ("\x0C");
-                  Embedded->BufferedPrintf ("\n\026\001\017 Area             Msgs   Description\n \031Ä\017  \031Ä\005  \031Ä\066\n");
+                  Embedded->BufferedPrintf ("\n\026\001\017 Area             Msgs   Description\n \031ï¿½\017  \031ï¿½\005  \031ï¿½\066\n");
                   Line = 4;
 
                   do {
@@ -198,7 +198,7 @@ VOID TOffline::ManageTagged (VOID)
                         Embedded->BufferedPrintf ("\026\001\016*\026\001\015%-15.15s\026\001\016* \026\001\002%5ld  \026\001\003%.54s\n", Data->Key, Data->ActiveMsgs, Data->Display);
                      if ((Line = Embedded->MoreQuestion (Line)) == 1) {
                         Embedded->BufferedPrintf ("\x0C");
-                        Embedded->BufferedPrintf ("\n\026\001\017 Area             Msgs   Description\n \031Ä\017  \031Ä\005  \031Ä\066\n");
+                        Embedded->BufferedPrintf ("\n\026\001\017 Area             Msgs   Description\n \031ï¿½\017  \031ï¿½\005  \031ï¿½\066\n");
                         Line = 4;
                      }
                   } while (Data->Next () == TRUE && Line != 0);
@@ -245,7 +245,7 @@ VOID TOffline::ManageTagged (VOID)
    }
 }
 
-VOID TOffline::AddConference (VOID)
+VOID TOffline::AddConference ()
 {
    USHORT Found = FALSE, Line;
    CHAR Area[16];
@@ -271,7 +271,7 @@ VOID TOffline::AddConference (VOID)
 
             if (!stricmp (Area, "?")) {
                if (Data->First () == TRUE) {
-                  Embedded->Printf ("\n\026\001\012Conference       Msgs   Description\n\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n");
+                  Embedded->Printf ("\n\026\001\012Conference       Msgs   Description\n\026\001\017\031ï¿½\017  \031ï¿½\005  \031ï¿½\067\n");
                   Line = 3;
                   do {
                      if (Data->Offline == TRUE && User->Level >= Data->Level) {
@@ -369,12 +369,12 @@ USHORT TOffline::Compress (PSZ pszPacket)
    return (RetVal);
 }
 
-USHORT TOffline::Create (VOID)
+USHORT TOffline::Create ()
 {
    return (FALSE);
 }
 
-VOID TOffline::Display (VOID)
+VOID TOffline::Display ()
 {
    class TMsgData *Data;
 
@@ -382,7 +382,7 @@ VOID TOffline::Display (VOID)
       Embedded->Printf ("\n\x16\x01\012You have selected the following Conference(s):\n\x16\x01\x0E");
 
       if (User->MsgTag->First () == TRUE) {
-         Embedded->Printf ("\n\026\001\012Conference       Msgs   Description\n\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n");
+         Embedded->Printf ("\n\026\001\012Conference       Msgs   Description\n\026\001\017\031ï¿½\017  \031ï¿½\005  \031ï¿½\067\n");
          do {
             if (User->MsgTag->Tagged == TRUE) {
                if (Data->Read (User->MsgTag->Area) == TRUE)
@@ -498,7 +498,7 @@ VOID TOffline::Download (PSZ pszFile, PSZ pszName)
    }
 }
 
-USHORT TOffline::FetchReply (VOID)
+USHORT TOffline::FetchReply ()
 {
    return (FALSE);
 }
@@ -513,7 +513,7 @@ VOID TOffline::PackEMail (ULONG &ulLast)
    ulLast = ulLast;
 }
 
-USHORT TOffline::Prescan (VOID)
+USHORT TOffline::Prescan ()
 {
    USHORT RetVal = FALSE, Areas;
    ULONG Number;
@@ -528,7 +528,7 @@ USHORT TOffline::Prescan (VOID)
    MsgTag = User->MsgTag;
 
    if (MsgTag->First () == TRUE) {
-      Embedded->Printf ("\n\x16\x01\012Forum \x0A Description & Msgs. Pers.\n\x16\x01\x0FÄ Ä1 Ä Ä\n");
+      Embedded->Printf ("\n\x16\x01\012Forum \x0A Description & Msgs. Pers.\n\x16\x01\x0Fï¿½ ï¿½1 ï¿½ ï¿½\n");
 
       MsgTag->First ();
       do {
@@ -618,7 +618,7 @@ USHORT TOffline::Prescan (VOID)
    return (RetVal);
 }
 
-VOID TOffline::RemoveArea (VOID)
+VOID TOffline::RemoveArea ()
 {
    CHAR Area[16];
 
@@ -635,7 +635,7 @@ VOID TOffline::RemoveArea (VOID)
    }
 }
 
-VOID TOffline::RestrictDate (VOID)
+VOID TOffline::RestrictDate ()
 {
    int dd, mm, yy;
    CHAR Temp[32];
@@ -731,7 +731,7 @@ VOID TOffline::Scan (PSZ pszKey, ULONG ulLast)
    }
 }
 
-VOID TOffline::Upload (VOID)
+VOID TOffline::Upload ()
 {
    DIR *dir;
    USHORT RetVal = FALSE, i;
@@ -848,7 +848,7 @@ VOID TOffline::Upload (VOID)
 
 // ----------------------------------------------------------------------
 
-VOID TMsgAreaSelect::Begin (VOID)
+VOID TMsgAreaSelect::Begin ()
 {
    USHORT i;
    LISTDATA ld;
@@ -886,12 +886,12 @@ VOID TMsgAreaSelect::Begin (VOID)
    }
 }
 
-VOID TMsgAreaSelect::PrintTitles (VOID)
+VOID TMsgAreaSelect::PrintTitles ()
 {
    Embedded->Printf ("\x0C");
-   Embedded->Printf ("\n\026\001\017 Area             Msgs   Description\n \031Ä\017  \031Ä\005  \031Ä\066\n");
+   Embedded->Printf ("\n\026\001\017 Area             Msgs   Description\n \031ï¿½\017  \031ï¿½\005  \031ï¿½\066\n");
 
-   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, " \031Ä\017  \031Ä\005  \031Ä\066\n");
+   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, " \031ï¿½\017  \031ï¿½\005  \031ï¿½\066\n");
 
    Embedded->Printf (Language->Text (LNG_FILEAREADESCRIPTION1));
    Embedded->Printf (Language->Text (LNG_FILEAREADESCRIPTION2));
@@ -899,7 +899,7 @@ VOID TMsgAreaSelect::PrintTitles (VOID)
    Embedded->PrintfAt (4, 1, "");
 }
 
-VOID TMsgAreaSelect::PrintLine (VOID)
+VOID TMsgAreaSelect::PrintLine ()
 {
    USHORT Tagged = FALSE;
 
@@ -922,12 +922,12 @@ VOID TMsgAreaSelect::RemoveCursor (USHORT y)
    Embedded->PrintfAt (y, 2, Language->Text (LNG_MESSAGEAREAKEY), (PSZ)List.Value ());
 }
 
-VOID TMsgAreaSelect::Select (VOID)
+VOID TMsgAreaSelect::Select ()
 {
    RetVal = End = TRUE;
 }
 
-VOID TMsgAreaSelect::Tag (VOID)
+VOID TMsgAreaSelect::Tag ()
 {
    if (User->MsgTag->Read ((PSZ)List.Value ()) == FALSE) {
       User->MsgTag->New ();
@@ -955,15 +955,15 @@ PSZ Extensions[] = {
    ".su0", ".mo0", ".tu0", ".we0", ".th0", ".fr0", ".sa0"
 };
 
-TBlueWave::TBlueWave (void)
+TBlueWave::TBlueWave ()
 {
 }
 
-TBlueWave::~TBlueWave (void)
+TBlueWave::~TBlueWave ()
 {
 }
 
-USHORT TBlueWave::Create (VOID)
+USHORT TBlueWave::Create ()
 {
    int fd;
    USHORT RetVal = FALSE;
@@ -1084,7 +1084,7 @@ USHORT TBlueWave::Create (VOID)
    return (RetVal);
 }
 
-USHORT TBlueWave::FetchReply (VOID)
+USHORT TBlueWave::FetchReply ()
 {
    FILE *fp;
    int fdh;
@@ -1274,7 +1274,7 @@ VOID TBlueWave::PackArea (ULONG &ulLast)
 #endif
                   if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
                      BarWidth = (USHORT)((Total * 61L) / TotalPack);
-                     Embedded->Printf ("\r%.*s", BarWidth, "ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ");
+                     Embedded->Printf ("\r%.*s", BarWidth, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                   }
                }
             } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
@@ -1303,15 +1303,15 @@ VOID TBlueWave::PackArea (ULONG &ulLast)
 
 // ----------------------------------------------------------------------
 
-TQWK::TQWK (void)
+TQWK::TQWK ()
 {
 }
 
-TQWK::~TQWK (void)
+TQWK::~TQWK ()
 {
 }
 
-USHORT TQWK::Create (VOID)
+USHORT TQWK::Create ()
 {
    int i;
    FILE *fp;
@@ -1434,7 +1434,7 @@ USHORT TQWK::Create (VOID)
    return (RetVal);
 }
 
-USHORT TQWK::FetchReply (VOID)
+USHORT TQWK::FetchReply ()
 {
    int fdh;
    USHORT RetVal = FALSE, i, r, x, nCol, nWidth, nReaded, nRec;
@@ -1734,7 +1734,7 @@ VOID TQWK::PackArea (ULONG &ulLast)
 #endif
                   if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
                      BarWidth = (USHORT)((Total * 61L) / TotalPack);
-                     Embedded->Printf ("\r%.*s", BarWidth, "ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ");
+                     Embedded->Printf ("\r%.*s", BarWidth, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                   }
                }
             } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
@@ -1773,15 +1773,15 @@ PSZ TQWK::StripSpaces (PSZ pszString, USHORT usSize)
 
 // ----------------------------------------------------------------------
 
-TAscii::TAscii (void)
+TAscii::TAscii ()
 {
 }
 
-TAscii::~TAscii (void)
+TAscii::~TAscii ()
 {
 }
 
-USHORT TAscii::Create (VOID)
+USHORT TAscii::Create ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[128], PktName[32];
@@ -1911,7 +1911,7 @@ VOID TAscii::PackArea (ULONG &ulLast)
 #endif
                   if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
                      BarWidth = (USHORT)((Total * 61L) / TotalPack);
-                     Embedded->Printf ("\r%.*s", BarWidth, "ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ");
+                     Embedded->Printf ("\r%.*s", BarWidth, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                   }
                }
             } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
@@ -1932,15 +1932,15 @@ VOID TAscii::PackArea (ULONG &ulLast)
 
 // ----------------------------------------------------------------------
 
-TPoint::TPoint (void)
+TPoint::TPoint ()
 {
 }
 
-TPoint::~TPoint (void)
+TPoint::~TPoint ()
 {
 }
 
-USHORT TPoint::Create (VOID)
+USHORT TPoint::Create ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[128], PktName[32];
@@ -2095,7 +2095,7 @@ VOID TPoint::PackArea (ULONG &ulLast)
 #endif
                   if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
                      BarWidth = (USHORT)((Total * 61L) / TotalPack);
-                     Embedded->Printf ("\r%.*s", BarWidth, "ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ");
+                     Embedded->Printf ("\r%.*s", BarWidth, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                   }
                }
             } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
@@ -2116,7 +2116,7 @@ VOID TPoint::PackArea (ULONG &ulLast)
    ulLast = Number;
 }
 
-USHORT TPoint::FetchReply (VOID)
+USHORT TPoint::FetchReply ()
 {
    DIR *dir;
    USHORT RetVal = FALSE, Found;

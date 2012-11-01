@@ -16,17 +16,17 @@ enum {
    NOT_FOUND
 };
 
-TAreaManager::TAreaManager (void)
+TAreaManager::TAreaManager ()
 {
    Log = NULL;
    EchoLink = NULL;
 }
 
-TAreaManager::~TAreaManager (void)
+TAreaManager::~TAreaManager ()
 {
 }
 
-VOID TAreaManager::MsgFooter (VOID)
+VOID TAreaManager::MsgFooter ()
 {
    CHAR Temp[96];
 
@@ -35,7 +35,7 @@ VOID TAreaManager::MsgFooter (VOID)
    Text.Add (Temp);
 }
 
-VOID TAreaManager::MsgHeader (VOID)
+VOID TAreaManager::MsgHeader ()
 {
    CHAR Temp[96];
    class TAddress From, To;
@@ -91,7 +91,7 @@ USHORT TAreaManager::SetPacker (PSZ Cmd)
    return (RetVal);
 }
 
-VOID TAreaManager::ImportAreasBBS (VOID)
+VOID TAreaManager::ImportAreasBBS ()
 {
    #define MAX_LINECHAR 2048
    int i, counter, existing;
@@ -171,7 +171,7 @@ VOID TAreaManager::ImportAreasBBS (VOID)
       fclose (fp);
 }
 
-VOID TAreaManager::UpdateAreasBBS (VOID)
+VOID TAreaManager::UpdateAreasBBS ()
 {
    FILE *fp;
    int counter = 0;
@@ -489,7 +489,7 @@ USHORT TAreaManager::RemoveArea (PSZ address, PSZ area)
    return (RetVal);
 }
 
-VOID TAreaManager::ProcessAreafix (VOID)
+VOID TAreaManager::ProcessAreafix ()
 {
    FILE *fp;
    USHORT i, Ok, DoList, DoRescan, DoLinked, DoUnlinked, CanMaint;
@@ -935,7 +935,7 @@ USHORT TAreaManager::FileRemoveAll (PSZ address)
    return (RetVal);
 }
 
-VOID TAreaManager::ProcessRaid (VOID)
+VOID TAreaManager::ProcessRaid ()
 {
    FILE *fp;
    USHORT Ok, DoList, DoLinked, DoUnlinked, Found;

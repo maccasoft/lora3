@@ -121,7 +121,7 @@ KEYWORDS MeccaKeywords[] = {
 
 #define SYSTEM_TERMQ       "\\QUEUES\\TELTERM.QUE"
 
-TEmbedded::TEmbedded (void)
+TEmbedded::TEmbedded ()
 {
    Com = NULL;
    Snoop = NULL;
@@ -160,13 +160,13 @@ TEmbedded::TEmbedded (void)
    Required = FALSE;
 }
 
-TEmbedded::~TEmbedded (void)
+TEmbedded::~TEmbedded ()
 {
    if (fp != NULL)
       fclose (fp);
 }
 
-USHORT TEmbedded::AbortSession (VOID)
+USHORT TEmbedded::AbortSession ()
 {
    USHORT RetVal = FALSE;
    ULONG Len, Timeout;
@@ -205,7 +205,7 @@ USHORT TEmbedded::AbortSession (VOID)
    return (RetVal);
 }
 
-VOID TEmbedded::ClrEol (VOID)
+VOID TEmbedded::ClrEol ()
 {
    if (Com != NULL) {
       if (Avatar == TRUE) {
@@ -441,7 +441,7 @@ USHORT TEmbedded::GetAnswer (USHORT flQuestion)
    return (0);
 }
 
-USHORT TEmbedded::Getch (VOID)
+USHORT TEmbedded::Getch ()
 {
    USHORT RetVal = 0;
 
@@ -461,7 +461,7 @@ USHORT TEmbedded::Getch (VOID)
    return (RetVal);
 }
 
-VOID TEmbedded::Idle (VOID)
+VOID TEmbedded::Idle ()
 {
    time_t t;
 
@@ -636,7 +636,7 @@ PSZ TEmbedded::GetString (PSZ pszBuffer, USHORT usMaxlen, USHORT flAttrib)
    return (Input (pszBuffer, usMaxlen, flAttrib));
 }
 
-SHORT TEmbedded::GetNextChar (VOID)
+SHORT TEmbedded::GetNextChar ()
 {
    SHORT RetVal = EOF, c;
    UCHAR Byte;
@@ -761,7 +761,7 @@ SHORT TEmbedded::GetNextChar (VOID)
    return (RetVal);
 }
 
-USHORT TEmbedded::KBHit (VOID)
+USHORT TEmbedded::KBHit ()
 {
    USHORT RetVal = FALSE;
 
@@ -957,7 +957,7 @@ VOID TEmbedded::OutString (PSZ pszFormat, ...)
    }
 }
 
-SHORT TEmbedded::PeekNextChar (VOID)
+SHORT TEmbedded::PeekNextChar ()
 {
    SHORT RetVal = EOF, c;
    UCHAR Byte;
@@ -1062,7 +1062,7 @@ SHORT TEmbedded::PeekNextChar (VOID)
    return (RetVal);
 }
 
-VOID TEmbedded::PressEnter (VOID)
+VOID TEmbedded::PressEnter ()
 {
    USHORT SaveColor;
    CHAR Temp[2];
@@ -1303,7 +1303,7 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
    }
 }
 
-VOID TEmbedded::ProcessControlF (VOID)
+VOID TEmbedded::ProcessControlF ()
 {
    SHORT c;
 
@@ -1619,7 +1619,7 @@ VOID TEmbedded::ProcessControlF (VOID)
    }
 }
 
-VOID TEmbedded::ProcessControlK (VOID)
+VOID TEmbedded::ProcessControlK ()
 {
    SHORT c;
 
@@ -1770,7 +1770,7 @@ VOID TEmbedded::ProcessControlK (VOID)
    }
 }
 
-VOID TEmbedded::ProcessControlO (VOID)
+VOID TEmbedded::ProcessControlO ()
 {
    SHORT c;
    CHAR *p;
@@ -1999,7 +1999,7 @@ VOID TEmbedded::ProcessControlO (VOID)
    }
 }
 
-VOID TEmbedded::ProcessControlP (VOID)
+VOID TEmbedded::ProcessControlP ()
 {
    SHORT c;
 
@@ -2019,7 +2019,7 @@ VOID TEmbedded::ProcessControlP (VOID)
    }
 }
 
-VOID TEmbedded::ProcessControlW (VOID)
+VOID TEmbedded::ProcessControlW ()
 {
    SHORT c;
    CHAR Temp[128], *p;
@@ -2633,7 +2633,7 @@ ULONG TEmbedded::TimeRemain (USHORT seconds)
    return (RetVal);
 }
 
-VOID TEmbedded::UnbufferBytes (VOID)
+VOID TEmbedded::UnbufferBytes ()
 {
    if (Com != NULL)
       Com->UnbufferBytes ();
@@ -2641,7 +2641,7 @@ VOID TEmbedded::UnbufferBytes (VOID)
       Snoop->UnbufferBytes ();
 }
 
-VOID TEmbedded::TranslateKeyword (VOID)
+VOID TEmbedded::TranslateKeyword ()
 {
    USHORT Len;
    SHORT i, c, PutOn = FALSE, WasColor = FALSE;

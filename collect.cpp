@@ -19,13 +19,13 @@
 #include "_ldefs.h"
 #include "collect.h"
 
-TCollection::TCollection (void)
+TCollection::TCollection ()
 {
    List = NULL;
    Elements = 0;
 }
 
-TCollection::~TCollection (void)
+TCollection::~TCollection ()
 {
    while (List != NULL)
       Remove ();
@@ -93,14 +93,14 @@ USHORT TCollection::Add (PVOID lpData, USHORT usSize)
    return (RetVal);
 }
 
-VOID TCollection::Clear (VOID)
+VOID TCollection::Clear ()
 {
    while (List != NULL)
       Remove ();
    Elements = 0;
 }
 
-PVOID TCollection::First (VOID)
+PVOID TCollection::First ()
 {
    PVOID RetVal = NULL;
 
@@ -169,7 +169,7 @@ USHORT TCollection::Insert (PVOID lpData, USHORT usSize)
    return (RetVal);
 }
 
-PVOID TCollection::Last (VOID)
+PVOID TCollection::Last ()
 {
    PVOID RetVal = NULL;
 
@@ -182,7 +182,7 @@ PVOID TCollection::Last (VOID)
    return (RetVal);
 }
 
-PVOID TCollection::Next (VOID)
+PVOID TCollection::Next ()
 {
    PVOID RetVal = NULL;
 
@@ -196,7 +196,7 @@ PVOID TCollection::Next (VOID)
    return (RetVal);
 }
 
-PVOID TCollection::Previous (VOID)
+PVOID TCollection::Previous ()
 {
    PVOID RetVal = NULL;
 
@@ -210,7 +210,7 @@ PVOID TCollection::Previous (VOID)
    return (RetVal);
 }
 
-VOID TCollection::Remove (VOID)
+VOID TCollection::Remove ()
 {
    LDATA *Temp;
 
@@ -289,7 +289,7 @@ USHORT TCollection::Replace (PVOID lpData, USHORT usSize)
    return (RetVal);
 }
 
-PVOID TCollection::Value (VOID)
+PVOID TCollection::Value ()
 {
    return ((List == NULL) ? NULL : List->Value);
 }

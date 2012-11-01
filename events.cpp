@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TEvents::TEvents (void)
+TEvents::TEvents ()
 {
    strcpy (DataFile, "events.dat");
    Data.Clear ();
@@ -36,7 +36,7 @@ TEvents::TEvents (PSZ pszDataFile)
    AdjustPath (DataFile);
 }
 
-TEvents::~TEvents (void)
+TEvents::~TEvents ()
 {
    Data.Clear ();
 }
@@ -140,7 +140,7 @@ VOID TEvents::Struct2Class (EVENT *Event)
    Completed = Event->Completed;
 }
 
-VOID TEvents::Add (VOID)
+VOID TEvents::Add ()
 {
    USHORT RetVal, TimeNew, TimeEvent;
    EVENT *lpEvent;
@@ -187,7 +187,7 @@ VOID TEvents::Add (VOID)
       } while (Data.Next () != NULL);
 }
 
-VOID TEvents::Delete (VOID)
+VOID TEvents::Delete ()
 {
    EVENT *Current;
 
@@ -210,7 +210,7 @@ VOID TEvents::Delete (VOID)
    }
 }
 
-USHORT TEvents::First (VOID)
+USHORT TEvents::First ()
 {
    USHORT RetVal = FALSE;
    EVENT *Event;
@@ -225,7 +225,7 @@ USHORT TEvents::First (VOID)
    return (RetVal);
 }
 
-USHORT TEvents::Load (VOID)
+USHORT TEvents::Load ()
 {
    int fd;
    USHORT RetVal = FALSE;
@@ -243,7 +243,7 @@ USHORT TEvents::Load (VOID)
    return (RetVal);
 }
 
-VOID TEvents::New (VOID)
+VOID TEvents::New ()
 {
    memset (Label, 0, sizeof (Label));
    Hour = Minute = 0;
@@ -263,7 +263,7 @@ VOID TEvents::New (VOID)
    AllowRequests = MakeRequests = ProcessTIC = ClockAdjustment = FALSE;
 }
 
-USHORT TEvents::Next (VOID)
+USHORT TEvents::Next ()
 {
    USHORT RetVal = FALSE;
    EVENT *Event;
@@ -278,7 +278,7 @@ USHORT TEvents::Next (VOID)
    return (RetVal);
 }
 
-USHORT TEvents::Previous (VOID)
+USHORT TEvents::Previous ()
 {
    USHORT RetVal = FALSE;
    EVENT *Event;
@@ -308,7 +308,7 @@ USHORT TEvents::Read (USHORT evtNum)
    return (RetVal);
 }
 
-VOID TEvents::Save (VOID)
+VOID TEvents::Save ()
 {
    int fd;
    USHORT Current;
@@ -331,7 +331,7 @@ VOID TEvents::Save (VOID)
    }
 }
 
-USHORT TEvents::SetCurrent (VOID)
+USHORT TEvents::SetCurrent ()
 {
    USHORT RetVal = FALSE, TimeNow, TimeEvent;
    USHORT CurDay;
@@ -366,7 +366,7 @@ USHORT TEvents::SetCurrent (VOID)
    return (RetVal);
 }
 
-VOID TEvents::TimeToNext (VOID)
+VOID TEvents::TimeToNext ()
 {
    USHORT TimeNow, TimeEvent, ToMid;
    USHORT CurDay, Num;
@@ -424,7 +424,7 @@ VOID TEvents::TimeToNext (VOID)
       TimeRemain = 1440;
 }
 
-VOID TEvents::Update (VOID)
+VOID TEvents::Update ()
 {
    EVENT *Event;
 

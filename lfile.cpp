@@ -23,7 +23,7 @@ CHAR Symbol = '>';
 USHORT Column = 1;
 class TConfig *Cfg;
 
-VOID ExportFilesBBS (VOID)
+VOID ExportFilesBBS ()
 {
    FILE *fp;
    USHORT i;
@@ -65,7 +65,7 @@ VOID ExportFilesBBS (VOID)
    }
 }
 
-VOID ImportFilesBBS (VOID)
+VOID ImportFilesBBS ()
 {
    FILE *fp;
    USHORT PendingWrite;
@@ -221,7 +221,7 @@ VOID PurgeFiles (USHORT DaysOld)
    }
 }
 
-VOID PackFilebase (VOID)
+VOID PackFilebase ()
 {
    class TFileBase *File;
 
@@ -233,7 +233,7 @@ VOID PackFilebase (VOID)
    }
 }
 
-VOID CreateFilesList (VOID)
+VOID CreateFilesList ()
 {
    FILE *fp;
    CHAR *p;
@@ -400,7 +400,7 @@ VOID UpdateFilebase (USHORT KeepDate)
       delete Packer;
 }
 
-void main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
    int i;
    USHORT Purge, Pack, Import, Export, DaysOld, List, Update;
@@ -511,4 +511,6 @@ void main (int argc, char *argv[])
       if (Cfg != NULL)
          delete Cfg;
    }
+
+   return 0;
 }

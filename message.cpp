@@ -22,20 +22,20 @@
 class TMsgAreaListing : public TListings
 {
 public:
-   TMsgAreaListing (void);
+   TMsgAreaListing ();
 
    CHAR   Area[16];
    CHAR   Command[16];
    class  TConfig *Cfg;
    class  TMsgData *Current;
 
-   VOID   Begin (VOID);
-   USHORT DrawScreen (VOID);
+   VOID   Begin ();
+   USHORT DrawScreen ();
    VOID   PrintCursor (USHORT y);
-   VOID   PrintLine (VOID);
-   VOID   PrintTitles (VOID);
+   VOID   PrintLine ();
+   VOID   PrintTitles ();
    VOID   RemoveCursor (USHORT y);
-   VOID   Select (VOID);
+   VOID   Select ();
 };
 
 class TMsgNewAreaListing : public TListings
@@ -46,13 +46,13 @@ public:
 
    CHAR   Area[16];
 
-   VOID   Begin (VOID);
-   USHORT DrawScreen (VOID);
+   VOID   Begin ();
+   USHORT DrawScreen ();
    VOID   PrintCursor (USHORT y);
-   VOID   PrintLine (VOID);
-   VOID   PrintTitles (VOID);
+   VOID   PrintLine ();
+   VOID   PrintTitles ();
    VOID   RemoveCursor (USHORT y);
-   VOID   Select (VOID);
+   VOID   Select ();
 };
 
 class TMessageList : public TListings
@@ -66,18 +66,18 @@ public:
    class  TMsgData *Current;
    class  TMessage *Parent;
 
-   VOID   Begin (VOID);
-   USHORT DrawScreen (VOID);
+   VOID   Begin ();
+   USHORT DrawScreen ();
    VOID   PrintCursor (USHORT y);
-   VOID   PrintLine (VOID);
-   VOID   PrintTitles (VOID);
+   VOID   PrintLine ();
+   VOID   PrintTitles ();
    VOID   RemoveCursor (USHORT y);
-   VOID   Select (VOID);
+   VOID   Select ();
 };
 
 // ----------------------------------------------------------------------
 
-VOID TMessageList::Begin (VOID)
+VOID TMessageList::Begin ()
 {
    USHORT i, Total = 0;
    ULONG Msgn;
@@ -158,7 +158,7 @@ VOID TMessageList::Begin (VOID)
 */
 }
 
-USHORT TMessageList::DrawScreen (VOID)
+USHORT TMessageList::DrawScreen ()
 {
    USHORT i;
 
@@ -177,12 +177,12 @@ USHORT TMessageList::DrawScreen (VOID)
    return (i);
 }
 
-VOID TMessageList::PrintTitles (VOID)
+VOID TMessageList::PrintTitles ()
 {
    Embedded->Printf ("\x0C\x16\x01\x0B%s \x16\x01\x0A- \x16\x01\x0B%s\026\007\n", Current->Key, Current->Display);
-   Embedded->Printf ("\026\001\017    #  From                  To                    Subject\n\031Ä\005  \031Ä\024  \031Ä\024  \031Ä\034\n");
+   Embedded->Printf ("\026\001\017    #  From                  To                    Subject\n\031ï¿½\005  \031ï¿½\024  \031ï¿½\024  \031ï¿½\034\n");
 
-   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "\026\001\017\031Ä\005  \031Ä\024  \031Ä\024  \031Ä\034\n");
+   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "\026\001\017\031ï¿½\005  \031ï¿½\024  \031ï¿½\024  \031ï¿½\034\n");
 
    Embedded->Printf ("\026\001\016Use your arrow keys or CTRL-X / CTRL-E to hilight an area, RETURN selects it.\n");
    Embedded->Printf ("\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.");
@@ -190,7 +190,7 @@ VOID TMessageList::PrintTitles (VOID)
    Embedded->PrintfAt (4, 1, "");
 }
 
-VOID TMessageList::PrintLine (VOID)
+VOID TMessageList::PrintLine ()
 {
    Embedded->Printf ("%s\n", pld->Display);
 }
@@ -205,7 +205,7 @@ VOID TMessageList::RemoveCursor (USHORT y)
    Embedded->PrintfAt (y, 1, "\x16\x01\x07%-5.5s\x16\x01\x07", (PSZ)List.Value ());
 }
 
-VOID TMessageList::Select (VOID)
+VOID TMessageList::Select ()
 {
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
    CHAR *Text, Temp[96], *p, Flags[96];
@@ -299,7 +299,7 @@ VOID TMessageList::Select (VOID)
          Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFILE), Msg->Subject);
       else
          Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Msg->Subject);
-      Embedded->BufferedPrintf ("\x16\x01\x13\031Ä\120");
+      Embedded->BufferedPrintf ("\x16\x01\x13\031ï¿½\120");
 
       Line = 6;
 
@@ -360,7 +360,7 @@ TMessage::TMessage (PSZ pszDataPath)
    DoCls = More = TRUE;
 }
 
-TMessage::~TMessage (void)
+TMessage::~TMessage ()
 {
    if (Msg != NULL) {
       Msg->Close ();
@@ -370,7 +370,7 @@ TMessage::~TMessage (void)
       delete Current;
 }
 
-VOID TMessage::BriefList (VOID)
+VOID TMessage::BriefList ()
 {
    CHAR Temp[16];
    SHORT Line, Continue;
@@ -412,7 +412,7 @@ VOID TMessage::BriefList (VOID)
             else {
                Line = 1;
                Embedded->Printf ("\x0C");
-               Embedded->Printf ("\026\001\017    #  From                    To                     Subject\n\031Ä\005  \031Ä\026  \031Ä\025  \031Ä\027\n");
+               Embedded->Printf ("\026\001\017    #  From                    To                     Subject\n\031ï¿½\005  \031ï¿½\026  \031ï¿½\025  \031ï¿½\027\n");
 
                Continue = Msg->Next (Number);
                while (Embedded->AbortSession () == FALSE && Line != 0 && Continue == TRUE) {
@@ -420,7 +420,7 @@ VOID TMessage::BriefList (VOID)
                      if (Msg->Private == FALSE || !stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
                         if ((Line = Embedded->MoreQuestion (Line)) == 1) {
                            Embedded->Printf ("\x0C");
-                           Embedded->Printf ("\026\001\017    #  From                    To                     Subject\n\031Ä\005  \031Ä\026  \031Ä\025  \031Ä\027\n");
+                           Embedded->Printf ("\026\001\017    #  From                    To                     Subject\n\031ï¿½\005  \031ï¿½\026  \031ï¿½\025  \031ï¿½\027\n");
                            Line = 2;
                         }
                         Embedded->Printf ("\026\001\007%5lu  \026\001\016%-22.22s  \026\001\012%-21.21s  \026\001\013%-.23s\n", Msg->UidToMsgn (Msg->Current), Msg->From, Msg->To, Msg->Subject);
@@ -437,7 +437,7 @@ VOID TMessage::BriefList (VOID)
    }
 }
 
-VOID TMessage::Delete (VOID)
+VOID TMessage::Delete ()
 {
    CHAR szTemp[20];
    ULONG ulMsg, ulNumber, First;
@@ -557,7 +557,7 @@ VOID TMessage::BuildDate (PSZ format, PSZ dest, MDATE *date)
    *dest = '\0';
 }
 
-VOID TMessage::DisplayCurrent (VOID)
+VOID TMessage::DisplayCurrent ()
 {
    USHORT InitialLine;
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
@@ -655,7 +655,7 @@ VOID TMessage::DisplayCurrent (VOID)
             Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFILE), Msg->Subject);
          else
             Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Msg->Subject);
-         Embedded->BufferedPrintf ("\x16\x01\x13\031Ä\120");
+         Embedded->BufferedPrintf ("\x16\x01\x13\031ï¿½\120");
 
          InitialLine = Line = 6;
       }
@@ -726,7 +726,7 @@ VOID TMessage::DisplayCurrent (VOID)
    }
 }
 
-VOID TMessage::DisplayText (VOID)
+VOID TMessage::DisplayText ()
 {
    USHORT gotFrom = FALSE, gotTo = FALSE;
    CHAR *Text, Temp[96], Flags[96];
@@ -839,7 +839,7 @@ VOID TMessage::GetOrigin (class TMsgData *Data, PSZ Origin)
    }
 }
 
-VOID TMessage::Reply (VOID)
+VOID TMessage::Reply ()
 {
    ULONG Number;
    class TMsgEditor *Editor;
@@ -897,7 +897,7 @@ VOID TMessage::Reply (VOID)
    }
 }
 
-VOID TMessage::Write (VOID)
+VOID TMessage::Write ()
 {
    class TMsgEditor *Editor;
 
@@ -986,7 +986,7 @@ VOID TMessage::Read (ULONG Number)
    }
 }
 
-VOID TMessage::ReadReply (VOID)
+VOID TMessage::ReadReply ()
 {
    if (Msg != NULL) {
       if (Msg->Current == 0L || Msg->Reply == 0L)
@@ -996,7 +996,7 @@ VOID TMessage::ReadReply (VOID)
    }
 }
 
-VOID TMessage::ReadOriginal (VOID)
+VOID TMessage::ReadOriginal ()
 {
    if (Msg != NULL) {
       if (Msg->Current == 0L || Msg->Original == 0L)
@@ -1006,7 +1006,7 @@ VOID TMessage::ReadOriginal (VOID)
    }
 }
 
-VOID TMessage::ReadMessages (VOID)
+VOID TMessage::ReadMessages ()
 {
    USHORT Forward;
    CHAR Cmd, NewMessages, End, DoRead, Temp[40];
@@ -1200,7 +1200,7 @@ VOID TMessage::ReadMessages (VOID)
    }
 }
 
-VOID TMessage::ReadNext (VOID)
+VOID TMessage::ReadNext ()
 {
    USHORT DoRead = FALSE;
    ULONG Number = 0L;
@@ -1243,7 +1243,7 @@ VOID TMessage::ReadNext (VOID)
    }
 }
 
-VOID TMessage::ReadPrevious (VOID)
+VOID TMessage::ReadPrevious ()
 {
    USHORT DoRead = FALSE;
    ULONG Number = 0L;
@@ -1741,7 +1741,7 @@ VOID TMessage::StartMessageQuestion (ULONG ulFirst, ULONG ulLast, USHORT fNewMes
    }
 }
 
-VOID TMessage::ReadNonStop (VOID)
+VOID TMessage::ReadNonStop ()
 {
    USHORT Forward, Continue;
    ULONG Number;
@@ -1790,7 +1790,7 @@ VOID TMessage::ReadNonStop (VOID)
    }
 }
 
-VOID TMessage::TitleList (VOID)
+VOID TMessage::TitleList ()
 {
    USHORT NewMessages, Forward, Continue;
    SHORT Line;
@@ -1861,7 +1861,7 @@ VOID TMessage::TitleList (VOID)
    }
 }
 
-VOID TMessage::Unreceive (VOID)
+VOID TMessage::Unreceive ()
 {
    if (Msg != NULL) {
       if (Msg->Current == 0L)
@@ -1875,12 +1875,12 @@ VOID TMessage::Unreceive (VOID)
 
 // ----------------------------------------------------------------------
 
-TMsgAreaListing::TMsgAreaListing (void)
+TMsgAreaListing::TMsgAreaListing ()
 {
    Command[0] = '\0';
 }
 
-VOID TMsgAreaListing::Begin (VOID)
+VOID TMsgAreaListing::Begin ()
 {
    USHORT i, Add;
    CHAR Temp[128];
@@ -1962,7 +1962,7 @@ VOID TMsgAreaListing::Begin (VOID)
    }
 }
 
-USHORT TMsgAreaListing::DrawScreen (VOID)
+USHORT TMsgAreaListing::DrawScreen ()
 {
    USHORT i;
 
@@ -1981,7 +1981,7 @@ USHORT TMsgAreaListing::DrawScreen (VOID)
    return (i);
 }
 
-VOID TMsgAreaListing::PrintTitles (VOID)
+VOID TMsgAreaListing::PrintTitles ()
 {
    Embedded->Printf ("\x0C");
    Embedded->Printf (Language->Text (LNG_MESSAGEAREAHEADER));
@@ -1994,7 +1994,7 @@ VOID TMsgAreaListing::PrintTitles (VOID)
    Embedded->PrintfAt (4, 1, "");
 }
 
-VOID TMsgAreaListing::PrintLine (VOID)
+VOID TMsgAreaListing::PrintLine ()
 {
    Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), pld->Key, pld->ActiveMsgs, pld->Display);
 }
@@ -2009,7 +2009,7 @@ VOID TMsgAreaListing::RemoveCursor (USHORT y)
    Embedded->PrintfAt (y, 1, Language->Text (LNG_MESSAGEAREAKEY), (PSZ)List.Value ());
 }
 
-VOID TMsgAreaListing::Select (VOID)
+VOID TMsgAreaListing::Select ()
 {
    strcpy (Area, (PSZ)List.Value ());
    RetVal = End = TRUE;
@@ -2017,7 +2017,7 @@ VOID TMsgAreaListing::Select (VOID)
 
 // ----------------------------------------------------------------------
 
-VOID TMsgNewAreaListing::Begin (VOID)
+VOID TMsgNewAreaListing::Begin ()
 {
    USHORT i;
    LISTDATA ld;
@@ -2065,7 +2065,7 @@ VOID TMsgNewAreaListing::Begin (VOID)
    }
 }
 
-USHORT TMsgNewAreaListing::DrawScreen (VOID)
+USHORT TMsgNewAreaListing::DrawScreen ()
 {
    USHORT i;
 
@@ -2083,7 +2083,7 @@ USHORT TMsgNewAreaListing::DrawScreen (VOID)
    return (i);
 }
 
-VOID TMsgNewAreaListing::PrintTitles (VOID)
+VOID TMsgNewAreaListing::PrintTitles ()
 {
    Embedded->Printf ("\x0C\n");
    Embedded->Printf ("\026\001\012Conference       Msgs   Description\n\026\001\017\031=\017  \031=\005  \031=\067\n");
@@ -2096,7 +2096,7 @@ VOID TMsgNewAreaListing::PrintTitles (VOID)
    Embedded->PrintfAt (4, 1, "");
 }
 
-VOID TMsgNewAreaListing::PrintLine (VOID)
+VOID TMsgNewAreaListing::PrintLine ()
 {
    Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), pld->Key, pld->ActiveMsgs, pld->Display);
 }
@@ -2111,7 +2111,7 @@ VOID TMsgNewAreaListing::RemoveCursor (USHORT y)
    Embedded->PrintfAt (y, 1, "\x16\x01\x0B%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
 }
 
-VOID TMsgNewAreaListing::Select (VOID)
+VOID TMsgNewAreaListing::Select ()
 {
    strcpy (Area, (PSZ)List.Value ());
    RetVal = End = TRUE;
@@ -2119,7 +2119,7 @@ VOID TMsgNewAreaListing::Select (VOID)
 
 // ---------------------------------------------------------------------------
 
-TInquire::TInquire (void)
+TInquire::TInquire ()
 {
    Type = TYPE_ALL;
    Action = ACTION_UNDEFINED;
@@ -2133,11 +2133,11 @@ TInquire::TInquire (void)
    Stop = FALSE;
 }
 
-TInquire::~TInquire (void)
+TInquire::~TInquire ()
 {
 }
 
-VOID TInquire::DeleteCurrent (VOID)
+VOID TInquire::DeleteCurrent ()
 {
    if (Msg != NULL && Number > 0) {
       if (Msg->ReadHeader (Number) == TRUE) {
@@ -2153,7 +2153,7 @@ VOID TInquire::DeleteCurrent (VOID)
    }
 }
 
-VOID TInquire::DisplayCurrent (VOID)
+VOID TInquire::DisplayCurrent ()
 {
    USHORT InitialLine;
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
@@ -2251,7 +2251,7 @@ VOID TInquire::DisplayCurrent (VOID)
             Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFILE), Msg->Subject);
          else
             Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Msg->Subject);
-         Embedded->BufferedPrintf ("\x16\x01\x13\031Ä\120");
+         Embedded->BufferedPrintf ("\x16\x01\x13\031ï¿½\120");
 
          InitialLine = Line = 6;
       }
@@ -2322,7 +2322,7 @@ VOID TInquire::DisplayCurrent (VOID)
    }
 }
 
-USHORT TInquire::FirstMessage (VOID)
+USHORT TInquire::FirstMessage ()
 {
    USHORT RetVal = FALSE, Total = 0;
    CHAR Temp[128], *p;
@@ -2395,7 +2395,7 @@ USHORT TInquire::FirstMessage (VOID)
    return (RetVal);
 }
 
-USHORT TInquire::NextMessage (VOID)
+USHORT TInquire::NextMessage ()
 {
    USHORT RetVal = FALSE, Total = 0;
    CHAR Temp[128], *p;
@@ -2468,7 +2468,7 @@ USHORT TInquire::NextMessage (VOID)
    return (RetVal);
 }
 
-USHORT TInquire::PreviousMessage (VOID)
+USHORT TInquire::PreviousMessage ()
 {
    USHORT RetVal = FALSE, Total = 0;
    CHAR Temp[128], *p;
@@ -2541,7 +2541,7 @@ USHORT TInquire::PreviousMessage (VOID)
    return (RetVal);
 }
 
-USHORT TInquire::First (VOID)
+USHORT TInquire::First ()
 {
    USHORT RetVal = FALSE, NewLine = TRUE;
 
@@ -2676,7 +2676,7 @@ USHORT TInquire::First (VOID)
    return (RetVal);
 }
 
-USHORT TInquire::Next (VOID)
+USHORT TInquire::Next ()
 {
    USHORT RetVal = FALSE;
 
@@ -2777,7 +2777,7 @@ USHORT TInquire::Next (VOID)
    return (RetVal);
 }
 
-USHORT TInquire::Previous (VOID)
+USHORT TInquire::Previous ()
 {
    USHORT RetVal = FALSE;
 
@@ -2875,7 +2875,7 @@ USHORT TInquire::Previous (VOID)
    return (RetVal);
 }
 
-VOID TInquire::Query (VOID)
+VOID TInquire::Query ()
 {
    USHORT End, DoRead;
    SHORT Line, Continue;
@@ -3043,7 +3043,7 @@ VOID TInquire::Query (VOID)
       delete Data;
 }
 
-USHORT TInquire::SearchRange (VOID)
+USHORT TInquire::SearchRange ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[4];
@@ -3079,7 +3079,7 @@ USHORT TInquire::SearchRange (VOID)
    return (RetVal);
 }
 
-USHORT TInquire::SearchAction (VOID)
+USHORT TInquire::SearchAction ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[4];

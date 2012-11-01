@@ -47,8 +47,8 @@
 class TEmbedded
 {
 public:
-   TEmbedded (void);
-   ~TEmbedded (void);
+   TEmbedded ();
+   ~TEmbedded ();
 
    USHORT Task;
    USHORT EndRun, Hangup, TimeLimit;
@@ -65,10 +65,10 @@ public:
    class  TMsgData *MsgArea;
    class  TFileData *FileArea;
 
-   USHORT AbortSession (VOID);
+   USHORT AbortSession ();
    VOID   BufferedPrintf (PSZ pszFormat, ...);
    VOID   BufferedPrintfAt (USHORT usRow, USHORT usColumn, PSZ pszFormat, ...);
-   VOID   ClrEol (VOID);
+   VOID   ClrEol ();
    USHORT DisplayFile (PSZ pszFile);
    USHORT DisplayPrompt (PSZ pszString, USHORT usColor, USHORT usHilight, USHORT usUnbuffer = FALSE);
    USHORT DisplayString (PSZ pszString);
@@ -76,11 +76,11 @@ public:
    USHORT Getch ();
    PSZ    GetString (PSZ pszBuffer, USHORT usMaxlen, USHORT flAttrib = 0);
    USHORT KBHit ();
-   VOID   Idle (VOID);
+   VOID   Idle ();
    PSZ    Input (PSZ pszBuffer, USHORT usMaxlen, USHORT flAttrib = 0);
    SHORT  MoreQuestion (SHORT nLine);
    VOID   OutString (PSZ pszFormat, ...);
-   VOID   PressEnter (VOID);
+   VOID   PressEnter ();
    VOID   Printf (PSZ pszFormat, ...);
    VOID   PrintfAt (USHORT usRow, USHORT usColumn, PSZ pszFormat, ...);
    VOID   Putch (UCHAR ucByte);
@@ -100,16 +100,16 @@ private:
    CHAR   Traslate[64], *TrasPtr;
    time_t last_time;
 
-   SHORT  GetNextChar (VOID);
+   SHORT  GetNextChar ();
    FILE  *OpenFile (PSZ pszName, PSZ pszAccess = "rb");
-   SHORT  PeekNextChar (VOID);
+   SHORT  PeekNextChar ();
    VOID   ProcessControl (UCHAR ucControl);
-   VOID   ProcessControlF (VOID);
-   VOID   ProcessControlO (VOID);
-   VOID   ProcessControlP (VOID);
-   VOID   ProcessControlK (VOID);
-   VOID   ProcessControlW (VOID);
-   VOID   TranslateKeyword (VOID);
+   VOID   ProcessControlF ();
+   VOID   ProcessControlO ();
+   VOID   ProcessControlP ();
+   VOID   ProcessControlK ();
+   VOID   ProcessControlW ();
+   VOID   TranslateKeyword ();
 };
 
 
@@ -119,7 +119,7 @@ class TMessage
 {
 public:
    TMessage (PSZ pszDataFile);
-   ~TMessage (void);
+   ~TMessage ();
 
    USHORT ShowKludges;
    USHORT Width, Height, More, DoCls;
@@ -131,27 +131,27 @@ public:
    class  TUser     *User;
    class  TMsgBase  *Msg;
 
-   VOID   BriefList (VOID);
+   VOID   BriefList ();
    VOID   BuildDate (PSZ format, PSZ dest, MDATE *date);
-   VOID   Delete (VOID);
-   VOID   DisplayCurrent (VOID);
-   VOID   DisplayText (VOID);
+   VOID   Delete ();
+   VOID   DisplayCurrent ();
+   VOID   DisplayText ();
    VOID   GetOrigin (class TMsgData *Data, PSZ Origin);
    VOID   OpenArea (PSZ area);
    VOID   Read (ULONG Number);
-   VOID   ReadMessages (VOID);
-   VOID   ReadNext (VOID);
-   VOID   ReadNonStop (VOID);
-   VOID   ReadOriginal (VOID);
-   VOID   ReadPrevious (VOID);
-   VOID   ReadReply (VOID);
-   VOID   Reply (VOID);
+   VOID   ReadMessages ();
+   VOID   ReadNext ();
+   VOID   ReadNonStop ();
+   VOID   ReadOriginal ();
+   VOID   ReadPrevious ();
+   VOID   ReadReply ();
+   VOID   Reply ();
    USHORT SelectArea (PSZ pszArea);
    USHORT SelectNewArea (PSZ pszArea);
    VOID   StartMessageQuestion (ULONG ulFirst, ULONG ulLast, USHORT fNewMessages, ULONG &ulMsg, USHORT &fForward);
-   VOID   TitleList (VOID);
-   VOID   Unreceive (VOID);
-   VOID   Write (VOID);
+   VOID   TitleList ();
+   VOID   Unreceive ();
+   VOID   Write ();
 
 private:
    CHAR   DataPath[128];
@@ -175,8 +175,8 @@ private:
 class TInquire
 {
 public:
-   TInquire (void);
-   ~TInquire (void);
+   TInquire ();
+   ~TInquire ();
 
    USHORT Type, Action, Range, Stop;
    USHORT ShowKludges;
@@ -188,12 +188,12 @@ public:
    class  TMsgData *Current;
    class  TLog *Log;
 
-   VOID   DeleteCurrent (VOID);
-   VOID   DisplayCurrent (VOID);
-   USHORT First (VOID);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
-   VOID   Query (VOID);
+   VOID   DeleteCurrent ();
+   VOID   DisplayCurrent ();
+   USHORT First ();
+   USHORT Next ();
+   USHORT Previous ();
+   VOID   Query ();
 
 private:
    ULONG  Number;
@@ -201,11 +201,11 @@ private:
    class  TMsgData *Data;
 
    VOID   BuildDate (PSZ format, PSZ dest, MDATE *date);
-   USHORT FirstMessage (VOID);
-   USHORT NextMessage (VOID);
-   USHORT PreviousMessage (VOID);
-   USHORT SearchAction (VOID);
-   USHORT SearchRange (VOID);
+   USHORT FirstMessage ();
+   USHORT NextMessage ();
+   USHORT PreviousMessage ();
+   USHORT SearchAction ();
+   USHORT SearchRange ();
 };
 
 // ---------------------------------------------------------------------------
@@ -214,7 +214,7 @@ class TLibrary
 {
 public:
    TLibrary (PSZ pszDataFile);
-   ~TLibrary (void);
+   ~TLibrary ();
 
    USHORT Task;
    ULONG  CarrierSpeed;
@@ -228,25 +228,25 @@ public:
 
    VOID   Download (class TFileTag *Files = NULL, USHORT AnyLibrary = FALSE);
    USHORT DownloadFile (PSZ pszFile, PSZ pszName, ULONG ulSize);
-   VOID   DownloadList (VOID);
+   VOID   DownloadList ();
    VOID   ExternalProtocols (USHORT Batch);
    VOID   FileDetails (class TFileBase *File);
-   VOID   ListDownloadedFiles (VOID);
+   VOID   ListDownloadedFiles ();
    VOID   ListFiles (class TFileBase *Data = NULL);
-   VOID   ListRecentFiles (VOID);
-   VOID   AddTagged (VOID);
-   VOID   ListTagged (VOID);
-   VOID   DeleteTagged (VOID);
-   VOID   DeleteAllTagged (VOID);
-   VOID   RemoveFiles (VOID);
-   VOID   SearchFileName (VOID);
-   VOID   SearchKeyword (VOID);
-   VOID   SearchNewFiles (VOID);
-   USHORT SearchRange (VOID);
-   VOID   SearchText (VOID);
+   VOID   ListRecentFiles ();
+   VOID   AddTagged ();
+   VOID   ListTagged ();
+   VOID   DeleteTagged ();
+   VOID   DeleteAllTagged ();
+   VOID   RemoveFiles ();
+   VOID   SearchFileName ();
+   VOID   SearchKeyword ();
+   VOID   SearchNewFiles ();
+   USHORT SearchRange ();
+   VOID   SearchText ();
    USHORT SelectArea (PSZ pszArea);
-   VOID   TypeFile (VOID);
-   VOID   Upload (VOID);
+   VOID   TypeFile ();
+   VOID   Upload ();
    VOID   UploadUser (PSZ user);
 
 private:
@@ -254,7 +254,7 @@ private:
    class  TStatistics *Stats;
 
    SHORT  MoreQuestion (SHORT nLine);
-   VOID   TagListed (VOID);
+   VOID   TagListed ();
 };
 
 // ---------------------------------------------------------------------------
@@ -262,8 +262,8 @@ private:
 class TEMail
 {
 public:
-   TEMail (void);
-   ~TEMail (void);
+   TEMail ();
+   ~TEMail ();
 
    USHORT ShowKludges, Storage;
    USHORT Width, Height, More, DoCls;
@@ -275,17 +275,17 @@ public:
    class  TUser     *User;
    class  TMsgBase  *Msg;
 
-   VOID   BriefList (VOID);
+   VOID   BriefList ();
    VOID   BuildDate (PSZ format, PSZ dest, MDATE *date);
-   VOID   CheckUnread (VOID);
-   VOID   Delete (VOID);
-   VOID   DisplayCurrent (VOID);
-   VOID   DisplayText (VOID);
+   VOID   CheckUnread ();
+   VOID   Delete ();
+   VOID   DisplayCurrent ();
+   VOID   DisplayText ();
    VOID   Read (ULONG Number);
    VOID   ReadMessages (USHORT fUnreaded = FALSE);
-   VOID   ReadNext (VOID);
-   VOID   ReadNonStop (VOID);
-   VOID   ReadPrevious (VOID);
+   VOID   ReadNext ();
+   VOID   ReadNonStop ();
+   VOID   ReadPrevious ();
    VOID   Reply (USHORT ToCurrent = FALSE);
    VOID   StartMessageQuestion (ULONG ulFirst, ULONG ulLast, ULONG &ulMsg, USHORT &fForward);
    VOID   Write (USHORT Type, PSZ Argument = NULL);
@@ -296,8 +296,8 @@ public:
 class DLL_EXPORT TMailerStatus
 {
 public:
-   TMailerStatus (void);
-   virtual ~TMailerStatus (void);
+   TMailerStatus ();
+   virtual ~TMailerStatus ();
 
    CHAR   SystemName[64];
    CHAR   SysopName[64];
@@ -310,7 +310,7 @@ public:
    ULONG  OutPktBytes, OutDataBytes;
    ULONG  Speed;
 
-   virtual VOID   Update (VOID);
+   virtual VOID   Update ();
 };
 
 // ---------------------------------------------------------------------------
@@ -318,10 +318,10 @@ public:
 class DLL_EXPORT TStatus
 {
 public:
-   TStatus (void);
-   virtual ~TStatus (void);
+   TStatus ();
+   virtual ~TStatus ();
 
-   virtual VOID   Clear (VOID);
+   virtual VOID   Clear ();
    virtual VOID   SetLine (USHORT line, PSZ text, ...);
 };
 
@@ -330,8 +330,8 @@ public:
 class DLL_EXPORT TBbs
 {
 public:
-   TBbs (void);
-   ~TBbs (void);
+   TBbs ();
+   ~TBbs ();
 
    USHORT Task, AutoDetect, TimeLimit, Remote, Local;
    USHORT FancyNames, Logoff;
@@ -347,9 +347,9 @@ public:
 
    VOID   ExecuteCommand (class TMenu *Menu);
    USHORT FileExist (PSZ FileName);
-   VOID   IEMSILogin (VOID);
-   USHORT Login (VOID);
-   VOID   Run (VOID);
+   VOID   IEMSILogin ();
+   USHORT Login ();
+   VOID   Run ();
 
 private:
    USHORT whStatus, Reload;
@@ -364,11 +364,11 @@ private:
    class  TLibrary *Library;
    class  TEMail *EMail;
 
-   VOID   CheckBirthday (VOID);
-   VOID   DisableUseronRecord (VOID);
-   VOID   SetBirthDate (VOID);
+   VOID   CheckBirthday ();
+   VOID   DisableUseronRecord ();
+   VOID   SetBirthDate ();
    VOID   SetUseronRecord (PSZ pszStatus);
-   VOID   ToggleNoDisturb (VOID);
+   VOID   ToggleNoDisturb ();
 };
 
 // ---------------------------------------------------------------------------
@@ -382,8 +382,8 @@ private:
 class DLL_EXPORT TDetect
 {
 public:
-   TDetect (void);
-   ~TDetect (void);
+   TDetect ();
+   ~TDetect ();
 
    USHORT Task, Remote;
    UCHAR  Ansi, Avatar, Rip, FullEd, MorePrompt;
@@ -405,32 +405,32 @@ public:
    class  TMailerStatus *MailerStatus;
    class  TStatus *Status;
 
-   USHORT AbortSession (VOID);
-   USHORT EMSIReceiver (VOID);
-   USHORT EMSISender (VOID);
-   VOID   IEMSIReceiver (VOID);
-   USHORT RemoteMailer (VOID);
-   VOID   Terminal (VOID);
-   USHORT WaZOOReceiver (VOID);
-   USHORT WaZOOSender (VOID);
+   USHORT AbortSession ();
+   USHORT EMSIReceiver ();
+   USHORT EMSISender ();
+   VOID   IEMSIReceiver ();
+   USHORT RemoteMailer ();
+   VOID   Terminal ();
+   USHORT WaZOOReceiver ();
+   USHORT WaZOOSender ();
 
 private:
    CHAR   ReceiveIEMSI[2048], *ReceiveEMSI;
    CHAR   SendIEMSI[2048], *SendEMSI;
    ULONG  StartCall, LastPktName;
 
-   USHORT CheckEMSIPacket (VOID);
-   VOID   ParseEMSIPacket (VOID);
-   VOID   ParseIEMSIPacket (VOID);
-   USHORT ReceiveHello (VOID);
-   USHORT ReceiveEMSIPacket (VOID);
-   USHORT ReceiveIEMSIPacket (VOID);
-   VOID   Receiver (VOID);
-   VOID   Sender (VOID);
-   USHORT SendHello (VOID);
-   VOID   SendEMSIPacket (VOID);
-   VOID   SendIEMSIPacket (VOID);
-   SHORT  TimedRead (VOID);
+   USHORT CheckEMSIPacket ();
+   VOID   ParseEMSIPacket ();
+   VOID   ParseIEMSIPacket ();
+   USHORT ReceiveHello ();
+   USHORT ReceiveEMSIPacket ();
+   USHORT ReceiveIEMSIPacket ();
+   VOID   Receiver ();
+   VOID   Sender ();
+   USHORT SendHello ();
+   VOID   SendEMSIPacket ();
+   VOID   SendIEMSIPacket ();
+   SHORT  TimedRead ();
 };
 
 // ---------------------------------------------------------------------------
@@ -445,8 +445,8 @@ private:
 class TInternet
 {
 public:
-   TInternet (void);
-   ~TInternet (void);
+   TInternet ();
+   ~TInternet ();
 
    class  TConfig *Cfg;
    class  TCom *Com, *Snoop;
@@ -478,8 +478,8 @@ private:
 class TEditor
 {
 public:
-   TEditor (void);
-   virtual ~TEditor (void);
+   TEditor ();
+   virtual ~TEditor ();
 
    USHORT UseFullScreen;
    USHORT StartCol, StartRow;
@@ -487,17 +487,17 @@ public:
    class  TEmbedded *Embedded;
    class  TLanguage *Language;
 
-   virtual USHORT AppendText (VOID);
-   virtual VOID   ChangeText (VOID);
-   virtual VOID   Clear (VOID);
-   virtual VOID   DeleteLine (VOID);
-   virtual VOID   DisplayScreen (VOID);
+   virtual USHORT AppendText ();
+   virtual VOID   ChangeText ();
+   virtual VOID   Clear ();
+   virtual VOID   DeleteLine ();
+   virtual VOID   DisplayScreen ();
    virtual USHORT ExternalEditor (PSZ EditorCmd);
-   virtual USHORT FullScreen (VOID);
-   virtual USHORT InputText (VOID);
-   virtual USHORT InsertLines (VOID);
-   virtual VOID   ListText (VOID);
-   virtual VOID   RetypeLine (VOID);
+   virtual USHORT FullScreen ();
+   virtual USHORT InputText ();
+   virtual USHORT InsertLines ();
+   virtual VOID   ListText ();
+   virtual VOID   RetypeLine ();
 
 protected:
    USHORT cx, cy;
@@ -520,8 +520,8 @@ protected:
 class TMsgEditor : public TEditor
 {
 public:
-   TMsgEditor (void);
-   ~TMsgEditor (void);
+   TMsgEditor ();
+   ~TMsgEditor ();
 
    USHORT EchoMail;
    CHAR   AreaKey[16];
@@ -533,16 +533,16 @@ public:
    class  TLog *Log;
    class  TMsgBase *Msg;
 
-   VOID   DisplayScreen (VOID);
-   VOID   Forward (VOID);
-   VOID   InputSubject (VOID);
-   USHORT InputTo (VOID);
-   VOID   Menu (VOID);
-   USHORT Modify (VOID);
-   VOID   QuoteText (VOID);
-   USHORT Reply (VOID);
-   VOID   Save (VOID);
-   USHORT Write (VOID);
+   VOID   DisplayScreen ();
+   VOID   Forward ();
+   VOID   InputSubject ();
+   USHORT InputTo ();
+   VOID   Menu ();
+   USHORT Modify ();
+   VOID   QuoteText ();
+   USHORT Reply ();
+   VOID   Save ();
+   USHORT Write ();
 
 private:
    CHAR   To[36];
@@ -555,14 +555,14 @@ private:
 class TCommentEditor : public TEditor
 {
 public:
-   TCommentEditor (void);
-   ~TCommentEditor (void);
+   TCommentEditor ();
+   ~TCommentEditor ();
 
    class  TFileBase *File;
 
-   VOID   Menu (VOID);
-   VOID   Save (VOID);
-   USHORT Write (VOID);
+   VOID   Menu ();
+   VOID   Save ();
+   USHORT Write ();
 };
 
 #define MAIL_LOCAL         0
@@ -572,8 +572,8 @@ public:
 class TMailEditor : public TEditor
 {
 public:
-   TMailEditor (void);
-   ~TMailEditor (void);
+   TMailEditor ();
+   ~TMailEditor ();
 
    USHORT Type, Storage;
    UCHAR  Private;
@@ -589,17 +589,17 @@ public:
    class  TLog *Log;
    class  TMsgBase *Msg;
 
-   VOID   DisplayScreen (VOID);
-   VOID   Forward (VOID);
-   USHORT InputAddress (VOID);
-   USHORT InputSubject (VOID);
-   USHORT InputTo (VOID);
-   VOID   Menu (VOID);
-   USHORT Modify (VOID);
-   VOID   QuoteText (VOID);
-   USHORT Reply (VOID);
-   VOID   Save (VOID);
-   USHORT Write (VOID);
+   VOID   DisplayScreen ();
+   VOID   Forward ();
+   USHORT InputAddress ();
+   USHORT InputSubject ();
+   USHORT InputTo ();
+   VOID   Menu ();
+   USHORT Modify ();
+   VOID   QuoteText ();
+   USHORT Reply ();
+   VOID   Save ();
+   USHORT Write ();
 
 private:
    ULONG  Number;
@@ -612,8 +612,8 @@ private:
 class TOffline
 {
 public:
-   TOffline (void);
-   virtual ~TOffline (void);
+   TOffline ();
+   virtual ~TOffline ();
 
    USHORT Area;
    CHAR   Id[16], Path[128];
@@ -628,22 +628,22 @@ public:
    class  TLanguage *Language;
    class  TProgress *Progress;
 
-   virtual VOID   AddConference (VOID);
+   virtual VOID   AddConference ();
    virtual VOID   AddKludges (class TCollection &Text, class TMsgData *Data);
-   virtual USHORT Create (VOID);
+   virtual USHORT Create ();
    virtual USHORT Compress (PSZ pszPacket);
-   virtual VOID   Display (VOID);
+   virtual VOID   Display ();
    virtual VOID   Download (PSZ pszFile, PSZ pszName);
-   virtual VOID   ManageTagged (VOID);
-   virtual USHORT FetchReply (VOID);
+   virtual VOID   ManageTagged ();
+   virtual USHORT FetchReply ();
    virtual VOID   PackArea (ULONG &ulLast);
    virtual VOID   PackEMail (ULONG &ulLast);
-   virtual USHORT Prescan (VOID);
-   virtual VOID   RemoveArea (VOID);
-   virtual VOID   RestrictDate (VOID);
+   virtual USHORT Prescan ();
+   virtual VOID   RemoveArea ();
+   virtual VOID   RestrictDate ();
    virtual VOID   Scan (PSZ pszKey, ULONG ulLast);
    virtual USHORT TooOld (ULONG Restrict, class TMsgBase *Msg);
-   virtual VOID   Upload (VOID);
+   virtual VOID   Upload ();
 
 protected:
    CHAR   Work[128];
@@ -658,11 +658,11 @@ protected:
 class TBlueWave : public TOffline
 {
 public:
-   TBlueWave (void);
-   ~TBlueWave (void);
+   TBlueWave ();
+   ~TBlueWave ();
 
-   USHORT Create (VOID);
-   USHORT FetchReply (VOID);
+   USHORT Create ();
+   USHORT FetchReply ();
    VOID   PackArea (ULONG &ulLast);
 
 private:
@@ -704,11 +704,11 @@ typedef union {
 class TQWK : public TOffline
 {
 public:
-   TQWK (void);
-   ~TQWK (void);
+   TQWK ();
+   ~TQWK ();
 
-   USHORT Create (VOID);
-   USHORT FetchReply (VOID);
+   USHORT Create ();
+   USHORT FetchReply ();
    VOID   PackArea (ULONG &ulLast);
 
 private:
@@ -723,21 +723,21 @@ private:
 class TAscii : public TOffline
 {
 public:
-   TAscii (void);
-   ~TAscii (void);
+   TAscii ();
+   ~TAscii ();
 
-   USHORT Create (VOID);
+   USHORT Create ();
    VOID   PackArea (ULONG &ulLast);
 };
 
 class TPoint : public TOffline
 {
 public:
-   TPoint (void);
-   ~TPoint (void);
+   TPoint ();
+   ~TPoint ();
 
-   USHORT Create (VOID);
-   USHORT FetchReply (VOID);
+   USHORT Create ();
+   USHORT FetchReply ();
    VOID   PackArea (ULONG &ulLast);
 };
 
@@ -753,29 +753,29 @@ typedef struct {
 class TListings
 {
 public:
-   TListings (void);
-   virtual ~TListings (void);
+   TListings ();
+   virtual ~TListings ();
 
    class  TEmbedded *Embedded;
    class  TLog *Log;
    class  TUser *User;
    class  TLanguage *Language;
 
-   virtual VOID   Begin (VOID);
-   virtual VOID   Down (VOID);
-   virtual VOID   Exit (VOID);
-   virtual VOID   DownloadTag (VOID);
-   virtual USHORT DrawScreen (VOID);
-   virtual VOID   PageDown (VOID);
-   virtual VOID   PageUp (VOID);
+   virtual VOID   Begin ();
+   virtual VOID   Down ();
+   virtual VOID   Exit ();
+   virtual VOID   DownloadTag ();
+   virtual USHORT DrawScreen ();
+   virtual VOID   PageDown ();
+   virtual VOID   PageUp ();
    virtual VOID   PrintCursor (USHORT y);
-   virtual VOID   PrintLine (VOID);
-   virtual VOID   PrintTitles (VOID);
+   virtual VOID   PrintLine ();
+   virtual VOID   PrintTitles ();
    virtual VOID   RemoveCursor (USHORT y);
-   virtual USHORT Run (VOID);
-   virtual VOID   Select (VOID);
-   virtual VOID   Tag (VOID);
-   virtual VOID   Up (VOID);
+   virtual USHORT Run ();
+   virtual VOID   Select ();
+   virtual VOID   Tag ();
+   virtual VOID   Up ();
 
 protected:
    USHORT y;

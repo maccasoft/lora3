@@ -65,7 +65,7 @@
 #define PKTENDCHR    'b'
 #define PKTSTRTCHR32 'c'
 
-TJanus::TJanus (void)
+TJanus::TJanus ()
 {
    Com = NULL;
    Log = NULL;
@@ -90,11 +90,11 @@ TJanus::TJanus (void)
    Outbound = NULL;
 }
 
-TJanus::~TJanus (void)
+TJanus::~TJanus ()
 {
 }
 
-SHORT TJanus::GetByte (VOID)
+SHORT TJanus::GetByte ()
 {
    SHORT c, w;
 
@@ -120,7 +120,7 @@ SHORT TJanus::GetByte (VOID)
    return (c);
 }
 
-UCHAR TJanus::GetPacket (VOID)
+UCHAR TJanus::GetPacket ()
 {
    SHORT c, i;
    UCHAR *p;
@@ -210,7 +210,7 @@ UCHAR TJanus::GetPacket (VOID)
    }
 }
 
-SHORT TJanus::GetRawByte (VOID)
+SHORT TJanus::GetRawByte ()
 {
    ULONG timeval;
 
@@ -308,7 +308,7 @@ VOID TJanus::SendPacket (UCHAR *Buffer, USHORT Len, USHORT Type)
    Com->UnbufferBytes ();
 }
 
-LONG TJanus::ProcessFileName (VOID)
+LONG TJanus::ProcessFileName ()
 {
    SHORT gota, SharedCap;
    CHAR *p, *q, *fileinfo;
@@ -388,7 +388,7 @@ LONG TJanus::ProcessFileName (VOID)
    return (Rxbytes);
 }
 
-VOID TJanus::GetNextFile (VOID)
+VOID TJanus::GetNextFile ()
 {
    CHAR *q;
    struct stat f;
@@ -446,7 +446,7 @@ VOID TJanus::GetNextFile (VOID)
    }
 }
 
-VOID TJanus::Transfer (VOID)
+VOID TJanus::Transfer ()
 {
 
    RxFile = TxFile = -1;
@@ -723,19 +723,19 @@ typedef struct {
    UCHAR  TruncateAfter;
 } FILEQUEUE;
 
-TFileQueue::TFileQueue (void)
+TFileQueue::TFileQueue ()
 {
    Data.Clear ();
    New ();
    TotalFiles = 0L;
 }
 
-TFileQueue::~TFileQueue (void)
+TFileQueue::~TFileQueue ()
 {
    Data.Clear ();
 }
 
-USHORT TFileQueue::Add (VOID)
+USHORT TFileQueue::Add ()
 {
    FILEQUEUE Buffer;
 
@@ -752,14 +752,14 @@ USHORT TFileQueue::Add (VOID)
    return (Data.Add (&Buffer, sizeof (FILEQUEUE)));
 }
 
-VOID TFileQueue::Clear (VOID)
+VOID TFileQueue::Clear ()
 {
    Data.Clear ();
    New ();
    TotalFiles = 0L;
 }
 
-USHORT TFileQueue::First (VOID)
+USHORT TFileQueue::First ()
 {
    USHORT RetVal = FALSE;
    FILEQUEUE *Buffer;
@@ -777,7 +777,7 @@ USHORT TFileQueue::First (VOID)
    return (RetVal);
 }
 
-VOID TFileQueue::New (VOID)
+VOID TFileQueue::New ()
 {
    Sent = FALSE;
    Name[0] = '\0';
@@ -786,7 +786,7 @@ VOID TFileQueue::New (VOID)
    TruncateAfter = DeleteAfter = FALSE;
 }
 
-USHORT TFileQueue::Next (VOID)
+USHORT TFileQueue::Next ()
 {
    USHORT RetVal = FALSE;
    FILEQUEUE *Buffer;
@@ -804,7 +804,7 @@ USHORT TFileQueue::Next (VOID)
    return (RetVal);
 }
 
-USHORT TFileQueue::Previous (VOID)
+USHORT TFileQueue::Previous ()
 {
    USHORT RetVal = FALSE;
    FILEQUEUE *Buffer;
@@ -851,7 +851,7 @@ VOID TFileQueue::Remove (PSZ pszName)
    TotalFiles--;
 }
 
-VOID TFileQueue::Update (VOID)
+VOID TFileQueue::Update ()
 {
    FILEQUEUE *Buffer;
 

@@ -76,7 +76,7 @@ VOID WaitThread (PVOID Args)
 }
 #endif
 
-TTcpip::TTcpip (void)
+TTcpip::TTcpip ()
 {
    EndRun = FALSE;
    fCarrierDown = FALSE;
@@ -84,7 +84,7 @@ TTcpip::TTcpip (void)
    LSock = Sock = 0;
 }
 
-TTcpip::~TTcpip (void)
+TTcpip::~TTcpip ()
 {
    ClosePort ();
 }
@@ -114,7 +114,7 @@ VOID TTcpip::BufferBytes (UCHAR *bytes, USHORT len)
       } while (len > 0 && EndRun == FALSE && Carrier () == TRUE);
 }
 
-USHORT TTcpip::BytesReady (VOID)
+USHORT TTcpip::BytesReady ()
 {
    int i;
    USHORT RetVal = FALSE;
@@ -155,21 +155,21 @@ USHORT TTcpip::BytesReady (VOID)
    return (RetVal);
 }
 
-USHORT TTcpip::Carrier (VOID)
+USHORT TTcpip::Carrier ()
 {
    return ((fCarrierDown == TRUE) ? FALSE : TRUE);
 }
 
-VOID TTcpip::ClearInbound (VOID)
+VOID TTcpip::ClearInbound ()
 {
    RxBytes = 0;
 }
 
-VOID TTcpip::ClearOutbound (VOID)
+VOID TTcpip::ClearOutbound ()
 {
 }
 
-VOID TTcpip::ClosePort (VOID)
+VOID TTcpip::ClosePort ()
 {
    if (Sock != 0) {
 #if defined(__NT__)
@@ -197,7 +197,7 @@ USHORT TTcpip::ConnectServer (PSZ pszServer, USHORT usPort)
 {
 #if !defined(__LINUX__)
    int i, namelen;
-#elif
+#else
    int i;
    socklen_t namelen;
 #endif
@@ -357,7 +357,7 @@ USHORT TTcpip::Initialize (USHORT usPort, USHORT usSocket, USHORT usProtocol)
    return (RetVal);
 }
 
-UCHAR TTcpip::ReadByte (VOID)
+UCHAR TTcpip::ReadByte ()
 {
    int i;
    short c = 0;
@@ -434,7 +434,7 @@ USHORT TTcpip::PeekPacket (PVOID lpBuffer, USHORT usSize)
 {
 #if !defined(__LINUX__)
    int namelen = sizeof (udp_client);
-#elif
+#else
    socklen_t namelen = sizeof (udp_client);
 #endif
    if (recvfrom (LSock, (char *)lpBuffer, usSize, MSG_PEEK, (struct sockaddr *)&udp_client, &namelen) > 0)
@@ -447,7 +447,7 @@ USHORT TTcpip::GetPacket (PVOID lpBuffer, USHORT usSize)
 {
 #if !defined(__LINUX__)
    int namelen = sizeof (udp_client);
-#elif
+#else
    socklen_t namelen = sizeof (udp_client);
 #endif
    return ((USHORT)recvfrom (LSock, (char *)lpBuffer, usSize, 0, (struct sockaddr *)&udp_client, &namelen));
@@ -458,7 +458,7 @@ USHORT TTcpip::SendPacket (PVOID lpBuffer, USHORT usSize)
    return ((USHORT)sendto (LSock, (char *)lpBuffer, usSize, 0, (struct sockaddr *)&udp_client, sizeof (udp_client)));
 }
 
-USHORT TTcpip::WaitClient (VOID)
+USHORT TTcpip::WaitClient ()
 {
 #if defined(__OS2__)
    if (Accepted != 0 && Sock == 0)
@@ -470,7 +470,7 @@ USHORT TTcpip::WaitClient (VOID)
 #else
 #if !defined(__LINUX__)
    int i, s, namelen;
-#elif
+#else
    int i, s;
    socklen_t namelen;
 #endif
@@ -535,7 +535,7 @@ VOID TTcpip::SendBytes (UCHAR *bytes, USHORT len)
    }
 }
 
-VOID TTcpip::UnbufferBytes (VOID)
+VOID TTcpip::UnbufferBytes ()
 {
    int i, Written;
    UCHAR *p;

@@ -19,19 +19,19 @@
 #include "_ldefs.h"
 #include "menu.h"
 
-TMenu::TMenu (void)
+TMenu::TMenu ()
 {
    strcpy (Path, "");
    strcpy (AltPath, "");
    Items.Clear ();
 }
 
-TMenu::~TMenu (void)
+TMenu::~TMenu ()
 {
    Items.Clear ();
 }
 
-VOID TMenu::Add (VOID)
+VOID TMenu::Add ()
 {
    memset (&Item, 0, sizeof (Item));
 
@@ -76,7 +76,7 @@ USHORT TMenu::Check (PSZ pszKey)
    return (RetVal);
 }
 
-VOID TMenu::Delete (VOID)
+VOID TMenu::Delete ()
 {
    ITEM *Current;
 
@@ -99,7 +99,7 @@ VOID TMenu::Delete (VOID)
    }
 }
 
-USHORT TMenu::First (VOID)
+USHORT TMenu::First ()
 {
    USHORT RetVal = FALSE;
    ITEM *Current;
@@ -122,7 +122,7 @@ USHORT TMenu::First (VOID)
    return (RetVal);
 }
 
-VOID TMenu::Insert (VOID)
+VOID TMenu::Insert ()
 {
    memset (&Item, 0, sizeof (Item));
 
@@ -267,7 +267,7 @@ VOID TMenu::New (USHORT usNewPrompt)
    }
 }
 
-USHORT TMenu::Next (VOID)
+USHORT TMenu::Next ()
 {
    USHORT RetVal = FALSE;
    ITEM *Current;
@@ -290,7 +290,7 @@ USHORT TMenu::Next (VOID)
    return (RetVal);
 }
 
-USHORT TMenu::Previous (VOID)
+USHORT TMenu::Previous ()
 {
    USHORT RetVal = FALSE;
    ITEM *Current;
@@ -357,7 +357,7 @@ USHORT TMenu::Save (PSZ pszName)
    return (RetVal);
 }
 
-VOID TMenu::Update (VOID)
+VOID TMenu::Update ()
 {
    USHORT RetVal = FALSE;
    ITEM *Current;

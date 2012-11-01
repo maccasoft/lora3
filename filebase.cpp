@@ -29,7 +29,7 @@ typedef struct {
    ULONG IdxPosition;
 } NAMESORT;
 
-TFileBase::TFileBase (void)
+TFileBase::TFileBase ()
 {
    fdIdx = fdDat = -1;
    fUploader = FALSE;
@@ -48,7 +48,7 @@ TFileBase::TFileBase (PSZ pszPath, PSZ pszArea)
    List = NULL;
 }
 
-TFileBase::~TFileBase (void)
+TFileBase::~TFileBase ()
 {
    Clear ();
    Close ();
@@ -60,7 +60,7 @@ TFileBase::~TFileBase (void)
    }
 }
 
-USHORT TFileBase::Add (VOID)
+USHORT TFileBase::Add ()
 {
    PSZ pszTemp;
    FILEDATA fileData;
@@ -174,7 +174,7 @@ ULONG TFileBase::ChangeLibrary (PSZ pszFrom, PSZ pszTo)
    return (Number);
 }
 
-VOID TFileBase::Clear (VOID)
+VOID TFileBase::Clear ()
 {
    memset (Area, 0, sizeof (Area));
    memset (Name, 0, sizeof (Name));
@@ -199,7 +199,7 @@ VOID TFileBase::Clear (VOID)
    CdRom = FALSE;
 }
 
-VOID TFileBase::Close (VOID)
+VOID TFileBase::Close ()
 {
    if (fdIdx != -1)
       close (fdIdx);
@@ -208,7 +208,7 @@ VOID TFileBase::Close (VOID)
    fdIdx = fdDat = -1;
 }
 
-VOID TFileBase::Delete (VOID)
+VOID TFileBase::Delete ()
 {
    FILEDATA fileData;
    FILEINDEX fileIndex;
@@ -476,7 +476,7 @@ USHORT TFileBase::Open (PSZ pszDataPath, PSZ pszArea)
    return (TRUE);
 }
 
-VOID TFileBase::Pack (VOID)
+VOID TFileBase::Pack ()
 {
    int fdNdx, fdNdat, Readed;
    CHAR File[128], NewFile[128], *Buffer;
@@ -546,7 +546,7 @@ VOID TFileBase::Pack (VOID)
    unlink (File);
 }
 
-USHORT TFileBase::Previous (VOID)
+USHORT TFileBase::Previous ()
 {
    USHORT fRet = FALSE, i, r, w;
    CHAR szTemp[80], szLine[80];
@@ -748,7 +748,7 @@ USHORT TFileBase::Read (PSZ pszFile)
    return (fRet);
 }
 
-USHORT TFileBase::Replace (VOID)
+USHORT TFileBase::Replace ()
 {
    PSZ pszTemp;
    USHORT RetVal = FALSE;
@@ -864,7 +864,7 @@ USHORT TFileBase::Replace (VOID)
    return (RetVal);
 }
 
-USHORT TFileBase::ReplaceHeader (VOID)
+USHORT TFileBase::ReplaceHeader ()
 {
    USHORT RetVal = FALSE;
    ULONG ulCrc;
@@ -1283,7 +1283,7 @@ VOID TFileBase::SortByDate (ULONG ulDate)
       free (fileIndex);
 }
 
-VOID TFileBase::SortByDownload (VOID)
+VOID TFileBase::SortByDownload ()
 {
    USHORT x, Readed, RetVal = FALSE;
    ULONG Crc;
@@ -1346,7 +1346,7 @@ VOID TFileBase::SortByDownload (VOID)
       free (fileIndex);
 }
 
-VOID TFileBase::SortByName (VOID)
+VOID TFileBase::SortByName ()
 {
    USHORT i, Readed, RetVal = FALSE;
    ULONG Crc, Position;

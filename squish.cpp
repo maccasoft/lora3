@@ -51,7 +51,7 @@ FILE *sh_fopen (char *filename, char *access, int shmode)
    return (fp);
 }
 
-SQUISH::SQUISH (void)
+SQUISH::SQUISH ()
 {
    fpDat = fpIdx = NULL;
    Current = Id = 0L;
@@ -69,14 +69,14 @@ SQUISH::SQUISH (PSZ pszName)
    Open (pszName);
 }
 
-SQUISH::~SQUISH (void)
+SQUISH::~SQUISH ()
 {
    if (Locked == TRUE)
       UnLock ();
    Close ();
 }
 
-USHORT SQUISH::Add (VOID)
+USHORT SQUISH::Add ()
 {
    return (Add (Text));
 }
@@ -348,7 +348,7 @@ USHORT SQUISH::Add (class TCollection &MsgText)
    return (TRUE);
 }
 
-VOID SQUISH::Close (VOID)
+VOID SQUISH::Close ()
 {
    if (fpIdx != NULL)
       fclose (fpIdx);
@@ -524,7 +524,7 @@ ULONG SQUISH::Hash (PSZ f)
    return (hash & 0x7FFFFFFFL);
 }
 
-ULONG SQUISH::Highest (VOID)
+ULONG SQUISH::Highest ()
 {
    CHAR File[128];
    ULONG RetVal = 0L;
@@ -586,7 +586,7 @@ USHORT SQUISH::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG SQUISH::Lowest (VOID)
+ULONG SQUISH::Lowest ()
 {
    int i;
    CHAR File[128];
@@ -660,7 +660,7 @@ ULONG SQUISH::MsgnToUid (ULONG ulMsg)
    return (RetVal);
 }
 
-VOID SQUISH::New (VOID)
+VOID SQUISH::New ()
 {
    From[0] = To[0] = Subject[0] = '\0';
    Crash = Direct = FileAttach = FileRequest = Hold = Immediate = FALSE;
@@ -723,7 +723,7 @@ USHORT SQUISH::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG SQUISH::Number (VOID)
+ULONG SQUISH::Number ()
 {
    return (SqBase.NumMsg);
 }
@@ -786,7 +786,7 @@ USHORT SQUISH::Open (PSZ pszName)
    return (RetVal);
 }
 
-VOID SQUISH::Pack (VOID)
+VOID SQUISH::Pack ()
 {
    int fdHdr, fdIdx, fdNewDat, fdNewIdx;
    USHORT Read;
@@ -1248,7 +1248,7 @@ ULONG SQUISH::UidToMsgn (ULONG ulMsg)
    return (RetVal);
 }
 
-VOID SQUISH::UnLock (VOID)
+VOID SQUISH::UnLock ()
 {
    CHAR File[128];
 

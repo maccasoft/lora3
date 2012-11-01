@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TNodes::TNodes (void)
+TNodes::TNodes ()
 {
 #if defined(__LINUX__)
    strcpy (DataFile, "./nodes");
@@ -45,7 +45,7 @@ TNodes::TNodes (PSZ pszDataPath)
    fd = -1;
 }
 
-TNodes::~TNodes (void)
+TNodes::~TNodes ()
 {
    if (fd != -1)
       close (fd);
@@ -151,7 +151,7 @@ VOID TNodes::Struct2Class (NODES &Nodes)
    strcpy (NewTicFilter, Nodes.NewTicFilter);
 }
 
-VOID TNodes::Add (VOID)
+VOID TNodes::Add ()
 {
    int fdn;
    USHORT DoClose = FALSE, Saved = FALSE;
@@ -233,7 +233,7 @@ VOID TNodes::Add (VOID)
    }
 }
 
-VOID TNodes::Delete (VOID)
+VOID TNodes::Delete ()
 {
    int fdn;
    USHORT DoClose = FALSE;
@@ -288,7 +288,7 @@ VOID TNodes::Delete (VOID)
    unlink (NewName);
 }
 
-USHORT TNodes::First (VOID)
+USHORT TNodes::First ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[64];
@@ -306,7 +306,7 @@ USHORT TNodes::First (VOID)
    return (RetVal);
 }
 
-VOID TNodes::New (VOID)
+VOID TNodes::New ()
 {
    memset (Address, 0, sizeof (Address));
    memset (SystemName, 0, sizeof (SystemName));
@@ -351,7 +351,7 @@ VOID TNodes::New (VOID)
    memset (NewTicFilter, 0, sizeof (NewTicFilter));
 }
 
-USHORT TNodes::Next (VOID)
+USHORT TNodes::Next ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[64];
@@ -372,7 +372,7 @@ USHORT TNodes::Next (VOID)
    return (RetVal);
 }
 
-USHORT TNodes::Previous (VOID)
+USHORT TNodes::Previous ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[64];
@@ -647,7 +647,7 @@ USHORT TNodes::ReadNodelist (class TAddress *Address)
    return (RetVal);
 }
 
-VOID TNodes::Update (VOID)
+VOID TNodes::Update ()
 {
    USHORT DoClose = FALSE;
    CHAR Temp[64];
@@ -679,7 +679,7 @@ VOID TNodes::Update (VOID)
    }
 }
 
-USHORT TNodes::FirstNodelist (VOID)
+USHORT TNodes::FirstNodelist ()
 {
    USHORT RetVal = FALSE;
    NODELIST *data;
@@ -694,7 +694,7 @@ USHORT TNodes::FirstNodelist (VOID)
    return (RetVal);
 }
 
-USHORT TNodes::NextNodelist (VOID)
+USHORT TNodes::NextNodelist ()
 {
    USHORT RetVal = FALSE;
    NODELIST *data;
@@ -721,7 +721,7 @@ VOID TNodes::AddNodelist (PSZ name, PSZ diff, USHORT zone)
    ListData.Add (&data, sizeof (NODELIST));
 }
 
-VOID TNodes::LoadNodelist (VOID)
+VOID TNodes::LoadNodelist ()
 {
    int fd;
    CHAR Temp[64];
@@ -738,7 +738,7 @@ VOID TNodes::LoadNodelist (VOID)
    }
 }
 
-VOID TNodes::SaveNodelist (VOID)
+VOID TNodes::SaveNodelist ()
 {
    int fd;
    CHAR Temp[64];
@@ -756,14 +756,14 @@ VOID TNodes::SaveNodelist (VOID)
    }
 }
 
-VOID TNodes::DeleteNodelist (VOID)
+VOID TNodes::DeleteNodelist ()
 {
    ListData.Remove ();
 }
 
 // ----------------------------------------------------------------------
 
-TNodeFlags::TNodeFlags (void)
+TNodeFlags::TNodeFlags ()
 {
    fdDat = -1;
    strcpy (DataFile, "nodeflag.dat");
@@ -784,11 +784,11 @@ TNodeFlags::TNodeFlags (PSZ pszDataPath)
    }
 }
 
-TNodeFlags::~TNodeFlags (void)
+TNodeFlags::~TNodeFlags ()
 {
 }
 
-VOID TNodeFlags::Add (VOID)
+VOID TNodeFlags::Add ()
 {
    memset (&nf, 0, sizeof (nf));
    nf.Size = sizeof (nf);
@@ -798,7 +798,7 @@ VOID TNodeFlags::Add (VOID)
    List.Add (&nf, sizeof (nf));
 }
 
-VOID TNodeFlags::Delete (VOID)
+VOID TNodeFlags::Delete ()
 {
    NODEFLAGS *pnf;
 
@@ -810,13 +810,13 @@ VOID TNodeFlags::Delete (VOID)
    }
 }
 
-VOID TNodeFlags::DeleteAll (VOID)
+VOID TNodeFlags::DeleteAll ()
 {
    while (List.First () != NULL)
       List.Remove ();
 }
 
-USHORT TNodeFlags::First (VOID)
+USHORT TNodeFlags::First ()
 {
    USHORT RetVal = FALSE;
    NODEFLAGS *pnf;
@@ -830,7 +830,7 @@ USHORT TNodeFlags::First (VOID)
    return (RetVal);
 }
 
-USHORT TNodeFlags::Next (VOID)
+USHORT TNodeFlags::Next ()
 {
    USHORT RetVal = FALSE;
    NODEFLAGS *pnf;
@@ -878,7 +878,7 @@ USHORT TNodeFlags::Read (USHORT)
    return (RetVal);
 }
 
-VOID TNodeFlags::Update (VOID)
+VOID TNodeFlags::Update ()
 {
    NODEFLAGS *pnf;
 
@@ -890,7 +890,7 @@ VOID TNodeFlags::Update (VOID)
    }
 }
 
-VOID TNodeFlags::Save (VOID)
+VOID TNodeFlags::Save ()
 {
    NODEFLAGS *pnf;
 

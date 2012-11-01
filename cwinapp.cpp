@@ -65,22 +65,22 @@ LRESULT CALLBACK CWndProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 BEGIN_MESSAGE_MAP (CWnd, CWnd)
 END_MESSAGE_MAP ()
 
-CWnd::CWnd (void)
+CWnd::CWnd ()
 {
 }
 
-CWnd::~CWnd (void)
+CWnd::~CWnd ()
 {
 }
 
-USHORT CWnd::OnCreate (VOID)
+USHORT CWnd::OnCreate ()
 {
    return (TRUE);
 }
 
 // ----------------------------------------------------------------------
 
-CFrameWnd::CFrameWnd (void)
+CFrameWnd::CFrameWnd ()
 {
    int x, y, dx, dy;
    ULONG flFrame;
@@ -115,7 +115,7 @@ CFrameWnd::CFrameWnd (void)
    }
 }
 
-CFrameWnd::~CFrameWnd (void)
+CFrameWnd::~CFrameWnd ()
 {
    if (hwndMainFrame != NULLHANDLE)
       WinDestroyWindow (hwndMainFrame);
@@ -123,7 +123,7 @@ CFrameWnd::~CFrameWnd (void)
 
 // ----------------------------------------------------------------------
 
-CWinApp::CWinApp (void)
+CWinApp::CWinApp ()
 {
    m_pMainWnd = NULL;
 
@@ -133,7 +133,7 @@ CWinApp::CWinApp (void)
    }
 }
 
-CWinApp::~CWinApp (void)
+CWinApp::~CWinApp ()
 {
    if (m_pMainWnd != NULL)
       delete m_pMainWnd;
@@ -145,14 +145,14 @@ CWinApp::~CWinApp (void)
    }
 }
 
-USHORT CWinApp::InitInstance (VOID)
+USHORT CWinApp::InitInstance ()
 {
    m_pMainWnd = new CFrameWnd;
 
    return (TRUE);
 }
 
-VOID CWinApp::Run (VOID)
+VOID CWinApp::Run ()
 {
    InitInstance ();
 

@@ -24,7 +24,7 @@ static PSZ MONTHS[] = {
    "July", "August", "September", "October", "November", "December"
 };
 
-INETMAIL::INETMAIL (void)
+INETMAIL::INETMAIL ()
 {
    Tcp = new TTcpip;
    TotalMsgs = 0L;
@@ -42,13 +42,13 @@ INETMAIL::INETMAIL (PSZ pszServer, PSZ pszUser, PSZ pszPwd)
    Open (pszServer, pszUser, pszPwd);
 }
 
-INETMAIL::~INETMAIL (void)
+INETMAIL::~INETMAIL ()
 {
    if (Tcp != NULL)
       delete Tcp;
 }
 
-USHORT INETMAIL::Add (VOID)
+USHORT INETMAIL::Add ()
 {
    return (Add (Text));
 }
@@ -302,7 +302,7 @@ USHORT INETMAIL::Add (class TCollection &MsgText)
    return (RetVal);
 }
 
-VOID INETMAIL::Close (VOID)
+VOID INETMAIL::Close ()
 {
    CHAR String[50];
 
@@ -392,7 +392,7 @@ USHORT INETMAIL::GetLine (PSZ pszResponse, USHORT usMaxLen)
    return (retVal);
 }
 
-ULONG INETMAIL::Highest (VOID)
+ULONG INETMAIL::Highest ()
 {
    return (TotalMsgs);
 }
@@ -403,7 +403,7 @@ USHORT INETMAIL::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG INETMAIL::Lowest (VOID)
+ULONG INETMAIL::Lowest ()
 {
    return (1L);
 }
@@ -413,7 +413,7 @@ ULONG INETMAIL::MsgnToUid (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID INETMAIL::New (VOID)
+VOID INETMAIL::New ()
 {
    LastReaded = 0L;
    From[0] = To[0] = Subject[0] = '\0';
@@ -438,7 +438,7 @@ USHORT INETMAIL::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG INETMAIL::Number (VOID)
+ULONG INETMAIL::Number ()
 {
    return (TotalMsgs);
 }
@@ -473,7 +473,7 @@ USHORT INETMAIL::Open (PSZ pszServer, PSZ pszUser, PSZ pszPwd)
    return (retVal);
 }
 
-VOID INETMAIL::Pack (VOID)
+VOID INETMAIL::Pack ()
 {
 }
 
@@ -648,7 +648,7 @@ ULONG INETMAIL::UidToMsgn (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID INETMAIL::UnLock (VOID)
+VOID INETMAIL::UnLock ()
 {
 }
 

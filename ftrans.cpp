@@ -34,7 +34,7 @@ typedef struct {
    CHAR  cbFiller[87];
 } ZEROBLK;
 
-TTransfer::TTransfer (void)
+TTransfer::TTransfer ()
 {
    Com = NULL;
    Log = NULL;
@@ -51,7 +51,7 @@ TTransfer::TTransfer (void)
    Task = 1;
 }
 
-TTransfer::~TTransfer (void)
+TTransfer::~TTransfer ()
 {
 }
 
@@ -702,7 +702,7 @@ VOID TTransfer::RunExternalProtocol (USHORT Download, PSZ Cmd, class TProtocol *
 
 // ----------------------------------------------------------------------
 
-TProgress::TProgress (void)
+TProgress::TProgress ()
 {
    Type = 0;
    RxBlockSize = TxBlockSize = 0;
@@ -711,19 +711,19 @@ TProgress::TProgress (void)
    TxSize = TxPosition = 0L;
 }
 
-TProgress::~TProgress (void)
+TProgress::~TProgress ()
 {
 }
 
-VOID TProgress::Begin (VOID)
+VOID TProgress::Begin ()
 {
 }
 
-VOID TProgress::End (VOID)
+VOID TProgress::End ()
 {
 }
 
-VOID TProgress::Update (VOID)
+VOID TProgress::Update ()
 {
 }
 

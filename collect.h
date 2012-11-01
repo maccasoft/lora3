@@ -29,27 +29,27 @@ typedef struct _lData {
 class DLL_EXPORT TCollection
 {
 public:
-   TCollection (void);
-   ~TCollection (void);
+   TCollection ();
+   ~TCollection ();
 
    USHORT Elements;
 
    USHORT Add (PVOID lpData);
    USHORT Add (PSZ lpData);
    USHORT Add (PVOID lpData, USHORT usSize);
-   VOID   Clear (VOID);
-   PVOID  First (VOID);
+   VOID   Clear ();
+   PVOID  First ();
    USHORT Insert (PVOID lpData);
    USHORT Insert (PSZ lpData);
    USHORT Insert (PVOID lpData, USHORT usSize);
-   PVOID  Last (VOID);
-   PVOID  Next (VOID);
-   PVOID  Previous (VOID);
-   VOID   Remove (VOID);
+   PVOID  Last ();
+   PVOID  Next ();
+   PVOID  Previous ();
+   VOID   Remove ();
    USHORT Replace (PVOID lpData);
    USHORT Replace (PSZ lpData);
    USHORT Replace (PVOID lpData, USHORT usSize);
-   PVOID  Value (VOID);
+   PVOID  Value ();
 
 private:
    LDATA *List;

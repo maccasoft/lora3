@@ -113,14 +113,14 @@ class CProductDlg : public CDialog
 public:
    CProductDlg (HWND p_hWnd);
 
-   USHORT OnInitDialog (VOID);
+   USHORT OnInitDialog ();
 };
 
 CProductDlg::CProductDlg (HWND p_hWnd) : CDialog ("100", p_hWnd)
 {
 }
 
-USHORT CProductDlg::OnInitDialog (VOID)
+USHORT CProductDlg::OnInitDialog ()
 {
    CHAR Temp[128], RegName[64], RegNumber[16];
 
@@ -137,28 +137,28 @@ class CDetailsDlg : public CDialog
 {
 public:
    CDetailsDlg (HWND p_hWnd);
-   ~CDetailsDlg (void);
+   ~CDetailsDlg ();
 
    USHORT DoRebuild;
    CHAR   Address[64];
 
-   VOID   OnHelp (VOID);
-   USHORT OnInitDialog (VOID);
+   VOID   OnHelp ();
+   USHORT OnInitDialog ();
 
 private:
    CHAR   Temp[1024];
    class  TOutbound *Out;
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Add (VOID);
-   VOID   ChangeToNormal (VOID);
-   VOID   ChangeToDirect (VOID);
-   VOID   ChangeToCrash (VOID);
-   VOID   ChangeToHold (VOID);
-   VOID   Delete (VOID);
-   VOID   DeleteEntry (VOID);
-   VOID   Refresh (VOID);
-   VOID   ToggleImmediate (VOID);
+   VOID   Add ();
+   VOID   ChangeToNormal ();
+   VOID   ChangeToDirect ();
+   VOID   ChangeToCrash ();
+   VOID   ChangeToHold ();
+   VOID   Delete ();
+   VOID   DeleteEntry ();
+   VOID   Refresh ();
+   VOID   ToggleImmediate ();
 };
 
 BEGIN_MESSAGE_MAP (CDetailsDlg, CDialog)
@@ -181,18 +181,18 @@ CDetailsDlg::CDetailsDlg (HWND p_hWnd) : CDialog ("47", p_hWnd)
    }
 }
 
-CDetailsDlg::~CDetailsDlg (void)
+CDetailsDlg::~CDetailsDlg ()
 {
    if (Out != NULL)
       delete Out;
 }
 
-VOID CDetailsDlg::OnHelp (VOID)
+VOID CDetailsDlg::OnHelp ()
 {
    WinHelp ("lora.hlp>h_ref", 47);
 }
 
-USHORT CDetailsDlg::OnInitDialog (VOID)
+USHORT CDetailsDlg::OnInitDialog ()
 {
    class TNodes *Nodes;
 
@@ -219,7 +219,7 @@ USHORT CDetailsDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CDetailsDlg::Delete (VOID)
+VOID CDetailsDlg::Delete ()
 {
    int item;
 
@@ -240,7 +240,7 @@ VOID CDetailsDlg::Delete (VOID)
    }
 }
 
-VOID CDetailsDlg::DeleteEntry (VOID)
+VOID CDetailsDlg::DeleteEntry ()
 {
    if (Out != NULL) {
       if (MessageBox ("Do you really want to delete this node's entry ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
@@ -254,7 +254,7 @@ VOID CDetailsDlg::DeleteEntry (VOID)
    }
 }
 
-VOID CDetailsDlg::Add (VOID)
+VOID CDetailsDlg::Add ()
 {
    class TAddress Addr;
    struct stat statbuf;
@@ -356,7 +356,7 @@ VOID CDetailsDlg::Add (VOID)
 #endif
 }
 
-VOID CDetailsDlg::ToggleImmediate (VOID)
+VOID CDetailsDlg::ToggleImmediate ()
 {
    USHORT Found = FALSE;
 
@@ -377,7 +377,7 @@ VOID CDetailsDlg::ToggleImmediate (VOID)
    DoRebuild = TRUE;
 }
 
-VOID CDetailsDlg::Refresh (VOID)
+VOID CDetailsDlg::Refresh ()
 {
    class TAddress Addr;
 
@@ -412,7 +412,7 @@ VOID CDetailsDlg::Refresh (VOID)
    LVM_InvalidateView (101);
 }
 
-VOID CDetailsDlg::ChangeToHold (VOID)
+VOID CDetailsDlg::ChangeToHold ()
 {
    class TMailProcessor *Processor;
 
@@ -444,7 +444,7 @@ VOID CDetailsDlg::ChangeToHold (VOID)
    DoRebuild = TRUE;
 }
 
-VOID CDetailsDlg::ChangeToCrash (VOID)
+VOID CDetailsDlg::ChangeToCrash ()
 {
    class TMailProcessor *Processor;
 
@@ -476,7 +476,7 @@ VOID CDetailsDlg::ChangeToCrash (VOID)
    DoRebuild = TRUE;
 }
 
-VOID CDetailsDlg::ChangeToDirect (VOID)
+VOID CDetailsDlg::ChangeToDirect ()
 {
    class TMailProcessor *Processor;
 
@@ -508,7 +508,7 @@ VOID CDetailsDlg::ChangeToDirect (VOID)
    DoRebuild = TRUE;
 }
 
-VOID CDetailsDlg::ChangeToNormal (VOID)
+VOID CDetailsDlg::ChangeToNormal ()
 {
    class TMailProcessor *Processor;
 
@@ -552,7 +552,7 @@ TPMLog::TPMLog (HWND hwnd)
    First = TRUE;
 }
 
-TPMLog::~TPMLog (void)
+TPMLog::~TPMLog ()
 {
 }
 
@@ -624,11 +624,11 @@ TPMStatus::TPMStatus (HWND hwnd)
    hwndList = hwnd;
 }
 
-TPMStatus::~TPMStatus (void)
+TPMStatus::~TPMStatus ()
 {
 }
 
-VOID TPMStatus::Clear (VOID)
+VOID TPMStatus::Clear ()
 {
 #if defined(__OS2__)
    WinSendMsg (hwndList, WM_USER, MPFROM2SHORT (WMU_SETSTATUSLINE, 0), MPFROMP (""));
@@ -663,11 +663,11 @@ class TPMProgress : public TProgress
 {
 public:
    TPMProgress (HWND hwnd);
-   ~TPMProgress (void);
+   ~TPMProgress ();
 
-   VOID   Begin (VOID);
-   VOID   End (VOID);
-   VOID   Update (VOID);
+   VOID   Begin ();
+   VOID   End ();
+   VOID   Update ();
 
 private:
    HWND   hwndList;
@@ -678,11 +678,11 @@ TPMProgress::TPMProgress (HWND hwnd)
    hwndList = hwnd;
 }
 
-TPMProgress::~TPMProgress (void)
+TPMProgress::~TPMProgress ()
 {
 }
 
-VOID TPMProgress::Begin (VOID)
+VOID TPMProgress::Begin ()
 {
    CHAR Temp[128];
 
@@ -697,7 +697,7 @@ VOID TPMProgress::Begin (VOID)
 #endif
 }
 
-VOID TPMProgress::Update (VOID)
+VOID TPMProgress::Update ()
 {
    CHAR Temp[128];
 
@@ -712,7 +712,7 @@ VOID TPMProgress::Update (VOID)
 #endif
 }
 
-VOID TPMProgress::End (VOID)
+VOID TPMProgress::End ()
 {
    CHAR Temp[128];
 
@@ -738,11 +738,11 @@ public:
 #if defined(__OS2__) || defined(__NT__)
    TPMMailStatus (HWND hwnd);
 #elif defined(__DOS__)
-   TPMMailStatus (void);
+   TPMMailStatus ();
 #endif
-   ~TPMMailStatus (void);
+   ~TPMMailStatus ();
 
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
 #if defined(__OS2__) || defined(__NT__)
@@ -757,16 +757,16 @@ TPMMailStatus::TPMMailStatus (HWND hwnd)
    hwndList = hwnd;
 }
 #elif defined(__DOS__)
-TPMMailStatus::TPMMailStatus (void)
+TPMMailStatus::TPMMailStatus ()
 {
 }
 #endif
 
-TPMMailStatus::~TPMMailStatus (void)
+TPMMailStatus::~TPMMailStatus ()
 {
 }
 
-VOID TPMMailStatus::Update (VOID)
+VOID TPMMailStatus::Update ()
 {
    CHAR Line[128], Num[16];
 
@@ -821,7 +821,7 @@ VOID TPMMailStatus::Update (VOID)
 #endif
 
 #if defined(__OS2__) || defined(__DOS__)
-   strcpy (Temp, " ÚÄÄÄÄMailPKTÄÄÄÄÄÄÄDataÄÄÄÄÄ¿     ÚÄÄÄÄMailPKTÄÄÄÄÄÄÄDataÄÄÄÄÄ¿ ");
+   strcpy (Temp, " ï¿½ï¿½ï¿½ï¿½ï¿½MailPKTï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Dataï¿½ï¿½ï¿½ï¿½Ä¿     ï¿½ï¿½ï¿½ï¿½ï¿½MailPKTï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Dataï¿½ï¿½ï¿½ï¿½Ä¿ ");
 #elif defined(__NT__)
    strcpy (Temp, " +----MailPKT-------Data-----+     +----MailPKT-------Data-----+ ");
 #endif
@@ -836,9 +836,9 @@ VOID TPMMailStatus::Update (VOID)
 #endif
 
 #if defined(__OS2__) || defined(__DOS__)
-   strcpy (Temp, "úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúú   úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúú");
+   strcpy (Temp, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
 #elif defined(__NT__)
-   strcpy (Temp, "·······························   ·······························");
+   strcpy (Temp, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
 #endif
    if (InPktFiles == 0xFFFFU)
       strcpy (Num, "N/A");
@@ -871,9 +871,9 @@ VOID TPMMailStatus::Update (VOID)
 #endif
 
 #if defined(__OS2__) || defined(__DOS__)
-   strcpy (Temp, "úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúú   úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúú");
+   strcpy (Temp, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
 #elif defined(__NT__)
-   strcpy (Temp, "·······························   ·······························");
+   strcpy (Temp, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
 #endif
    if (InPktFiles == 0xFFFFU)
       strcpy (Num, "N/A");
@@ -906,7 +906,7 @@ VOID TPMMailStatus::Update (VOID)
 #endif
 
 #if defined(__OS2__) || defined(__DOS__)
-   strcpy (Temp, " ÀÄÄÄÄÄÄINBOUND TRAFFICÄÄÄÄÄÄÙ     ÀÄÄÄÄÄOUTBOUND TRAFFICÄÄÄÄÄÄÙ ");
+   strcpy (Temp, " ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½INBOUND TRAFFICï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½     ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½OUTBOUND TRAFFICï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ");
 #elif defined(__NT__)
    strcpy (Temp, " +------INBOUND TRAFFIC------+     +-----OUTBOUND TRAFFIC------+ ");
 #endif
@@ -935,15 +935,15 @@ public:
    CHAR   Title[128];
    CHAR   String[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 CAskAddressDlg::CAskAddressDlg (HWND p_hWnd) : CDialog ("26", p_hWnd)
 {
 }
 
-USHORT CAskAddressDlg::OnInitDialog (VOID)
+USHORT CAskAddressDlg::OnInitDialog ()
 {
    Center ();
 
@@ -954,7 +954,7 @@ USHORT CAskAddressDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CAskAddressDlg::OnOK (VOID)
+VOID CAskAddressDlg::OnOK ()
 {
    GetDlgItemText (128, GetDlgItemTextLength (128), String);
    EndDialog (TRUE);
@@ -971,15 +971,15 @@ public:
 
    CHAR   Address[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 CPollDlg::CPollDlg (HWND p_hWnd) : CDialog ("13", p_hWnd)
 {
 }
 
-USHORT CPollDlg::OnInitDialog (VOID)
+USHORT CPollDlg::OnInitDialog ()
 {
    CHAR Temp[128];
    class CAskAddressDlg *Dlg;
@@ -1025,7 +1025,7 @@ USHORT CPollDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CPollDlg::OnOK (VOID)
+VOID CPollDlg::OnOK ()
 {
    CHAR Flag;
 
@@ -1068,15 +1068,15 @@ public:
 
    CHAR   Address[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 };
 
 CRequestDlg::CRequestDlg (HWND p_hWnd) : CDialog ("32", p_hWnd)
 {
 }
 
-USHORT CRequestDlg::OnInitDialog (VOID)
+USHORT CRequestDlg::OnInitDialog ()
 {
    CHAR Temp[128];
    class CAskAddressDlg *Dlg;
@@ -1122,7 +1122,7 @@ USHORT CRequestDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CRequestDlg::OnOK (VOID)
+VOID CRequestDlg::OnOK ()
 {
    FILE *fp;
    CHAR File[128], Temp[256], *p, Flag;
@@ -1203,8 +1203,8 @@ public:
 
    CHAR   Address[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    CHAR   Command[512];
@@ -1214,7 +1214,7 @@ CNewEchoLinkDlg::CNewEchoLinkDlg (HWND p_hWnd) : CDialog ("52", p_hWnd)
 {
 }
 
-USHORT CNewEchoLinkDlg::OnInitDialog (VOID)
+USHORT CNewEchoLinkDlg::OnInitDialog ()
 {
    CHAR Temp[128];
    class CAskAddressDlg *Dlg;
@@ -1262,7 +1262,7 @@ USHORT CNewEchoLinkDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CNewEchoLinkDlg::OnOK (VOID)
+VOID CNewEchoLinkDlg::OnOK ()
 {
    CHAR *p, *t;
    class TAddress Addr;
@@ -1305,8 +1305,8 @@ public:
 
    CHAR   Address[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    CHAR   Command[512];
@@ -1316,7 +1316,7 @@ CRequestEchoLinkDlg::CRequestEchoLinkDlg (HWND p_hWnd) : CDialog ("52", p_hWnd)
 {
 }
 
-USHORT CRequestEchoLinkDlg::OnInitDialog (VOID)
+USHORT CRequestEchoLinkDlg::OnInitDialog ()
 {
    CHAR Temp[128];
    class CAskAddressDlg *Dlg;
@@ -1364,7 +1364,7 @@ USHORT CRequestEchoLinkDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CRequestEchoLinkDlg::OnOK (VOID)
+VOID CRequestEchoLinkDlg::OnOK ()
 {
    CHAR *p;
    struct dosdate_t d_date;
@@ -1443,8 +1443,8 @@ public:
 
    CHAR   Address[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    CHAR   Command[512];
@@ -1454,7 +1454,7 @@ CRescanDlg::CRescanDlg (HWND p_hWnd) : CDialog ("52", p_hWnd)
 {
 }
 
-USHORT CRescanDlg::OnInitDialog (VOID)
+USHORT CRescanDlg::OnInitDialog ()
 {
    CHAR Temp[128];
    class CAskAddressDlg *Dlg;
@@ -1503,7 +1503,7 @@ USHORT CRescanDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CRescanDlg::OnOK (VOID)
+VOID CRescanDlg::OnOK ()
 {
    CHAR *p, *t;
    class TAddress Addr;
@@ -1538,14 +1538,14 @@ public:
 
    CHAR   Address[128];
 
-   USHORT OnInitDialog (VOID);
-   VOID   OnOK (VOID);
+   USHORT OnInitDialog ();
+   VOID   OnOK ();
 
 private:
    CHAR   Temp[4096];
    DECLARE_MESSAGE_MAP ()
 
-   VOID   Browse (VOID);
+   VOID   Browse ();
 };
 
 BEGIN_MESSAGE_MAP (CAttachDlg, CDialog)
@@ -1556,7 +1556,7 @@ CAttachDlg::CAttachDlg (HWND p_hWnd) : CDialog ("49", p_hWnd)
 {
 }
 
-USHORT CAttachDlg::OnInitDialog (VOID)
+USHORT CAttachDlg::OnInitDialog ()
 {
    class CAskAddressDlg *Dlg;
    class TNodes *Nodes;
@@ -1603,7 +1603,7 @@ USHORT CAttachDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
-VOID CAttachDlg::Browse (VOID)
+VOID CAttachDlg::Browse ()
 {
 #if defined(__OS2__)
    ULONG i;
@@ -1675,7 +1675,7 @@ VOID CAttachDlg::Browse (VOID)
 #endif
 }
 
-VOID CAttachDlg::OnOK (VOID)
+VOID CAttachDlg::OnOK ()
 {
    FILE *fp;
    CHAR File[128], *p, Flag;

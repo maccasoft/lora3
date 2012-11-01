@@ -24,8 +24,8 @@
 class TFTP
 {
 public:
-   TFTP (void);
-   ~TFTP (void);
+   TFTP ();
+   ~TFTP ();
 
    CHAR   ClientIP[16];
    class  TConfig *Cfg;
@@ -33,10 +33,10 @@ public:
    class  TLog *Log;
 
    USHORT FileExist (PSZ pszFile);
-   VOID   GetCommand (VOID);
-   USHORT Login (VOID);
+   VOID   GetCommand ();
+   USHORT Login ();
    VOID   ReadFile (PSZ pszCode, PSZ pszFile);
-   VOID   Run (VOID);
+   VOID   Run ();
 
 private:
    USHORT Valid, Anonymous, Binary, DataPort;
@@ -59,15 +59,15 @@ private:
 class TWeb
 {
 public:
-   TWeb (void);
-   ~TWeb (void);
+   TWeb ();
+   ~TWeb ();
 
    class  TConfig *Cfg;
    class  TLog *Log;
    class  TTcpip *Tcp;
 
-   VOID   GetRequest (VOID);
-   VOID   Run (VOID);
+   VOID   GetRequest ();
+   VOID   Run ();
    VOID   SendFile (PSZ File, PSZ MimeType = NULL);
    VOID   URLNotFound (PSZ URL);
 
@@ -89,15 +89,15 @@ typedef struct {
 class TPOP3
 {
 public:
-   TPOP3 (void);
-   ~TPOP3 (void);
+   TPOP3 ();
+   ~TPOP3 ();
 
    class  TConfig *Cfg;
    class  TTcpip *Tcp;
    class  TLog *Log;
 
-   VOID   GetCommand (VOID);
-   VOID   Run (VOID);
+   VOID   GetCommand ();
+   VOID   Run ();
 
 private:
    CHAR   Response[256], Temp[2048];
@@ -112,16 +112,16 @@ private:
 class TNNTP
 {
 public:
-   TNNTP (void);
-   ~TNNTP (void);
+   TNNTP ();
+   ~TNNTP ();
 
    class  TConfig *Cfg;
    class  TTcpip *Tcp;
    class  TLog *Log;
 
-   VOID   GetCommand (VOID);
-   VOID   Run (VOID);
-   VOID   SendBody (VOID);
+   VOID   GetCommand ();
+   VOID   Run ();
+   VOID   SendBody ();
    VOID   SendHeader (USHORT Termination);
 
 private:

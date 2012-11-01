@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TOkFile::TOkFile (void)
+TOkFile::TOkFile ()
 {
    fdDat = -1;
    strcpy (DataFile, "okfile.dat");
@@ -33,13 +33,13 @@ TOkFile::TOkFile (PSZ pszDataPath)
    AdjustPath (strlwr (DataFile));
 }
 
-TOkFile::~TOkFile (void)
+TOkFile::~TOkFile ()
 {
    if (fdDat != -1)
       close (fdDat);
 }
 
-VOID TOkFile::Add (VOID)
+VOID TOkFile::Add ()
 {
    USHORT DoClose = FALSE;
    OKFILE ok;
@@ -69,7 +69,7 @@ VOID TOkFile::Add (VOID)
    }
 }
 
-VOID TOkFile::DeleteAll (VOID)
+VOID TOkFile::DeleteAll ()
 {
    if (fdDat != -1) {
       close (fdDat);
@@ -79,7 +79,7 @@ VOID TOkFile::DeleteAll (VOID)
    unlink (DataFile);
 }
 
-USHORT TOkFile::First (VOID)
+USHORT TOkFile::First ()
 {
    if (fdDat == -1)
       fdDat = open (DataFile, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE);
@@ -90,7 +90,7 @@ USHORT TOkFile::First (VOID)
    return (Next ());
 }
 
-USHORT TOkFile::Next (VOID)
+USHORT TOkFile::Next ()
 {
    USHORT RetVal = FALSE;
    OKFILE ok;
@@ -146,7 +146,7 @@ USHORT TOkFile::Read (PSZ pszName)
    return (RetVal);
 }
 
-VOID TOkFile::Update (VOID)
+VOID TOkFile::Update ()
 {
    OKFILE ok;
 

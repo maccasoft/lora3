@@ -157,8 +157,8 @@ typedef struct {
 class DLL_EXPORT TMenu
 {
 public:
-   TMenu (void);
-   ~TMenu (void);
+   TMenu ();
+   ~TMenu ();
 
    CHAR   Path[64], Name[32];
    CHAR   AltPath[64];
@@ -172,17 +172,17 @@ public:
    ULONG  AccessFlags, DenyFlags;
    UCHAR  Automatic, FirstTime;
 
-   VOID   Add (VOID);
+   VOID   Add ();
    USHORT Check (PSZ pszKey);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
-   VOID   Insert (VOID);
+   VOID   Delete ();
+   USHORT First ();
+   VOID   Insert ();
    USHORT Load (PSZ pszName, USHORT fAppend = FALSE);
    VOID   New (USHORT usNewPrompt = FALSE);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
+   USHORT Next ();
+   USHORT Previous ();
    USHORT Save (PSZ pszName);
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    HEADER Hdr;

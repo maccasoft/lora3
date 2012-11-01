@@ -13,7 +13,7 @@
 
 short cmd_sel = 0;
 
-VOID AddShadow (VOID);
+VOID AddShadow ();
 VOID DisplayButton (USHORT y, USHORT x, CHAR *Text, USHORT Shadow);
 VOID DisplayTextField (USHORT y, USHORT x, CHAR *Text, USHORT FieldSize, USHORT Size);
 VOID GetTextField (USHORT y, USHORT x, CHAR *Text, USHORT FieldSize, USHORT Size);
@@ -170,7 +170,7 @@ MENUCMD MenuCmd7[] = {
    0, NULL
 };
 
-VOID AddCmdShadow (VOID)
+VOID AddCmdShadow ()
 {
    wtitle (" Menu Commands ", TCENTER, WHITE|_CYAN);
    wshadow (DGREY|_BLACK);
@@ -308,7 +308,7 @@ USHORT CMenuPromptDlg (class TMenu *Menu)
    return (RetVal);
 }
 
-VOID CommandSelection (VOID)
+VOID CommandSelection ()
 {
    struct _item_t *item;
 
@@ -650,7 +650,7 @@ USHORT CMenuEditorDlg (PSZ pszFile)
    return (RetVal);
 }
 
-USHORT CBBSGeneralDlg (VOID)
+USHORT CBBSGeneralDlg ()
 {
    short menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -1034,7 +1034,7 @@ USHORT CFileSecurityDlg (class TFileData *Data)
    return (RetVal);
 }
 
-USHORT CFileDlg (VOID)
+USHORT CFileDlg ()
 {
    short menu_sel = 1;
    USHORT RetVal = FALSE;
@@ -1543,7 +1543,7 @@ USHORT CMessageSecurityDlg (class TMsgData *Data)
    return (RetVal);
 }
 
-USHORT CMessageDlg (VOID)
+USHORT CMessageDlg ()
 {
    short menu_sel = 1;
    USHORT RetVal = FALSE;
@@ -1843,7 +1843,7 @@ USHORT CMessageDlg (VOID)
    return (RetVal);
 }
 
-USHORT COfflineDlg (VOID)
+USHORT COfflineDlg ()
 {
    short menu_sel = 996;
    CHAR Temp[16];
@@ -2091,7 +2091,7 @@ USHORT CUserMoreDlg (class TUser *Data)
    return (RetVal);
 }
 
-USHORT CUserDlg (VOID)
+USHORT CUserDlg ()
 {
    short menu_sel = 1;
    CHAR Temp[48];
@@ -2381,13 +2381,13 @@ VOID DisplayChoice3 (USHORT y, USHORT x, USHORT flag)
       wprints (y, x, WHITE|_BLUE, "Required");
 }
 
-VOID LimitClassShadow (VOID)
+VOID LimitClassShadow ()
 {
    wtitle (" Limit Classes ", TCENTER, WHITE|_CYAN);
    wshadow (DGREY|_BLACK);
 }
 
-USHORT CNewUsersDlg (VOID)
+USHORT CNewUsersDlg ()
 {
    short i, menu_sel = 1, maxlen, start;
    CHAR Temp[64], **Array, *p;
@@ -2583,7 +2583,7 @@ USHORT CSelectNodeFlagDlg (class TNodeFlags *Data)
       i = 1;
       List.Clear ();
       do {
-         sprintf (Temp, "%-9.9s ³ %-25.25s", Data->Flags, Data->Cmd);
+         sprintf (Temp, "%-9.9s ï¿½ %-25.25s", Data->Flags, Data->Cmd);
          List.Add (Temp);
          i++;
       } while (Data->Next () == TRUE);
@@ -2619,7 +2619,7 @@ USHORT CSelectNodeFlagDlg (class TNodeFlags *Data)
    return (RetVal);
 }
 
-VOID CNodeFlagsDlg (VOID)
+VOID CNodeFlagsDlg ()
 {
    short i, menu_sel = 996, sub_menu_sel;
    CHAR Temp[64], TempCmd[64];
@@ -2653,18 +2653,18 @@ VOID CNodeFlagsDlg (VOID)
       wmenuitem (15, 22, "  Help  ", 'H', 998, 0, NULL, 0, 0);
       wmenuend ((short)menu_sel, M_OMNI|M_SAVE, 0, 0, BLACK|_GREEN, YELLOW|_GREEN, DGREY|_GREEN, WHITE|_GREEN);
 
-      sprintf (Temp, " %-9.9s ³ %-25.25s ", "", "");
+      sprintf (Temp, " %-9.9s ï¿½ %-25.25s ", "", "");
       for (i = 0; i <= 9; i++)
          wprints ((short)(i + 1), 1, BLACK|_CYAN, Temp);
 
-      sprintf (Temp, " %-9.9s ³ %-25.25s ", "Flags", "Command");
+      sprintf (Temp, " %-9.9s ï¿½ %-25.25s ", "Flags", "Command");
       wprints (0, 1, BLACK|_GREEN, Temp);
 
       i = 0;
       if (Data->First () == TRUE)
          do {
             if (i <= 9) {
-               sprintf (Temp, " %-9.9s ³ %-25.25s ", Data->Flags, Data->Cmd);
+               sprintf (Temp, " %-9.9s ï¿½ %-25.25s ", Data->Flags, Data->Cmd);
                wprints ((short)(i + 1), 1, BLACK|_CYAN, Temp);
                i++;
             }

@@ -238,7 +238,7 @@ char * DLL_EXPORT strsrep (char *str, char *search, char *replace);
 
 VOID   DLL_EXPORT RunExternal (PSZ Command, USHORT TimeLimit = 0);
 VOID   DLL_EXPORT SpawnExternal (PSZ Command);
-ULONG  DLL_EXPORT AvailableMemory (VOID);
+ULONG  DLL_EXPORT AvailableMemory ();
 
 #endif
 

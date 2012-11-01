@@ -208,12 +208,12 @@ static KEYWORDS Keywords[] = {
    { 0, NULL }
 };
 
-TLanguage::TLanguage (void)
+TLanguage::TLanguage ()
 {
    Default ();
 }
 
-TLanguage::~TLanguage (void)
+TLanguage::~TLanguage ()
 {
    if (TextMemory != NULL)
       free (TextMemory);
@@ -331,7 +331,7 @@ PSZ TLanguage::CopyString (USHORT Key, PSZ Arg, PSZ Text)
    return (Text);
 }
 
-VOID TLanguage::Default (VOID)
+VOID TLanguage::Default ()
 {
    TextMemory = NULL;
 
@@ -408,8 +408,8 @@ VOID TLanguage::Default (VOID)
 
    // Message areas
    Pointer[LNG_MESSAGEAREAREQUEST] = "\n\026\001\017Message area [Area, \"[\"=Prior, \"]\"=Next, \"?\"=List]: \026\001\x1E";
-   Pointer[LNG_MESSAGEAREAHEADER] = "\n\026\001\017Area             Msgs   Description\n\031Ä\017  \031Ä\005  \031Ä\067\n";
-   Pointer[LNG_MESSAGEAREASEPARATOR] = "\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n";
+   Pointer[LNG_MESSAGEAREAHEADER] = "\n\026\001\017Area             Msgs   Description\n\031ï¿½\017  \031ï¿½\005  \031ï¿½\067\n";
+   Pointer[LNG_MESSAGEAREASEPARATOR] = "\026\001\017\031ï¿½\017  \031ï¿½\005  \031ï¿½\067\n";
    Pointer[LNG_MESSAGEAREADESCRIPTION1] = "\026\001\016Use your arrow keys or CTRL-X / CTRL-E to hilight an area, RETURN selects it.\n";
    Pointer[LNG_MESSAGEAREADESCRIPTION2] = "\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.";
    Pointer[LNG_MESSAGEAREACURSOR] = "\x16\x01\x70%-15.15s\x16\x01\x07";
@@ -431,7 +431,7 @@ VOID TLanguage::Default (VOID)
    Pointer[LNG_MESSAGEORIGIN] = "\026\001\002%s\n";
 
    // Fullscreen message reader
-   Pointer[LNG_MESSAGEHDR] = "\x0C\x16\x01\x13Ä \x16\x01\x1E%s \x16\x01\x13\031Ä%c";
+   Pointer[LNG_MESSAGEHDR] = "\x0C\x16\x01\x13ï¿½ \x16\x01\x1E%s \x16\x01\x13\031ï¿½%c";
    Pointer[LNG_MESSAGENUMBER] = "%lu of %lu";
    Pointer[LNG_MESSAGENUMBER1] = "%lu of %lu -%lu";
    Pointer[LNG_MESSAGENUMBER2] = "%lu of %lu +%lu";
@@ -444,8 +444,8 @@ VOID TLanguage::Default (VOID)
 
    // File areas
    Pointer[LNG_FILEAREAREQUEST] = "\n\026\001\017File area [Area, \"[\"=Prior, \"]\"=Next, \"?\"=List]: \026\001\x1E";
-   Pointer[LNG_FILEAREAHEADER] = "\n\026\001\017Area             Files  Description\n\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n";
-   Pointer[LNG_FILEAREASEPARATOR] = "\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n";
+   Pointer[LNG_FILEAREAHEADER] = "\n\026\001\017Area             Files  Description\n\026\001\017\031ï¿½\017  \031ï¿½\005  \031ï¿½\067\n";
+   Pointer[LNG_FILEAREASEPARATOR] = "\026\001\017\031ï¿½\017  \031ï¿½\005  \031ï¿½\067\n";
    Pointer[LNG_FILEAREADESCRIPTION1] = "\026\001\016Use your arrow keys or CTRL-X / CTRL-E to hilight an area, RETURN selects it.\n";
    Pointer[LNG_FILEAREADESCRIPTION2] = "\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.";
    Pointer[LNG_FILEAREACURSOR] = "\x16\x01\x70%-15.15s\x16\x01\x07";
@@ -469,8 +469,8 @@ VOID TLanguage::Default (VOID)
    Pointer[LNG_FILETAGLISTED] = "\r\026\007\x16\x01\017Filename(s) to tag (#%d): ";
    Pointer[LNG_FILELISTTAGCONFIRM] = "\r026\007\026\001\016(%d) \026\001\015%-12.12s \026\001\012(%02lu:%02lu, %lu bytes)  ";
    Pointer[LNG_FILELISTNOTFOUND] = "\r\026\007\026\001\014I see no \"%s\" here.  ";
-   Pointer[LNG_FILELISTHEADER] = "\026\001\017 File Name    Size  Date     Description\n \031Ä\014 \031Ä\005 \031Ä\010 \031Ä\062\n";
-   Pointer[LNG_FILELISTSEPARATOR] = " \031Ä\014 \031Ä\005 \031Ä\010 \031Ä\062\n";
+   Pointer[LNG_FILELISTHEADER] = "\026\001\017 File Name    Size  Date     Description\n \031ï¿½\014 \031ï¿½\005 \031ï¿½\010 \031ï¿½\062\n";
+   Pointer[LNG_FILELISTSEPARATOR] = " \031ï¿½\014 \031ï¿½\005 \031ï¿½\010 \031ï¿½\062\n";
    Pointer[LNG_FILELISTDESCRIPTION1] = "\026\001\016Use your arrow keys or CTRL-X / CTRL-E to hilight a file, RETURN view details.\n";
    Pointer[LNG_FILELISTDESCRIPTION2] = "\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.";
    Pointer[LNG_FILELISTTAGGED] = "\026\001\016*%-12.12s*\026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n";
@@ -495,8 +495,8 @@ VOID TLanguage::Default (VOID)
    Pointer[LNG_WRONGPASSWORD] = "\n\026\001\014Wrong password!\n";
 
    // Multiline
-   Pointer[LNG_ONLINETITLE] = "\x0C\n\026\001\017\031 \x14OnLine Users at %s\n\026\001\014\031 \x14\031Ä\x28\n\n";
-   Pointer[LNG_ONLINEHEADER] = "\x16\x01\012Name                       Line  Speed  Status               Location\n\026\001\002\031Ä\x19  \031Ä\x04 \031Ä\x06  \031Ä\x13  \031Ä\x12\n";
+   Pointer[LNG_ONLINETITLE] = "\x0C\n\026\001\017\031 \x14OnLine Users at %s\n\026\001\014\031 \x14\031ï¿½\x28\n\n";
+   Pointer[LNG_ONLINEHEADER] = "\x16\x01\012Name                       Line  Speed  Status               Location\n\026\001\002\031ï¿½\x19  \031ï¿½\x04 \031ï¿½\x06  \031ï¿½\x13  \031ï¿½\x12\n";
    Pointer[LNG_ONLINEENTRY] = "\026\001\013%-25.25s   \026\001\017%2u   %-5lu  \026\001\016%-19.19s  %-.18s\n";
 
    // Miscellaneous
@@ -509,7 +509,7 @@ VOID TLanguage::Default (VOID)
    Pointer[LNG_ASKADDRESS] = "\n\x16\x01\013Enter your street address or P.O. Box:\n\x16\x01\x1E";
    Pointer[LNG_ASKCOMPANYNAME] = "\n\x16\x01\013Now enter your company name, or just RETURN if none:\n\x16\x01\x1E";
    Pointer[LNG_ASKSEX] = "\n\x16\x01\013What is your sex? (M)ale or (F)emale? \x16\x01\x1E";
-   Pointer[LNG_ENTERNAMEORNEW] = "\nŠPlease enter your full name (or \"New\"): ";
+   Pointer[LNG_ENTERNAMEORNEW] = "\nï¿½Please enter your full name (or \"New\"): ";
 
    Pointer[LNG_MSGFLAG_RCV] = "Rcv ";
    Pointer[LNG_MSGFLAG_SNT] = "Snt ";

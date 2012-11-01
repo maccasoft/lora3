@@ -17,7 +17,7 @@ typedef struct {
    CHAR   Path[64];
 } COMBOINDEX;
 
-COMBO::COMBO (void)
+COMBO::COMBO ()
 {
    Id = 0L;
    TotalMsgs = 0L;
@@ -26,12 +26,12 @@ COMBO::COMBO (void)
    Index.Clear ();
 }
 
-COMBO::~COMBO (void)
+COMBO::~COMBO ()
 {
    Index.Clear ();
 }
 
-USHORT COMBO::Add (VOID)
+USHORT COMBO::Add ()
 {
    return (FALSE);
 }
@@ -62,7 +62,7 @@ USHORT COMBO::Add (PSZ pszPath, USHORT usStorage, ULONG ulNumber)
    return (RetVal);
 }
 
-VOID COMBO::Close (VOID)
+VOID COMBO::Close ()
 {
 }
 
@@ -90,7 +90,7 @@ USHORT COMBO::GetHWM (ULONG &ulMsg)
    return (FALSE);
 }
 
-ULONG COMBO::Highest (VOID)
+ULONG COMBO::Highest ()
 {
    ULONG RetVal = 0L;
    COMBOINDEX *msgIndex;
@@ -107,7 +107,7 @@ USHORT COMBO::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG COMBO::Lowest (VOID)
+ULONG COMBO::Lowest ()
 {
    ULONG RetVal = 0L;
    COMBOINDEX *msgIndex;
@@ -118,7 +118,7 @@ ULONG COMBO::Lowest (VOID)
    return (RetVal);
 }
 
-VOID COMBO::New (VOID)
+VOID COMBO::New ()
 {
    From[0] = To[0] = Subject[0] = '\0';
    Crash = Direct = FileAttach = FileRequest = Hold = Immediate = FALSE;
@@ -144,12 +144,12 @@ USHORT COMBO::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG COMBO::Number (VOID)
+ULONG COMBO::Number ()
 {
    return (TotalMsgs);
 }
 
-VOID COMBO::Pack (VOID)
+VOID COMBO::Pack ()
 {
 }
 
@@ -330,7 +330,7 @@ VOID COMBO::SetHWM (ULONG ulMsg)
    ulMsg = ulMsg;
 }
 
-VOID COMBO::UnLock (VOID)
+VOID COMBO::UnLock ()
 {
 }
 

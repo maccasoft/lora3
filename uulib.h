@@ -24,8 +24,8 @@
 class DLL_EXPORT TUULib
 {
 public:
-   TUULib (void);
-   ~TUULib (void);
+   TUULib ();
+   ~TUULib ();
 
    USHORT MaxLines;
    USHORT Size;

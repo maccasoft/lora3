@@ -20,7 +20,7 @@
 #include "msgbase.h"
 #include "lorawin.h"
 
-VOID TMailProcessor::Export (VOID)
+VOID TMailProcessor::Export ()
 {
    USHORT i, UseEchotoss;
    ULONG Number, SentArea, Highest;
@@ -551,7 +551,7 @@ USHORT TMailProcessor::ExportEchoMail (ULONG Number, PSZ pszEchoTag)
    return (SentArea);
 }
 
-VOID TMailProcessor::ExportNetMail (VOID)
+VOID TMailProcessor::ExportNetMail ()
 {
    FILE *fp;
    USHORT Process;
@@ -886,7 +886,7 @@ VOID TMailProcessor::ExportNetMail (VOID)
 }
 
 /*
-VOID TMailProcessor::ExportNetMail (VOID)
+VOID TMailProcessor::ExportNetMail ()
 {
    FILE *fp;
    USHORT OurPoint, FoundIntl;
@@ -1247,7 +1247,7 @@ VOID TMailProcessor::ExportNetMail (VOID)
 }
 */
 
-VOID TMailProcessor::Change (VOID)
+VOID TMailProcessor::Change ()
 {
    FILE *fp;
    DIR *dir;
@@ -1504,7 +1504,7 @@ VOID TMailProcessor::Change (VOID)
    }
 }
 
-VOID TMailProcessor::RouteTo (VOID)
+VOID TMailProcessor::RouteTo ()
 {
    DIR *dir;
    int fd;
@@ -1804,7 +1804,7 @@ VOID TMailProcessor::RouteTo (VOID)
    }
 }
 
-VOID TMailProcessor::SendTo (VOID)
+VOID TMailProcessor::SendTo ()
 {
    DIR *dir;
    int fd;
@@ -2017,7 +2017,7 @@ VOID TMailProcessor::SendTo (VOID)
    }
 }
 
-VOID TMailProcessor::Poll (VOID)
+VOID TMailProcessor::Poll ()
 {
    int fd;
    USHORT Zone, Net, Node, Point;
@@ -2150,7 +2150,7 @@ VOID TMailProcessor::Pack (PSZ pszFile, PSZ pszTag /* = NULL*/)
    }
 }
 
-USHORT TMailProcessor::DoRescan (VOID)
+USHORT TMailProcessor::DoRescan ()
 {
    FILE *fp;
    USHORT RetVal = FALSE;

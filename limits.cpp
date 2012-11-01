@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TLimits::TLimits (void)
+TLimits::TLimits ()
 {
    fdDat = -1;
    New ();
@@ -43,13 +43,13 @@ TLimits::TLimits (PSZ pszDataPath)
    strcat (DatFile, "limits.dat");
 }
 
-TLimits::~TLimits (void)
+TLimits::~TLimits ()
 {
    if (fdDat != -1)
       close (fdDat);
 }
 
-USHORT TLimits::Add (VOID)
+USHORT TLimits::Add ()
 {
    USHORT retVal = FALSE, closeFile = FALSE;
    LIMITS Limits;
@@ -94,7 +94,7 @@ USHORT TLimits::Add (VOID)
    return (retVal);
 }
 
-VOID TLimits::New (VOID)
+VOID TLimits::New ()
 {
    Key[0] = '\0';
    Description[0] = '\0';
@@ -114,7 +114,7 @@ VOID TLimits::New (VOID)
    DownloadSpeed = 0;
 }
 
-VOID TLimits::Delete (VOID)
+VOID TLimits::Delete ()
 {
    int fdNew;
    USHORT CloseFile = FALSE;
@@ -154,7 +154,7 @@ VOID TLimits::Delete (VOID)
    }
 }
 
-USHORT TLimits::First (VOID)
+USHORT TLimits::First ()
 {
    USHORT retVal = FALSE;
 
@@ -169,7 +169,7 @@ USHORT TLimits::First (VOID)
    return (retVal);
 }
 
-USHORT TLimits::Next (VOID)
+USHORT TLimits::Next ()
 {
    USHORT retVal = FALSE;
    LIMITS Limits;
@@ -202,7 +202,7 @@ USHORT TLimits::Next (VOID)
    return (retVal);
 }
 
-USHORT TLimits::Previous (VOID)
+USHORT TLimits::Previous ()
 {
    USHORT retVal = FALSE;
    LIMITS Limits;
@@ -282,7 +282,7 @@ USHORT TLimits::Read (PSZ pszName, USHORT fCloseFile)
    return (retVal);
 }
 
-USHORT TLimits::Update (VOID)
+USHORT TLimits::Update ()
 {
    USHORT retVal = FALSE, closeFile = FALSE;
    LIMITS Limits;

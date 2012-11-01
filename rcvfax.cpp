@@ -101,7 +101,7 @@
 #define BR_7200         2
 #define BR_9600         3
 
-TFax::TFax (void)
+TFax::TFax ()
 {
    Format = 0;
    DataPath[0] = '\0';
@@ -110,7 +110,7 @@ TFax::TFax (void)
    opage = 0;
 }
 
-TFax::~TFax (void)
+TFax::~TFax ()
 {
 }
 
@@ -120,7 +120,7 @@ TFax::~TFax (void)
 
 /* receive fax files into basefilename */
 
-int TFax::faxreceive (void)
+int TFax::faxreceive ()
 {
    int result, page;
 
@@ -369,7 +369,7 @@ void TFax::get_faxline (char *p, int nbytes, unsigned int wtime)
    *p = '\0';              /* terminate the new string  */
 }
 
-void TFax::init_swaptable (void)
+void TFax::init_swaptable ()
 {
    int i, j;
 
@@ -391,7 +391,7 @@ void TFax::init_swaptable (void)
  * Initialize a faxmodem_response struct
  */
 
-void TFax::init_modem_response (void)
+void TFax::init_modem_response ()
 {
    response.remote_id[0] = '\0';
    response.fcon = FALSE;
@@ -408,7 +408,7 @@ void TFax::init_modem_response (void)
  * It fills in any relevant slots of the faxmodem_response structure.
  */
 
-void TFax::get_modem_result_code (void)
+void TFax::get_modem_result_code ()
 {
    char buf[256];
    long t;
@@ -547,7 +547,7 @@ void TFax::parse_text_response (char *str)
  * PAGE_ERROR    page error
  */
 
-int TFax::faxmodem_receive_page (void)
+int TFax::faxmodem_receive_page ()
 {
    long t;
    char buf[100];

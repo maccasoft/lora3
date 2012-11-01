@@ -20,7 +20,7 @@
 #include "lora_api.h"
 #include <errno.h>
 
-TPacker::TPacker (void)
+TPacker::TPacker ()
 {
    fd = -1;
 #if defined(__LINUX__)
@@ -43,13 +43,13 @@ TPacker::TPacker (PSZ pszDataPath)
 #endif
 }
 
-TPacker::~TPacker (void)
+TPacker::~TPacker ()
 {
    if (fd != -1)
       close (fd);
 }
 
-USHORT TPacker::Add (VOID)
+USHORT TPacker::Add ()
 {
    USHORT RetVal = FALSE;
    CHAR Temp[64];
@@ -166,7 +166,7 @@ USHORT TPacker::CheckArc (PSZ pszArcName)
    return (RetVal);
 }
 
-USHORT TPacker::Delete (VOID)
+USHORT TPacker::Delete ()
 {
    int fdn;
    USHORT RetVal = FALSE;
@@ -280,7 +280,7 @@ USHORT TPacker::First (USHORT checkOS)
    return (Next (checkOS));
 }
 
-VOID TPacker::New (VOID)
+VOID TPacker::New ()
 {
    memset (Key, 0, sizeof (Key));
    memset (Display, 0, sizeof (Display));
@@ -423,7 +423,7 @@ USHORT TPacker::Read (PSZ pszKey, USHORT checkOS)
    return (RetVal);
 }
 
-USHORT TPacker::Update (VOID)
+USHORT TPacker::Update ()
 {
    USHORT RetVal = FALSE;
    PACKER Pack;

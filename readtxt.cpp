@@ -30,10 +30,10 @@ VOID DisplayButton (USHORT y, USHORT x, CHAR *Text, USHORT Shadow)
    Temp[ButtonSize + 1] = '\0';
 
    memset (Temp, ' ', ButtonSize + 1);
-   Temp[ButtonSize] = 'Ü';
+   Temp[ButtonSize] = 'ï¿½';
    wprints (y, x, Shadow, Temp);
 
-   memset (&Temp[1], 'ß', ButtonSize);
+   memset (&Temp[1], 'ï¿½', ButtonSize);
    wprints ((short)(y + 1), x, Shadow, Temp);
 
    Temp[ButtonSize] = '\0';
@@ -120,8 +120,8 @@ typedef struct {
 class TScan
 {
 public:
-   TScan (void);
-   ~TScan (void);
+   TScan ();
+   ~TScan ();
 
    CHAR   Key[16];
    CHAR   Description[64];
@@ -129,28 +129,28 @@ public:
    ULONG  New;
    CHAR   Tag[64];
 
-   VOID   Add (VOID);
-   VOID   Clear (VOID);
-   USHORT First (VOID);
-   USHORT Next (VOID);
+   VOID   Add ();
+   VOID   Clear ();
+   USHORT First ();
+   USHORT Next ();
    USHORT Read (PSZ key);
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    class  TCollection Data;
 };
 
-TScan::TScan (void)
+TScan::TScan ()
 {
    Data.Clear ();
 }
 
-TScan::~TScan (void)
+TScan::~TScan ()
 {
    Data.Clear ();
 }
 
-VOID TScan::Add (VOID)
+VOID TScan::Add ()
 {
    SCANDATA sd;
 
@@ -163,12 +163,12 @@ VOID TScan::Add (VOID)
    Data.Add (&sd, sizeof (SCANDATA));
 }
 
-VOID TScan::Clear (VOID)
+VOID TScan::Clear ()
 {
    Data.Clear ();
 }
 
-USHORT TScan::First (VOID)
+USHORT TScan::First ()
 {
    USHORT RetVal = FALSE;
    SCANDATA *sd;
@@ -185,7 +185,7 @@ USHORT TScan::First (VOID)
    return (RetVal);
 }
 
-USHORT TScan::Next (VOID)
+USHORT TScan::Next ()
 {
    USHORT RetVal = FALSE;
    SCANDATA *sd;
@@ -223,7 +223,7 @@ USHORT TScan::Read (PSZ key)
    return (RetVal);
 }
 
-VOID TScan::Update (VOID)
+VOID TScan::Update ()
 {
    SCANDATA *sd;
 
@@ -238,14 +238,14 @@ VOID TScan::Update (VOID)
 class TTextEditor
 {
 public:
-   TTextEditor (void);
-   ~TTextEditor (void);
+   TTextEditor ();
+   ~TTextEditor ();
 
    USHORT StartCol, StartRow;
    USHORT Width, Height;
    class  TCollection Text;
 
-   USHORT Run (VOID);
+   USHORT Run ();
 
 private:
    USHORT cx, cy;
@@ -253,14 +253,14 @@ private:
    ULONG  LineCrc[51];
 
    VOID   Display (USHORT line);
-   VOID   DisplayScreen (VOID);
+   VOID   DisplayScreen ();
    PSZ    GetFirstChar (USHORT start, USHORT line);
    VOID   GotoXY (USHORT x, USHORT y);
    VOID   MoveCursor (USHORT start);
    VOID   SetCursor (USHORT start);
 };
 
-TTextEditor::TTextEditor (void)
+TTextEditor::TTextEditor ()
 {
    StartCol = 0;
    StartRow = 7;
@@ -268,7 +268,7 @@ TTextEditor::TTextEditor (void)
    Height = 17;
 }
 
-TTextEditor::~TTextEditor (void)
+TTextEditor::~TTextEditor ()
 {
 }
 
@@ -537,11 +537,11 @@ PSZ TTextEditor::GetFirstChar (USHORT start, USHORT line)
    return (RetVal);
 }
 
-VOID TTextEditor::DisplayScreen (VOID)
+VOID TTextEditor::DisplayScreen ()
 {
 }
 
-USHORT TTextEditor::Run (VOID)
+USHORT TTextEditor::Run ()
 {
    int i, c;
    unsigned int bytes;
@@ -725,7 +725,7 @@ USHORT TTextEditor::Run (VOID)
 
 // ----------------------------------------------------------------------
 
-VOID CScanDlg (VOID)
+VOID CScanDlg ()
 {
    USHORT IsUser = FALSE, EscPressed = FALSE;
    ULONG LastRead;
@@ -950,7 +950,7 @@ VOID CScanDlg (VOID)
 
 // ----------------------------------------------------------------------
 
-VOID DisplayScreen (VOID)
+VOID DisplayScreen ()
 {
    CHAR Temp[128];
 
@@ -1060,7 +1060,7 @@ VOID DisplayText (USHORT start)
    }
 }
 
-VOID DisplayMessage (VOID)
+VOID DisplayMessage ()
 {
    CHAR Temp[128], *p;
    USHORT gotFrom = FALSE, gotTo = FALSE;
@@ -1190,7 +1190,7 @@ VOID DisplayMessage (VOID)
    }
 }
 
-VOID ExportMessage (VOID)
+VOID ExportMessage ()
 {
    FILE *fp;
    CHAR *p, Temp[128], Key[32];
@@ -1202,7 +1202,7 @@ VOID ExportMessage (VOID)
       Msgn = Msg->UidToMsgn (Number);
 
       if ((fp = fopen ("reader.out", "at")) != NULL) {
-         strcpy (Temp, "ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ");
+         strcpy (Temp, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
          sprintf (Key, " %s ", AreaKey);
          memcpy (&Temp[1], Key, strlen (Key));
          fprintf (fp, "%s\n", Temp);
@@ -1210,7 +1210,7 @@ VOID ExportMessage (VOID)
          fprintf (fp, "    From: %-30.30s %-16.16s %02d %s %d %2d:%02d:%02d\n", Msg->From, Msg->FromAddress, Msg->Written.Day, Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute, Msg->Written.Minute);
          fprintf (fp, "      To: %-30.30s %-16.16s %02d %s %d %2d:%02d:%02d\n", Msg->To, Msg->ToAddress, Msg->Arrived.Day, Months[Msg->Arrived.Month - 1], Msg->Arrived.Year, Msg->Arrived.Hour, Msg->Arrived.Minute, Msg->Arrived.Minute);
          fprintf (fp, " Subject: %.69s\n", Msg->Subject);
-         strcpy (Temp, "ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ");
+         strcpy (Temp, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
          fprintf (fp, "%s\n", Temp);
 
          if ((p = (CHAR *)Msg->Text.First ()) != NULL)
@@ -1229,7 +1229,7 @@ VOID ExportMessage (VOID)
    }
 }
 
-VOID ClearScreen (VOID)
+VOID ClearScreen ()
 {
    wcloseall ();
    showcur ();
@@ -1237,7 +1237,7 @@ VOID ClearScreen (VOID)
    closevideo ();
 }
 
-USHORT ChangeArea (VOID)
+USHORT ChangeArea ()
 {
    int i;
    USHORT start, RetVal = FALSE;
@@ -1314,7 +1314,7 @@ USHORT ChangeArea (VOID)
    return (RetVal);
 }
 
-USHORT CMessageListDlg (VOID)
+USHORT CMessageListDlg ()
 {
    int i;
    USHORT start, RetVal = FALSE;
@@ -1368,7 +1368,7 @@ USHORT CMessageListDlg (VOID)
    return (RetVal);
 }
 
-USHORT CMsgHeaderDlg (VOID)
+USHORT CMsgHeaderDlg ()
 {
    int menu_sel = 996;
    USHORT RetVal = FALSE;
@@ -1585,7 +1585,7 @@ VOID EditMessage (USHORT Reply, USHORT DoQuote)
    }
 }
 
-VOID CHelpDlg (VOID)
+VOID CHelpDlg ()
 {
    if (wopen (4, 14, 22, 76, 0, YELLOW|_BLACK, BLUE|_BLACK) != 0) {
       wtitle (" Help ", TCENTER, YELLOW|_BLACK);
@@ -1614,7 +1614,7 @@ VOID CHelpDlg (VOID)
    }
 }
 
-void main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
    int i;
    USHORT Line, EndRun;
@@ -1983,4 +1983,6 @@ void main (int argc, char *argv[])
       delete Cfg;
 
    ClearScreen ();
+
+   return 0;
 }

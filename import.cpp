@@ -22,7 +22,7 @@
 
 PSZ CheckExts[] = { ".su", ".mo", ".tu", ".we", ".th", ".fr", ".sa", NULL };
 
-VOID TMailProcessor::Import (VOID)
+VOID TMailProcessor::Import ()
 {
    int fd;
    USHORT SkipPacket, Empty;
@@ -269,7 +269,7 @@ VOID TMailProcessor::Import (VOID)
       delete Data;
 }
 
-VOID TMailProcessor::ImportBad (VOID)
+VOID TMailProcessor::ImportBad ()
 {
    int fd;
    CHAR *Line;
@@ -586,7 +586,7 @@ ULONG TMailProcessor::ImportEchoMail (PSZ EchoTag, class TMsgBase *InBase)
    return (RetVal);
 }
 
-USHORT TMailProcessor::IsArcmail (VOID)
+USHORT TMailProcessor::IsArcmail ()
 {
    DIR *dir;
    USHORT RetVal = FALSE, i;
@@ -866,7 +866,7 @@ USHORT TMailProcessor::OpenArea (PSZ pszEchoTag)
    return (Found);
 }
 
-USHORT TMailProcessor::OpenNextPacket (VOID)
+USHORT TMailProcessor::OpenNextPacket ()
 {
    DIR *dir;
    USHORT RetVal = FALSE, MaxBad;
@@ -953,7 +953,7 @@ USHORT TMailProcessor::OpenNextPacket (VOID)
    return (RetVal);
 }
 
-USHORT TMailProcessor::UnpackArcmail (VOID)
+USHORT TMailProcessor::UnpackArcmail ()
 {
    DIR *dir;
    USHORT RetVal = FALSE, i, counter;

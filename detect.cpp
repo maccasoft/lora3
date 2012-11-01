@@ -296,7 +296,7 @@ char *ProductNames[] = {
    "MainDoor"
 };
 
-TDetect::TDetect (void)
+TDetect::TDetect ()
 {
    Ansi = Avatar = Rip = FALSE;
    Remote = REMOTE_NONE;
@@ -314,11 +314,11 @@ TDetect::TDetect (void)
    Address.Clear ();
 }
 
-TDetect::~TDetect (void)
+TDetect::~TDetect ()
 {
 }
 
-USHORT TDetect::AbortSession (VOID)
+USHORT TDetect::AbortSession ()
 {
    USHORT RetVal = FALSE;
 
@@ -330,7 +330,7 @@ USHORT TDetect::AbortSession (VOID)
    return (RetVal);
 }
 
-USHORT TDetect::CheckEMSIPacket (VOID)
+USHORT TDetect::CheckEMSIPacket ()
 {
    USHORT key, RetVal = EMSI_NONE;
    CHAR pkt[4];
@@ -426,7 +426,7 @@ USHORT TDetect::CheckEMSIPacket (VOID)
    return (RetVal);
 }
 
-VOID TDetect::IEMSIReceiver (VOID)
+VOID TDetect::IEMSIReceiver ()
 {
    if (Status != NULL)
       Status->SetLine (0, "Receiving IEMSI packet");
@@ -439,7 +439,7 @@ VOID TDetect::IEMSIReceiver (VOID)
    }
 }
 
-USHORT TDetect::RemoteMailer (VOID)
+USHORT TDetect::RemoteMailer ()
 {
    USHORT key, prev, i, IsEMSI, IsYOOHOO;
    ULONG tout;
@@ -515,7 +515,7 @@ USHORT TDetect::RemoteMailer (VOID)
    return (Remote);
 }
 
-USHORT TDetect::ReceiveEMSIPacket (VOID)
+USHORT TDetect::ReceiveEMSIPacket ()
 {
    FILE *fp;
    SHORT key;
@@ -583,7 +583,7 @@ USHORT TDetect::ReceiveEMSIPacket (VOID)
    return (RetVal);
 }
 
-USHORT TDetect::ReceiveIEMSIPacket (VOID)
+USHORT TDetect::ReceiveIEMSIPacket ()
 {
    SHORT key;
    USHORT RetVal = TRUE, i, len;
@@ -632,7 +632,7 @@ USHORT TDetect::ReceiveIEMSIPacket (VOID)
    return (RetVal);
 }
 
-VOID TDetect::SendEMSIPacket (VOID)
+VOID TDetect::SendEMSIPacket ()
 {
    CHAR Temp[64], FoundPw = FALSE;
    USHORT Crc, OutPktFiles, OutDataFiles;
@@ -743,7 +743,7 @@ VOID TDetect::SendEMSIPacket (VOID)
    Com->SendBytes ((UCHAR *)Temp, (USHORT)strlen (Temp));
 }
 
-VOID TDetect::SendIEMSIPacket (VOID)
+VOID TDetect::SendIEMSIPacket ()
 {
    CHAR Temp[64];
    ULONG Crc;
@@ -782,7 +782,7 @@ VOID TDetect::SendIEMSIPacket (VOID)
    Com->SendBytes ((UCHAR *)Temp, (USHORT)strlen (Temp));
 }
 
-USHORT TDetect::EMSIReceiver (VOID)
+USHORT TDetect::EMSIReceiver ()
 {
    USHORT RetVal = FALSE;
    SHORT key, prev;
@@ -834,7 +834,7 @@ USHORT TDetect::EMSIReceiver (VOID)
    return (RetVal);
 }
 
-USHORT TDetect::EMSISender (VOID)
+USHORT TDetect::EMSISender ()
 {
    USHORT RetVal = FALSE, MaybeError;
    SHORT key, prev;
@@ -896,7 +896,7 @@ USHORT TDetect::EMSISender (VOID)
    return (RetVal);
 }
 
-VOID TDetect::Terminal (VOID)
+VOID TDetect::Terminal ()
 {
    USHORT key, prev, pos, i, gotAnswer, IsEMSI, ripos;
    USHORT canexit, MailOnly;
@@ -1184,7 +1184,7 @@ VOID TDetect::Terminal (VOID)
    }
 }
 
-SHORT TDetect::TimedRead (VOID)
+SHORT TDetect::TimedRead ()
 {
    SHORT RetVal = -1;
    ULONG tout;
@@ -1249,7 +1249,7 @@ SHORT TDetect::TimedRead (VOID)
 
 #define MAX_EMSITOKEN      40
 
-VOID TDetect::ParseEMSIPacket (VOID)
+VOID TDetect::ParseEMSIPacket ()
 {
    USHORT i, t, idents, firstEntry;
    UCHAR Byte, *Read, *Write, c, FoundKnown, FoundProt;
@@ -1517,7 +1517,7 @@ VOID TDetect::ParseEMSIPacket (VOID)
 
 #define MAX_IEMSITOKEN     14
 
-VOID TDetect::ParseIEMSIPacket (VOID)
+VOID TDetect::ParseIEMSIPacket ()
 {
    USHORT i;
    UCHAR Byte, *Read, *Write, c;
@@ -1597,7 +1597,7 @@ VOID TDetect::ParseIEMSIPacket (VOID)
    strcpy (Password, Tokens[IEMSI_PASSWORD]);
 }
 
-USHORT TDetect::ReceiveHello (VOID)
+USHORT TDetect::ReceiveHello ()
 {
    USHORT RetVal = FALSE, Crc, IsPacket, FoundKnown, FoundProt;
    USHORT Received, RemoteCrc, CrcCount;
@@ -1767,7 +1767,7 @@ USHORT TDetect::ReceiveHello (VOID)
    return (RetVal);
 }
 
-VOID TDetect::Receiver (VOID)
+VOID TDetect::Receiver ()
 {
    FILE *fp;
    USHORT FileReceived, FileSent, RetVal, RequestFiles;
@@ -2056,7 +2056,7 @@ VOID TDetect::Receiver (VOID)
    }
 }
 
-VOID TDetect::Sender (VOID)
+VOID TDetect::Sender ()
 {
    USHORT FileReceived, FileSent, RetVal;
    CHAR *p, Stop, Name[32];
@@ -2179,7 +2179,7 @@ VOID TDetect::Sender (VOID)
    }
 }
 
-USHORT TDetect::SendHello (VOID)
+USHORT TDetect::SendHello ()
 {
    USHORT i, RetVal = FALSE, Crc, FoundPw, OutPktFiles, OutDataFiles;
    UCHAR *p, Resp = 0;
@@ -2291,7 +2291,7 @@ USHORT TDetect::SendHello (VOID)
    return (RetVal);
 }
 
-USHORT TDetect::WaZOOReceiver (VOID)
+USHORT TDetect::WaZOOReceiver ()
 {
    USHORT RetVal = FALSE;
    ULONG Timer;
@@ -2318,7 +2318,7 @@ USHORT TDetect::WaZOOReceiver (VOID)
    return (RetVal);
 }
 
-USHORT TDetect::WaZOOSender (VOID)
+USHORT TDetect::WaZOOSender ()
 {
    USHORT RetVal = FALSE;
 
@@ -2342,7 +2342,7 @@ USHORT TDetect::WaZOOSender (VOID)
 
 // ----------------------------------------------------------------------
 
-TMailerStatus::TMailerStatus (void)
+TMailerStatus::TMailerStatus ()
 {
    SystemName[0] = SysopName[0] = Location[0] = '\0';
    Address[0] = Akas[0] = Program[0] = '\0';
@@ -2352,11 +2352,11 @@ TMailerStatus::TMailerStatus (void)
    Speed = 57600L;
 }
 
-TMailerStatus::~TMailerStatus (void)
+TMailerStatus::~TMailerStatus ()
 {
 }
 
-VOID TMailerStatus::Update (VOID)
+VOID TMailerStatus::Update ()
 {
 }
 

@@ -46,8 +46,8 @@ typedef struct {
 class DLL_EXPORT TMsgBase
 {
 public:
-   TMsgBase (void) {};
-   virtual ~TMsgBase (void) {};
+   TMsgBase () {};
+   virtual ~TMsgBase () {};
 
    ULONG   Id, Current;
    CHAR    From[64];
@@ -63,27 +63,27 @@ public:
    ULONG   Reply, Original;
    class   TCollection Text;
 
-   virtual USHORT Add (VOID) = 0;
+   virtual USHORT Add () = 0;
    virtual USHORT Add (class TMsgBase *MsgBase) = 0;
    virtual USHORT Add (class TCollection &MsgText) = 0;
-   virtual VOID   Close (VOID) = 0;
+   virtual VOID   Close () = 0;
    virtual USHORT Delete (ULONG ulMsg) = 0;
-   virtual ULONG  Highest (VOID) = 0;
+   virtual ULONG  Highest () = 0;
    virtual USHORT GetHWM (ULONG &ulMsg) = 0;
    virtual USHORT Lock (ULONG ulTimeout = 0) = 0;
-   virtual ULONG  Lowest (VOID) = 0;
+   virtual ULONG  Lowest () = 0;
    virtual ULONG  MsgnToUid (ULONG ulMsg) = 0;
-   virtual VOID   New (VOID) = 0;
+   virtual VOID   New () = 0;
    virtual USHORT Next (ULONG &ulMsg) = 0;
-   virtual ULONG  Number (VOID) = 0;
-   virtual VOID   Pack (VOID) = 0;
+   virtual ULONG  Number () = 0;
+   virtual VOID   Pack () = 0;
    virtual USHORT Previous (ULONG &ulMsg) = 0;
    virtual USHORT ReadHeader (ULONG ulMsg) = 0;
    virtual USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79) = 0;
    virtual USHORT Read (ULONG ulMsg, SHORT nWidth = 79) = 0;
    virtual VOID   SetHWM (ULONG ulMsg) = 0;
    virtual ULONG  UidToMsgn (ULONG ulMsg) = 0;
-   virtual VOID   UnLock (VOID) = 0;
+   virtual VOID   UnLock () = 0;
    virtual USHORT WriteHeader (ULONG ulMsg) = 0;
 
 protected:
@@ -96,32 +96,32 @@ protected:
 class DLL_EXPORT JAM : public TMsgBase
 {
 public:
-   JAM (void);
+   JAM ();
    JAM (PSZ pszName);
-   ~JAM (void);
+   ~JAM ();
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
    USHORT GetHWM (ULONG &ulMsg);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
+   ULONG  Number ();
    USHORT Open (PSZ pszName);
-   VOID   Pack (VOID);
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -232,33 +232,33 @@ typedef struct {
 class DLL_EXPORT SQUISH : public TMsgBase
 {
 public:
-   SQUISH (void);
+   SQUISH ();
    SQUISH (PSZ pszName);
-   ~SQUISH (void);
+   ~SQUISH ();
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
    USHORT GetHWM (ULONG &ulMsg);
    ULONG  Hash (PSZ f);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
+   ULONG  Number ();
    USHORT Open (PSZ pszName);
-   VOID   Pack (VOID);
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -275,37 +275,37 @@ private:
 class DLL_EXPORT USENET : public TMsgBase
 {
 public:
-   USENET (void);
+   USENET ();
    USENET (PSZ pszServer, PSZ pszGroup);
-   ~USENET (void);
+   ~USENET ();
 
    CHAR   HostName[32], Organization[64];
    CHAR   NewsGroup[64], User[32];
    CHAR   ProgramID[32];
    CHAR   Error[128];
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT GetHWM (ULONG &ulMsg);
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
+   ULONG  Number ();
    USHORT Open (PSZ pszServer, PSZ pszGroup);
-   VOID   Pack (VOID);
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -384,36 +384,36 @@ typedef struct {
 class DLL_EXPORT PACKET : public TMsgBase
 {
 public:
-   PACKET (void);
+   PACKET ();
    PACKET (PSZ pszName);
-   ~PACKET (void);
+   ~PACKET ();
 
    CHAR   Password[16];
    MDATE  Date;
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
    USHORT GetHWM (ULONG &ulMsg);
-   ULONG  Highest (VOID);
-   VOID   Kill (VOID);
+   ULONG  Highest ();
+   VOID   Kill ();
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
+   ULONG  Number ();
    USHORT Open (PSZ pszName, USHORT doScan = TRUE);
-   VOID   Pack (VOID);
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -426,7 +426,7 @@ private:
    ULONG  TotalMsgs;
    class  TCollection Index;
 
-   USHORT GetLine (VOID);
+   USHORT GetLine ();
 };
 
 // --------------------------------------------------------------------------
@@ -451,32 +451,32 @@ typedef struct {
 class DLL_EXPORT FIDOSDM : public TMsgBase
 {
 public:
-   FIDOSDM (void);
+   FIDOSDM ();
    FIDOSDM (PSZ pszName);
-   ~FIDOSDM (void);
+   ~FIDOSDM ();
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
    USHORT GetHWM (ULONG &ulMsg);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
+   ULONG  Number ();
    USHORT Open (PSZ pszName);
-   VOID   Pack (VOID);
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -537,32 +537,32 @@ typedef struct {
 class DLL_EXPORT ADEPT : public TMsgBase
 {
 public:
-   ADEPT (void);
+   ADEPT ();
    ADEPT (PSZ pszName);
-   ~ADEPT (void);
+   ~ADEPT ();
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
    USHORT GetHWM (ULONG &ulMsg);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
+   ULONG  Number ();
    USHORT Open (PSZ pszName);
-   VOID   Pack (VOID);
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -579,30 +579,30 @@ private:
 class DLL_EXPORT PASSTHR : public TMsgBase
 {
 public:
-   PASSTHR (void);
-   ~PASSTHR (void);
+   PASSTHR ();
+   ~PASSTHR ();
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
    USHORT GetHWM (ULONG &ulMsg);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
-   VOID   Pack (VOID);
+   ULONG  Number ();
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 };
 
@@ -611,31 +611,31 @@ public:
 class DLL_EXPORT COMBO : public TMsgBase
 {
 public:
-   COMBO (void);
-   ~COMBO (void);
+   COMBO ();
+   ~COMBO ();
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
    USHORT Add (PSZ pszPath, USHORT usStorage, ULONG ulNumber);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
    USHORT GetHWM (ULONG &ulMsg);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
-   VOID   Pack (VOID);
+   ULONG  Number ();
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -650,35 +650,35 @@ private:
 class DLL_EXPORT INETMAIL : public TMsgBase
 {
 public:
-   INETMAIL (void);
+   INETMAIL ();
    INETMAIL (PSZ pszServer, PSZ pszUser, PSZ pszPwd);
-   ~INETMAIL (void);
+   ~INETMAIL ();
 
    CHAR   HostName[64], SMTPHostName[64];
    CHAR   Error[128];
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT GetHWM (ULONG &ulMsg);
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
+   ULONG  Number ();
    USHORT Open (PSZ pszServer, PSZ pszUser, PSZ pszPwd);
-   VOID   Pack (VOID);
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -750,32 +750,32 @@ typedef struct {
 class DLL_EXPORT HUDSON : public TMsgBase
 {
 public:
-   HUDSON (void);
+   HUDSON ();
    HUDSON (PSZ pszName, UCHAR board);
-   ~HUDSON (void);
+   ~HUDSON ();
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (class TMsgBase *MsgBase);
    USHORT Add (class TCollection &MsgText);
-   VOID   Close (VOID);
+   VOID   Close ();
    USHORT Delete (ULONG ulMsg);
    USHORT GetHWM (ULONG &ulMsg);
-   ULONG  Highest (VOID);
+   ULONG  Highest ();
    USHORT Lock (ULONG ulTimeout = 0);
-   ULONG  Lowest (VOID);
+   ULONG  Lowest ();
    ULONG  MsgnToUid (ULONG ulMsg);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (ULONG &ulMsg);
-   ULONG  Number (VOID);
+   ULONG  Number ();
    USHORT Open (PSZ pszName, UCHAR board);
-   VOID   Pack (VOID);
+   VOID   Pack ();
    USHORT Previous (ULONG &ulMsg);
    USHORT ReadHeader (ULONG ulMsg);
    USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
    USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
    VOID   SetHWM (ULONG ulMsg);
    ULONG  UidToMsgn (ULONG ulMsg);
-   VOID   UnLock (VOID);
+   VOID   UnLock ();
    USHORT WriteHeader (ULONG ulMsg);
 
 private:
@@ -812,16 +812,16 @@ typedef struct {
 class DLL_EXPORT TDupes
 {
 public:
-   TDupes (void);
+   TDupes ();
    TDupes (PSZ pszDataPath);
-   ~TDupes (void);
+   ~TDupes ();
 
    VOID   Add (PSZ pszEchoTag, class TMsgBase *Msg);
    USHORT Check (PSZ pszEchoTag, class TMsgBase *Msg);
-   VOID   Delete (VOID);
+   VOID   Delete ();
    ULONG  GetEID (class TMsgBase *Msg);
    USHORT Load (PSZ pszEchoTag);
-   VOID   Save (VOID);
+   VOID   Save ();
 
 private:
    CHAR   DataFile[128];

@@ -10,7 +10,7 @@
 #include "_ldefs.h"
 #include "lserver.h"
 
-TFTP::TFTP (void)
+TFTP::TFTP ()
 {
    Cfg = NULL;
    Tcp = Data = NULL;
@@ -41,7 +41,7 @@ TFTP::TFTP (void)
    Month[11] = "Dec";
 }
 
-TFTP::~TFTP (void)
+TFTP::~TFTP ()
 {
    if (Tcp != NULL)
       delete Tcp;
@@ -57,7 +57,7 @@ TFTP::~TFTP (void)
       delete Cfg;
 }
 
-VOID TFTP::GetCommand (VOID)
+VOID TFTP::GetCommand ()
 {
    USHORT len = 0, MaxLen = sizeof (Response);
    CHAR c, *pszResp = Response;
@@ -117,7 +117,7 @@ USHORT TFTP::FileExist (PSZ pszFile)
    return (FALSE);
 }
 
-VOID TFTP::Run (VOID)
+VOID TFTP::Run ()
 {
    int fd;
    USHORT Readed, Ok, GotA;
@@ -574,7 +574,7 @@ VOID TFTP::Run (VOID)
    }
 }
 
-USHORT TFTP::Login (VOID)
+USHORT TFTP::Login ()
 {
    CHAR *p, Name[48];
 

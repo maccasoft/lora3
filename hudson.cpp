@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "msgbase.h"
 
-HUDSON::HUDSON (void)
+HUDSON::HUDSON ()
 {
    fdTxt = fdHdr = -1;
    Current = Id = 0L;
@@ -37,7 +37,7 @@ HUDSON::HUDSON (PSZ pszName, UCHAR board)
    Open (pszName, board);
 }
 
-HUDSON::~HUDSON (void)
+HUDSON::~HUDSON ()
 {
    Close ();
 }
@@ -54,7 +54,7 @@ VOID HUDSON::C2Pascal (PSZ strp, PSZ strc)
    strp[0] = (CHAR)strlen (strc);
 }
 
-USHORT HUDSON::Add (VOID)
+USHORT HUDSON::Add ()
 {
    return (Add (Text));
 }
@@ -317,7 +317,7 @@ USHORT HUDSON::Add (class TCollection &MsgText)
    return (TRUE);
 }
 
-VOID HUDSON::Close (VOID)
+VOID HUDSON::Close ()
 {
    UnLock ();
 
@@ -398,7 +398,7 @@ USHORT HUDSON::GetHWM (ULONG &ulMsg)
    return (FALSE);
 }
 
-ULONG HUDSON::Highest (VOID)
+ULONG HUDSON::Highest ()
 {
    int i;
    ULONG RetVal = 0L;
@@ -449,7 +449,7 @@ USHORT HUDSON::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG HUDSON::Lowest (VOID)
+ULONG HUDSON::Lowest ()
 {
    int i;
    ULONG RetVal = 0L;
@@ -486,7 +486,7 @@ ULONG HUDSON::MsgnToUid (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID HUDSON::New (VOID)
+VOID HUDSON::New ()
 {
    From[0] = To[0] = Subject[0] = '\0';
    Crash = Direct = FileAttach = FileRequest = Hold = Immediate = FALSE;
@@ -517,7 +517,7 @@ USHORT HUDSON::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG HUDSON::Number (VOID)
+ULONG HUDSON::Number ()
 {
    return (TotalMsgs);
 }
@@ -559,7 +559,7 @@ USHORT HUDSON::Open (PSZ pszName, UCHAR board)
    return (RetVal);
 }
 
-VOID HUDSON::Pack (VOID)
+VOID HUDSON::Pack ()
 {
    int i, fd, fdo[4], fdn[4];
    USHORT Number, DoRename = FALSE;
@@ -930,7 +930,7 @@ ULONG HUDSON::UidToMsgn (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID HUDSON::UnLock (VOID)
+VOID HUDSON::UnLock ()
 {
    int fd;
    CHAR File[128];

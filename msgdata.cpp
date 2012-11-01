@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TMsgData::TMsgData (void)
+TMsgData::TMsgData ()
 {
    fdDat = -1;
    fdIdx = -1;
@@ -43,7 +43,7 @@ TMsgData::TMsgData (PSZ pszDataPath)
    LastReaded = 0L;
 }
 
-TMsgData::~TMsgData (void)
+TMsgData::~TMsgData ()
 {
    if (fdDat != -1)
       close (fdDat);
@@ -51,7 +51,7 @@ TMsgData::~TMsgData (void)
       close (fdIdx);
 }
 
-USHORT TMsgData::Add (VOID)
+USHORT TMsgData::Add ()
 {
    USHORT retVal = FALSE, DoClose = FALSE;
    MESSAGE *Msg;
@@ -143,7 +143,7 @@ VOID TMsgData::Class2Struct (MESSAGE *Msg)
    Msg->NewsHWM = NewsHWM;
 }
 
-VOID TMsgData::Delete (VOID)
+VOID TMsgData::Delete ()
 {
    int fdNew;
    ULONG Position;
@@ -206,7 +206,7 @@ VOID TMsgData::Delete (VOID)
    }
 }
 
-USHORT TMsgData::First (VOID)
+USHORT TMsgData::First ()
 {
    USHORT retVal = FALSE;
 
@@ -284,7 +284,7 @@ USHORT TMsgData::Insert (class TMsgData *Data)
    return (Insert ());
 }
 
-USHORT TMsgData::Insert (VOID)
+USHORT TMsgData::Insert ()
 {
    int fdNew;
    USHORT retVal = FALSE;
@@ -347,7 +347,7 @@ USHORT TMsgData::Insert (VOID)
    return (retVal);
 }
 
-USHORT TMsgData::Last (VOID)
+USHORT TMsgData::Last ()
 {
    USHORT retVal = FALSE, IsValid;
    MESSAGE *Msg;
@@ -397,7 +397,7 @@ USHORT TMsgData::Last (VOID)
    return (retVal);
 }
 
-VOID TMsgData::New (VOID)
+VOID TMsgData::New ()
 {
    memset (Display, 0, sizeof (Display));
    memset (Key, 0, sizeof (Key));
@@ -433,7 +433,7 @@ VOID TMsgData::New (VOID)
    NewsHWM = 0L;
 }
 
-USHORT TMsgData::Next (VOID)
+USHORT TMsgData::Next ()
 {
    USHORT retVal = FALSE, IsValid;
    MESSAGE *Msg;
@@ -463,7 +463,7 @@ USHORT TMsgData::Next (VOID)
    return (retVal);
 }
 
-VOID TMsgData::Pack (VOID)
+VOID TMsgData::Pack ()
 {
    int fdNewIdx, fdNewDat;
    INDEX Idx;
@@ -511,7 +511,7 @@ VOID TMsgData::Pack (VOID)
    }
 }
 
-USHORT TMsgData::Previous (VOID)
+USHORT TMsgData::Previous ()
 {
    USHORT retVal = FALSE, IsValid;
    MESSAGE *Msg;
@@ -618,7 +618,7 @@ USHORT TMsgData::ReadEcho (PSZ pszEchoTag)
    return (retVal);
 }
 
-USHORT TMsgData::ReRead (VOID)
+USHORT TMsgData::ReRead ()
 {
    USHORT retVal = FALSE;
 
@@ -777,7 +777,7 @@ USHORT TMsgData::Update (PSZ pszNewKey)
 
 #define ECHOLINK_INDEX     32
 
-TEchoLink::TEchoLink (void)
+TEchoLink::TEchoLink ()
 {
    Data.Clear ();
    strcpy (DataFile, "echolink.dat");
@@ -803,12 +803,12 @@ TEchoLink::TEchoLink (PSZ pszDataPath)
    Skip4D = FALSE;
 }
 
-TEchoLink::~TEchoLink (void)
+TEchoLink::~TEchoLink ()
 {
    Data.Clear ();
 }
 
-USHORT TEchoLink::Add (VOID)
+USHORT TEchoLink::Add ()
 {
    USHORT Insert = FALSE;
    ECHOLINK Buffer, *Current;
@@ -991,19 +991,19 @@ USHORT TEchoLink::Check (PSZ pszAddress)
    return (RetVal);
 }
 
-VOID TEchoLink::Clear (VOID)
+VOID TEchoLink::Clear ()
 {
    Data.Clear ();
    New ();
 }
 
-VOID TEchoLink::Delete (VOID)
+VOID TEchoLink::Delete ()
 {
    if (Data.Value () != NULL)
       Data.Remove ();
 }
 
-USHORT TEchoLink::First (VOID)
+USHORT TEchoLink::First ()
 {
    USHORT RetVal = FALSE;
    ECHOLINK *El;
@@ -1068,7 +1068,7 @@ VOID TEchoLink::Load (PSZ pszEchoTag)
    First ();
 }
 
-VOID TEchoLink::New (VOID)
+VOID TEchoLink::New ()
 {
    Zone = 0;
    Net = 0;
@@ -1082,7 +1082,7 @@ VOID TEchoLink::New (VOID)
    Skip = FALSE;
 }
 
-USHORT TEchoLink::Next (VOID)
+USHORT TEchoLink::Next ()
 {
    USHORT RetVal = FALSE;
    ECHOLINK *El;
@@ -1138,7 +1138,7 @@ USHORT TEchoLink::Next (VOID)
    return (RetVal);
 }
 
-USHORT TEchoLink::Previous (VOID)
+USHORT TEchoLink::Previous ()
 {
    USHORT RetVal = FALSE;
    ECHOLINK *El;
@@ -1169,7 +1169,7 @@ USHORT TEchoLink::Previous (VOID)
    return (RetVal);
 }
 
-VOID TEchoLink::Save (VOID)
+VOID TEchoLink::Save ()
 {
    int fd, i, Count, Changed;
    ULONG Position;
@@ -1218,7 +1218,7 @@ VOID TEchoLink::Save (VOID)
    }
 }
 
-VOID TEchoLink::Update (VOID)
+VOID TEchoLink::Update ()
 {
    ECHOLINK *Buffer;
 
@@ -1256,7 +1256,7 @@ TEchotoss::TEchotoss (PSZ path)
    Data.Clear ();
 }
 
-TEchotoss::~TEchotoss (void)
+TEchotoss::~TEchotoss ()
 {
    Data.Clear ();
 }
@@ -1278,17 +1278,17 @@ VOID TEchotoss::Add (PSZ tag)
       Data.Add (tag);
 }
 
-VOID TEchotoss::Clear (VOID)
+VOID TEchotoss::Clear ()
 {
    Data.Clear ();
 }
 
-VOID TEchotoss::Delete (VOID)
+VOID TEchotoss::Delete ()
 {
    unlink (DataFile);
 }
 
-USHORT TEchotoss::First (VOID)
+USHORT TEchotoss::First ()
 {
    USHORT RetVal = FALSE;
    PSZ p;
@@ -1301,7 +1301,7 @@ USHORT TEchotoss::First (VOID)
    return (RetVal);
 }
 
-USHORT TEchotoss::Load (VOID)
+USHORT TEchotoss::Load ()
 {
    FILE *fp;
    USHORT RetVal = FALSE;
@@ -1319,7 +1319,7 @@ USHORT TEchotoss::Load (VOID)
    return (RetVal);
 }
 
-USHORT TEchotoss::Next (VOID)
+USHORT TEchotoss::Next ()
 {
    USHORT RetVal = FALSE;
    PSZ p;
@@ -1332,7 +1332,7 @@ USHORT TEchotoss::Next (VOID)
    return (RetVal);
 }
 
-VOID TEchotoss::Save (VOID)
+VOID TEchotoss::Save ()
 {
    FILE *fp;
    PSZ p;

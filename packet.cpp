@@ -31,7 +31,7 @@ typedef struct {
    ULONG Position;
 } PKTINDEX;
 
-PACKET::PACKET (void)
+PACKET::PACKET ()
 {
    Current = Id = 0L;
    TotalMsgs = 0L;
@@ -51,12 +51,12 @@ PACKET::PACKET (PSZ pszName)
    Open (pszName);
 }
 
-PACKET::~PACKET (void)
+PACKET::~PACKET ()
 {
    Close ();
 }
 
-USHORT PACKET::Add (VOID)
+USHORT PACKET::Add ()
 {
    return (Add (Text));
 }
@@ -251,7 +251,7 @@ USHORT PACKET::Add (class TCollection &MsgText)
    return (RetVal);
 }
 
-VOID PACKET::Close (VOID)
+VOID PACKET::Close ()
 {
    Id = 0L;
    if (fp != NULL) {
@@ -284,7 +284,7 @@ USHORT PACKET::GetHWM (ULONG &ulMsg)
    return (FALSE);
 }
 
-USHORT PACKET::GetLine (VOID)
+USHORT PACKET::GetLine ()
 {
    int c;
    USHORT Readed = 0, MaybeEOM = FALSE;
@@ -320,7 +320,7 @@ USHORT PACKET::GetLine (VOID)
    return ((Readed == 0 && c == EOF) ? FALSE : TRUE);
 }
 
-ULONG PACKET::Highest (VOID)
+ULONG PACKET::Highest ()
 {
    ULONG RetVal = 0L;
    PKTINDEX *pktIndex;
@@ -331,7 +331,7 @@ ULONG PACKET::Highest (VOID)
    return (RetVal);
 }
 
-VOID PACKET::Kill (VOID)
+VOID PACKET::Kill ()
 {
    if (fp != NULL) {
       fclose (fp);
@@ -347,7 +347,7 @@ USHORT PACKET::Lock (ULONG ulTimeout)
    return (TRUE);
 }
 
-ULONG PACKET::Lowest (VOID)
+ULONG PACKET::Lowest ()
 {
    ULONG RetVal = 0L;
    PKTINDEX *pktIndex;
@@ -363,7 +363,7 @@ ULONG PACKET::MsgnToUid (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID PACKET::New (VOID)
+VOID PACKET::New ()
 {
    From[0] = To[0] = Subject[0] = '\0';
    Crash = Direct = FileAttach = FileRequest = Hold = Immediate = FALSE;
@@ -412,7 +412,7 @@ USHORT PACKET::Next (ULONG &ulMsg)
    return (RetVal);
 }
 
-ULONG PACKET::Number (VOID)
+ULONG PACKET::Number ()
 {
    return (TotalMsgs);
 }
@@ -592,7 +592,7 @@ USHORT PACKET::Open (PSZ pszName, USHORT doScan)
    return (RetVal);
 }
 
-VOID PACKET::Pack (VOID)
+VOID PACKET::Pack ()
 {
 }
 
@@ -782,7 +782,7 @@ ULONG PACKET::UidToMsgn (ULONG ulMsg)
    return (ulMsg);
 }
 
-VOID PACKET::UnLock (VOID)
+VOID PACKET::UnLock ()
 {
 }
 

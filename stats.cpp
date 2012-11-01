@@ -19,7 +19,7 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TStatistics::TStatistics (void)
+TStatistics::TStatistics ()
 {
    strcpy (DataFile, "stats.dat");
 }
@@ -39,17 +39,17 @@ TStatistics::TStatistics (PSZ pszDataPath)
    strcat (DataFile, "stats.dat");
 }
 
-TStatistics::~TStatistics (void)
+TStatistics::~TStatistics ()
 {
 }
 
-USHORT TStatistics::First (VOID)
+USHORT TStatistics::First ()
 {
    LastTask = 0;
    return (Next ());
 }
 
-USHORT TStatistics::Next (VOID)
+USHORT TStatistics::Next ()
 {
    int fd;
    USHORT RetVal = FALSE;
@@ -136,7 +136,7 @@ VOID TStatistics::Read (USHORT usLine)
    }
 }
 
-VOID TStatistics::Update (VOID)
+VOID TStatistics::Update ()
 {
    int fd;
    USHORT Found = FALSE;

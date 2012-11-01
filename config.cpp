@@ -19,18 +19,18 @@
 #include "_ldefs.h"
 #include "lora_api.h"
 
-TConfig::TConfig (void)
+TConfig::TConfig ()
 {
    strcpy (ConfigFile, "config.dat");
    strcpy (ChannelFile, "channel.dat");
    TaskNumber = 1;
 }
 
-TConfig::~TConfig (void)
+TConfig::~TConfig ()
 {
 }
 
-VOID TConfig::Default (VOID)
+VOID TConfig::Default ()
 {
    strcpy (Device, "COM2");
    Speed = 19200L;
@@ -182,7 +182,7 @@ USHORT TConfig::Load (PSZ pszConfig, PSZ pszChannel)
    return (Reload ());
 }
 
-VOID TConfig::NewChannel (VOID)
+VOID TConfig::NewChannel ()
 {
    Speed = 19200L;
 //   strcpy (Initialize[0], "ATZ");
@@ -201,7 +201,7 @@ VOID TConfig::NewChannel (VOID)
    CallIf[0] = DontCallIf[0] = '\0';
 }
 
-VOID TConfig::New (VOID)
+VOID TConfig::New ()
 {
    CONFIG *Cfg;
 
@@ -212,7 +212,7 @@ VOID TConfig::New (VOID)
    }
 }
 
-USHORT TConfig::Reload (VOID)
+USHORT TConfig::Reload ()
 {
    int fd;
    USHORT RetVal = FALSE;

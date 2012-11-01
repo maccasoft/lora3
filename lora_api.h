@@ -29,7 +29,7 @@
 #define KEY_POINT             4
 
 USHORT DLL_EXPORT ValidateKey (PSZ product, PSZ name, PSZ number);
-USHORT DLL_EXPORT CheckExpiration (VOID);
+USHORT DLL_EXPORT CheckExpiration ();
 
 #if defined(__POINT__)
 #define NAME               "LoraPOINT"
@@ -66,25 +66,25 @@ USHORT DLL_EXPORT CheckExpiration (VOID);
 class DLL_EXPORT TAddress
 {
 public:
-   TAddress (void);
-   ~TAddress (void);
+   TAddress ();
+   ~TAddress ();
 
    USHORT Zone, Net, Node, Point;
    USHORT FakeNet;
    CHAR   Domain[32];
    CHAR   String[64];
 
-   SHORT  Add (VOID);
+   SHORT  Add ();
    SHORT  Add (PSZ pszAddress);
    SHORT  Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoint = 0, PSZ pszDomain = "");
-   VOID   Clear (VOID);
-   VOID   Delete (VOID);
-   SHORT  First (VOID);
+   VOID   Clear ();
+   VOID   Delete ();
+   SHORT  First ();
    USHORT Load (PSZ pszFile);
    USHORT Merge (PSZ pszFile);
-   SHORT  Next (VOID);
+   SHORT  Next ();
    VOID   Parse (PSZ pszAddress);
-   VOID   Update (VOID);
+   VOID   Update ();
    USHORT Save (PSZ pszFile);
 
 private:
@@ -94,8 +94,8 @@ private:
 class DLL_EXPORT TConfig
 {
 public:
-   TConfig (void);
-   ~TConfig (void);
+   TConfig ();
+   ~TConfig ();
 
    CHAR   Device[32];
    ULONG  Speed;
@@ -190,12 +190,12 @@ public:
    class  TAddress MailAddress;
 
    PSZ    AdjustPath (PSZ path);
-   VOID   Default (VOID);
+   VOID   Default ();
    PSZ    FixPath (PSZ path);
    USHORT Load (PSZ pszConfig = NULL, PSZ pszChannel = NULL);
-   VOID   New (VOID);
-   VOID   NewChannel (VOID);
-   USHORT Reload (VOID);
+   VOID   New ();
+   VOID   NewChannel ();
+   USHORT Reload ();
    USHORT Save (PSZ pszConfig = NULL, PSZ pszChannel = NULL);
 
 private:
@@ -208,16 +208,16 @@ private:
 class DLL_EXPORT TLog
 {
 public:
-   TLog (void);
-   virtual ~TLog (void);
+   TLog ();
+   virtual ~TLog ();
 
    USHORT Display;
 
    virtual USHORT Open (PSZ pszName);
-   virtual VOID   Resume (VOID);
-   virtual VOID   Suspend (VOID);
+   virtual VOID   Resume ();
+   virtual VOID   Suspend ();
    virtual VOID   Write (PSZ pszFormat, ...);
-   virtual VOID   WriteBlank (VOID);
+   virtual VOID   WriteBlank ();
 
 protected:
    FILE   *fp;
@@ -256,9 +256,9 @@ typedef struct {
 class DLL_EXPORT TStatistics
 {
 public:
-   TStatistics (void);
+   TStatistics ();
    TStatistics (PSZ pszDataPath);
-   ~TStatistics (void);
+   ~TStatistics ();
 
    USHORT LineNumber;
    USHORT Status;
@@ -268,10 +268,10 @@ public:
    ULONG  TotalMailCalls, MailCalls;
    ULONG  TotalTodayCalls, TodayCalls;
 
-   USHORT First (VOID);
-   USHORT Next (VOID);
+   USHORT First ();
+   USHORT Next ();
    VOID   Read (USHORT usLine);
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    USHORT LastTask;
@@ -285,9 +285,9 @@ private:
 class DLL_EXPORT TMsgData
 {
 public:
-   TMsgData (void);
+   TMsgData ();
    TMsgData (PSZ pszDataPath);
-   ~TMsgData (void);
+   ~TMsgData ();
 
    CHAR   Key[16];
    CHAR   Display[128];
@@ -309,19 +309,19 @@ public:
    SHORT  OriginIndex;
    ULONG  LastReaded, NewsHWM;
 
-   USHORT Add (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
-   USHORT Insert (VOID);
+   USHORT Add ();
+   VOID   Delete ();
+   USHORT First ();
+   USHORT Insert ();
    USHORT Insert (class TMsgData *Data);
-   USHORT Last (VOID);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   VOID   Pack (VOID);
-   USHORT Previous (VOID);
+   USHORT Last ();
+   VOID   New ();
+   USHORT Next ();
+   VOID   Pack ();
+   USHORT Previous ();
    USHORT Read (PSZ pszName, USHORT fCloseFile = TRUE);
    USHORT ReadEcho (PSZ pszEchoTag);
-   USHORT ReRead (VOID);
+   USHORT ReRead ();
    USHORT Update (PSZ pszNewKey = NULL);
 
 private:
@@ -336,9 +336,9 @@ private:
 class DLL_EXPORT TEchoLink
 {
 public:
-   TEchoLink (void);
+   TEchoLink ();
    TEchoLink (PSZ pszDataPath);
-   ~TEchoLink (void);
+   ~TEchoLink ();
 
    USHORT Skip4D;
    ULONG  EchoTag;
@@ -349,19 +349,19 @@ public:
    UCHAR  PersonalOnly;
    UCHAR  Passive, Skip;
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT AddString (PSZ pszString);
    VOID   Change (PSZ pszFrom, PSZ pszTo);
    USHORT Check (PSZ pszName);
-   VOID   Clear (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
+   VOID   Clear ();
+   VOID   Delete ();
+   USHORT First ();
    VOID   Load (PSZ pszEchoTag);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
-   VOID   Save (VOID);
-   VOID   Update (VOID);
+   VOID   New ();
+   USHORT Next ();
+   USHORT Previous ();
+   VOID   Save ();
+   VOID   Update ();
 
 private:
    CHAR   DataFile[64];
@@ -373,9 +373,9 @@ private:
 class DLL_EXPORT TFileData
 {
 public:
-   TFileData (void);
+   TFileData ();
    TFileData (PSZ pszDataPath);
-   ~TFileData (void);
+   ~TFileData ();
 
    CHAR   Display[128], Key[16];
    USHORT Level;
@@ -397,19 +397,19 @@ public:
    UCHAR  DlCost;
    CHAR   FileList[128];
 
-   USHORT Add (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
-   USHORT Insert (VOID);
+   USHORT Add ();
+   VOID   Delete ();
+   USHORT First ();
+   USHORT Insert ();
    USHORT Insert (class TFileData *Data);
-   USHORT Last (VOID);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   VOID   Pack (VOID);
-   USHORT Previous (VOID);
+   USHORT Last ();
+   VOID   New ();
+   USHORT Next ();
+   VOID   Pack ();
+   USHORT Previous ();
    USHORT Read (PSZ pszName, USHORT fCloseFile = TRUE);
    USHORT ReadEcho (PSZ pszEchoTag);
-   USHORT ReRead (VOID);
+   USHORT ReRead ();
    USHORT Update (PSZ pszNewKey = NULL);
 
 private:
@@ -424,9 +424,9 @@ private:
 class DLL_EXPORT TFilechoLink
 {
 public:
-   TFilechoLink (void);
+   TFilechoLink ();
    TFilechoLink (PSZ pszDataPath);
-   ~TFilechoLink (void);
+   ~TFilechoLink ();
 
    USHORT Skip4D;
    ULONG  EchoTag;
@@ -437,19 +437,19 @@ public:
    UCHAR  PersonalOnly;
    UCHAR  Passive, Skip;
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT AddString (PSZ pszString);
    VOID   Change (PSZ pszFrom, PSZ pszTo);
    USHORT Check (PSZ pszName);
-   VOID   Clear (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
+   VOID   Clear ();
+   VOID   Delete ();
+   USHORT First ();
    VOID   Load (PSZ pszEchoTag);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
-   VOID   Save (VOID);
-   VOID   Update (VOID);
+   VOID   New ();
+   USHORT Next ();
+   USHORT Previous ();
+   VOID   Save ();
+   VOID   Update ();
 
 private:
    CHAR   DataFile[64];
@@ -463,9 +463,9 @@ private:
 class DLL_EXPORT TMsgTag
 {
 public:
-   TMsgTag (void);
+   TMsgTag ();
    TMsgTag (PSZ pszUserFile);
-   ~TMsgTag (void);
+   ~TMsgTag ();
 
    UCHAR  Tagged;
    ULONG  UserId;          // CRC32 of user's name
@@ -473,18 +473,18 @@ public:
    ULONG  LastRead;        // Number of last message read
    ULONG  OlderMsg;        // Timestamp of the older message to pack
 
-   VOID   Add (VOID);
+   VOID   Add ();
    VOID   Change (PSZ pszOldName, PSZ pszNewName);
    VOID   Change (ULONG OldId, ULONG NewId);
-   VOID   Clear (VOID);
-   USHORT First (VOID);
-   VOID   Load (VOID);
-   USHORT Next (VOID);
-   VOID   New (VOID);
-   USHORT Previous (VOID);
+   VOID   Clear ();
+   USHORT First ();
+   VOID   Load ();
+   USHORT Next ();
+   VOID   New ();
+   USHORT Previous ();
    USHORT Read (PSZ pszArea);
-   VOID   Save (VOID);
-   VOID   Update (VOID);
+   VOID   Save ();
+   VOID   Update ();
 
 private:
    CHAR   DatFile[64];
@@ -496,9 +496,9 @@ private:
 class DLL_EXPORT TFileTag
 {
 public:
-   TFileTag (void);
+   TFileTag ();
    TFileTag (PSZ pszUserFile);
-   ~TFileTag (void);
+   ~TFileTag ();
 
    ULONG  UserId;
    USHORT Index;
@@ -509,21 +509,21 @@ public:
    USHORT TotalFiles;
    ULONG  TotalBytes;
 
-   USHORT Add (VOID);
+   USHORT Add ();
    VOID   Change (PSZ pszOldName, PSZ pszNewName);
    VOID   Change (ULONG OldId, ULONG NewId);
    USHORT Check (PSZ pszName);
-   VOID   Clear (VOID);
-   USHORT First (VOID);
-   VOID   Load (VOID);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
-   VOID   Reindex (VOID);
+   VOID   Clear ();
+   USHORT First ();
+   VOID   Load ();
+   VOID   New ();
+   USHORT Next ();
+   USHORT Previous ();
+   VOID   Reindex ();
    VOID   Remove (PSZ pszName = NULL);
    USHORT Select (USHORT usIndex);
-   VOID   Save (VOID);
-   VOID   Update (VOID);
+   VOID   Save ();
+   VOID   Update ();
 
 private:
    CHAR   DatFile[64];
@@ -533,9 +533,9 @@ private:
 class DLL_EXPORT TLimits
 {
 public:
-   TLimits (void);
+   TLimits ();
    TLimits (PSZ pszUserFile);
-   ~TLimits (void);
+   ~TLimits ();
 
    CHAR   Key[16];
    CHAR   Description[32];
@@ -554,14 +554,14 @@ public:
    USHORT RatioStart;
    ULONG  DownloadSpeed;
 
-   USHORT Add (VOID);
-   VOID   New (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
+   USHORT Add ();
+   VOID   New ();
+   VOID   Delete ();
+   USHORT First ();
+   USHORT Next ();
+   USHORT Previous ();
    USHORT Read (PSZ pszName, USHORT fCloseFile = TRUE);
-   USHORT Update (VOID);
+   USHORT Update ();
 
 private:
    int    fdDat;
@@ -572,9 +572,9 @@ private:
 class DLL_EXPORT TUser
 {
 public:
-   TUser (void);
+   TUser ();
    TUser (PSZ pszUserFile);
-   ~TUser (void);
+   ~TUser ();
 
    CHAR   Name[48];            // Name or nickname
    ULONG  Password;            // Password as a 32bit CRC
@@ -642,20 +642,20 @@ public:
    class  TMsgTag  *MsgTag;
    class  TFileTag *FileTag;
 
-   USHORT Add (VOID);
-   USHORT Age (VOID);
+   USHORT Add ();
+   USHORT Age ();
    VOID   ChangeLimitClass (PSZ pszOld, PSZ pszNew);
    USHORT CheckPassword (PSZ pszPassword);
-   VOID   Clear (VOID);
-   USHORT Delete (VOID);
-   USHORT First (VOID);
+   VOID   Clear ();
+   USHORT Delete ();
+   USHORT First ();
    USHORT GetData (PSZ pszName, USHORT fCheckRealName = TRUE);
-   USHORT Next (VOID);
-   VOID   Pack (VOID);
+   USHORT Next ();
+   VOID   Pack ();
    VOID   SetPassword (PSZ pszPassword);
-   USHORT Previous (VOID);
-   VOID   Reindex (VOID);
-   USHORT Update (VOID);
+   USHORT Previous ();
+   VOID   Reindex ();
+   USHORT Update ();
 
 private:
    int    fdDat, fdIdx;
@@ -664,8 +664,8 @@ private:
    UINDEX Idx;
    USER   Usr;
 
-   VOID   Struct2Class (VOID);
-   VOID   Class2Struct (VOID);
+   VOID   Struct2Class ();
+   VOID   Class2Struct ();
 };
 
 // ---------------------------------------------------------------------------
@@ -692,9 +692,9 @@ typedef struct {
 class DLL_EXPORT TNodes
 {
 public:
-   TNodes (void);
+   TNodes ();
    TNodes (PSZ pszDataPath);
-   ~TNodes (void);
+   ~TNodes ();
 
    CHAR   DataFile[64];
    CHAR   Address[64];
@@ -734,25 +734,25 @@ public:
    CHAR   TicAka[48];
    CHAR   NewTicFilter[128];
 
-   VOID   Add (VOID);
+   VOID   Add ();
    VOID   AddNodelist (PSZ name, PSZ diff, USHORT zone = 0);
-   VOID   Delete (VOID);
-   VOID   DeleteNodelist (VOID);
-   USHORT First (VOID);
-   USHORT FirstNodelist (VOID);
-   VOID   LoadNodelist (VOID);
-   USHORT Next (VOID);
-   USHORT NextNodelist (VOID);
-   VOID   New (VOID);
-   USHORT Previous (VOID);
+   VOID   Delete ();
+   VOID   DeleteNodelist ();
+   USHORT First ();
+   USHORT FirstNodelist ();
+   VOID   LoadNodelist ();
+   USHORT Next ();
+   USHORT NextNodelist ();
+   VOID   New ();
+   USHORT Previous ();
    USHORT Read (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoint, PSZ pszDomain = NULL);
    USHORT Read (class TAddress *Address, USHORT flAddNodelist = TRUE);
    USHORT Read (class TAddress &Address, USHORT flAddNodelist = TRUE);
    USHORT Read (PSZ pszAddress, USHORT flAddNodelist = TRUE);
    USHORT ReadNodelist (class TAddress *Address);
    USHORT ReadNodelist (class TAddress &Address);
-   VOID   SaveNodelist (VOID);
-   VOID   Update (VOID);
+   VOID   SaveNodelist ();
+   VOID   Update ();
 
 private:
    int    fd;
@@ -776,9 +776,9 @@ typedef struct {
 class DLL_EXPORT TFileBase
 {
 public:
-   TFileBase (void);
+   TFileBase ();
    TFileBase (PSZ pszPath, PSZ pszArea);
-   ~TFileBase (void);
+   ~TFileBase ();
 
    CHAR   Area[32], Name[32], Complete[128];
    FBDATE UplDate, Date;
@@ -791,26 +791,26 @@ public:
    USHORT CdRom;
    class  TCollection *Description;
 
-   USHORT Add (VOID);
+   USHORT Add ();
    ULONG  ChangeLibrary (PSZ pszFrom, PSZ pszTo);
-   VOID   Clear (VOID);
-   VOID   Close (VOID);
-   VOID   Delete (VOID);
+   VOID   Clear ();
+   VOID   Close ();
+   VOID   Delete ();
    USHORT First (PSZ pszSearch = NULL);
    USHORT Next (PSZ pszSearch = NULL);
    USHORT Open (PSZ pszPath, PSZ pszArea);
-   VOID   Pack (VOID);
-   USHORT Previous (VOID);
+   VOID   Pack ();
+   USHORT Previous ();
    USHORT Read (PSZ pszFile);
    VOID   ReadFileList (PSZ list, PSZ dl_path);
-   USHORT Replace (VOID);
-   USHORT ReplaceHeader (VOID);
+   USHORT Replace ();
+   USHORT ReplaceHeader ();
    VOID   SearchFile (PSZ pszFile);
    VOID   SearchKeyword (PSZ pszKeyword);
    VOID   SearchText (PSZ pszText);
    VOID   SortByDate (ULONG ulDate = 0L);
-   VOID   SortByDownload (VOID);
-   VOID   SortByName (VOID);
+   VOID   SortByDownload ();
+   VOID   SortByName ();
 
 private:
    int    fdIdx;
@@ -830,9 +830,9 @@ private:
 class DLL_EXPORT TPacker
 {
 public:
-   TPacker (void);
+   TPacker ();
    TPacker (PSZ pszDataPath);
-   ~TPacker (void);
+   ~TPacker ();
 
    CHAR   Key[16], Display[32];
    CHAR   PackCmd[128], UnpackCmd[128];
@@ -841,17 +841,17 @@ public:
    LONG   Position;
    UCHAR  Dos, OS2, Windows, Linux;
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT CheckArc (PSZ pszArcName);
-   USHORT Delete (VOID);
+   USHORT Delete ();
    USHORT DoPack (PSZ pszArcName, PSZ pszFiles);
    USHORT DoUnpack (PSZ pszArcName, PSZ pszPath, PSZ pszFiles = NULL);
    USHORT First (USHORT checkOS = TRUE);
-   VOID   New (VOID);
+   VOID   New ();
    USHORT Next (USHORT checkOS = TRUE);
    USHORT Previous (USHORT checkOS = TRUE);
    USHORT Read (PSZ pszKey, USHORT checkOS = TRUE);
-   USHORT Update (VOID);
+   USHORT Update ();
 
 private:
    int  fd;
@@ -864,9 +864,9 @@ private:
 class DLL_EXPORT TEvents
 {
 public:
-   TEvents (void);
+   TEvents ();
    TEvents (PSZ pszDataFile);
-   ~TEvents (void);
+   ~TEvents ();
 
    USHORT Number, NextNumber;
    CHAR   NextLabel[32];
@@ -887,18 +887,18 @@ public:
    UCHAR  AllowRequests, MakeRequests, ProcessTIC, ClockAdjustment;
    UCHAR  Completed;
 
-   VOID   Add (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
-   USHORT SetCurrent (VOID);
-   USHORT Load (VOID);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
+   VOID   Add ();
+   VOID   Delete ();
+   USHORT First ();
+   USHORT SetCurrent ();
+   USHORT Load ();
+   VOID   New ();
+   USHORT Next ();
+   USHORT Previous ();
    USHORT Read (USHORT evtNum);
-   VOID   Save (VOID);
-   VOID   TimeToNext (VOID);
-   VOID   Update (VOID);
+   VOID   Save ();
+   VOID   TimeToNext ();
+   VOID   Update ();
 
 private:
    CHAR   DataFile[128];
@@ -955,7 +955,7 @@ class DLL_EXPORT TOutbound
 public:
    TOutbound (PSZ pszPath);
    TOutbound (PSZ pszPath, USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoint = 0, PSZ pszDomain = "");
-   ~TOutbound (void);
+   ~TOutbound ();
 
    USHORT Zone, Net, Node, Point;
    CHAR   Domain[32];
@@ -975,19 +975,19 @@ public:
    USHORT TotalFiles, TotalNodes;
    ULONG  TotalSize;
 
-   USHORT Add (VOID);
+   USHORT Add ();
    USHORT Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoint = 0, PSZ pszDomain = "");
    USHORT AddQueue (OUTFILE &Out);
    VOID   BuildQueue (PSZ pszPath);
-   VOID   Clear (VOID);
-   USHORT First (VOID);
-   USHORT FirstNode (VOID);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   USHORT NextNode (VOID);
+   VOID   Clear ();
+   USHORT First ();
+   USHORT FirstNode ();
+   VOID   New ();
+   USHORT Next ();
+   USHORT NextNode ();
    VOID   PollNode (PSZ address, CHAR flag);
-   VOID   Remove (VOID);
-   VOID   Update (VOID);
+   VOID   Remove ();
+   VOID   Update ();
 
    VOID   AddAttempt (PSZ address, USHORT failed, PSZ status = "");
    VOID   ClearAttempt (PSZ address);
@@ -1188,8 +1188,8 @@ enum {
 class DLL_EXPORT TLanguage
 {
 public:
-   TLanguage (void);
-   ~TLanguage (void);
+   TLanguage ();
+   ~TLanguage ();
 
    CHAR   File[32], Comment[64], MenuName[32];
    CHAR   TextFiles[64], MenuPath[64];
@@ -1198,7 +1198,7 @@ public:
    CHAR   Yes, No, Help;
    CHAR   Male, Female;
 
-   VOID   Default (VOID);
+   VOID   Default ();
    USHORT Load (PSZ pszFile);
    PSZ    Text (USHORT Id);
 
@@ -1216,17 +1216,17 @@ class DLL_EXPORT TEchotoss
 {
 public:
    TEchotoss (PSZ path);
-   ~TEchotoss (void);
+   ~TEchotoss ();
 
    CHAR   Tag[64];
 
    VOID   Add (PSZ tag);
-   VOID   Clear (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
-   USHORT Load (VOID);
-   USHORT Next (VOID);
-   VOID   Save (VOID);
+   VOID   Clear ();
+   VOID   Delete ();
+   USHORT First ();
+   USHORT Load ();
+   USHORT Next ();
+   VOID   Save ();
 
 private:
    CHAR   DataFile[128];
@@ -1238,9 +1238,9 @@ private:
 class DLL_EXPORT TProtocol
 {
 public:
-   TProtocol (void);
+   TProtocol ();
    TProtocol (PSZ path);
-   ~TProtocol (void);
+   ~TProtocol ();
 
    CHAR   Key[16];
    CHAR   Description[64];
@@ -1251,14 +1251,14 @@ public:
    CHAR   DownloadKeyword[32], UploadKeyword[32];
    USHORT FileNamePos, SizePos, CpsPos;
 
-   VOID   Add (VOID);
-   VOID   Delete (VOID);
-   USHORT First (VOID);
-   VOID   New (VOID);
-   USHORT Next (VOID);
-   USHORT Previous (VOID);
+   VOID   Add ();
+   VOID   Delete ();
+   USHORT First ();
+   VOID   New ();
+   USHORT Next ();
+   USHORT Previous ();
    USHORT Read (PSZ key);
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    int    fdDat;
@@ -1274,9 +1274,9 @@ private:
 class DLL_EXPORT TOkFile
 {
 public:
-   TOkFile (void);
+   TOkFile ();
    TOkFile (PSZ pszDataPath);
-   ~TOkFile (void);
+   ~TOkFile ();
 
    CHAR Name[32];
    CHAR Path[128];
@@ -1285,12 +1285,12 @@ public:
    CHAR Known;
    CHAR Protected;
 
-   VOID   Add (VOID);
-   VOID   DeleteAll (VOID);
-   USHORT First (VOID);
-   USHORT Next (VOID);
+   VOID   Add ();
+   VOID   DeleteAll ();
+   USHORT First ();
+   USHORT Next ();
    USHORT Read (PSZ pszName);
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    int fdDat;
@@ -1302,22 +1302,22 @@ private:
 class DLL_EXPORT TNodeFlags
 {
 public:
-   TNodeFlags (void);
+   TNodeFlags ();
    TNodeFlags (PSZ pszDataPath);
-   ~TNodeFlags (void);
+   ~TNodeFlags ();
 
    CHAR   Flags[64];
    CHAR   Cmd[64];
 
-   VOID   Add (VOID);
-   USHORT First (VOID);
-   VOID   Delete (VOID);
-   VOID   DeleteAll (VOID);
-   USHORT Next (VOID);
+   VOID   Add ();
+   USHORT First ();
+   VOID   Delete ();
+   VOID   DeleteAll ();
+   USHORT Next ();
    USHORT Read (PSZ pszName);
    USHORT Read (USHORT index);
-   VOID   Save (VOID);
-   VOID   Update (VOID);
+   VOID   Save ();
+   VOID   Update ();
 
 private:
    int fdDat;
@@ -1331,9 +1331,9 @@ private:
 class DLL_EXPORT TTranslation
 {
 public:
-   TTranslation (void);
+   TTranslation ();
    TTranslation (PSZ pszDataPath);
-   ~TTranslation (void);
+   ~TTranslation ();
 
    CHAR   Location[48];             // Name of the location this data is referring to
    CHAR   Search[32];               // Phone number prefix to translate
@@ -1348,23 +1348,23 @@ public:
       USHORT Time;                  // Time for Cost
    } Cost[MAXCOST];
 
-   VOID   Add (VOID);
-   VOID   DeleteAll (VOID);
+   VOID   Add ();
+   VOID   DeleteAll ();
    VOID   Export (PSZ pszFile);
-   USHORT First (VOID);
+   USHORT First ();
    USHORT Import (PSZ pszFile);
-   USHORT Next (VOID);
-   VOID   New (VOID);
+   USHORT Next ();
+   VOID   New ();
    USHORT Read (PSZ pszName);
-   VOID   Update (VOID);
+   VOID   Update ();
 
 private:
    int fdDat;
    CHAR DataFile[128];
    TRANSLATION table;
 
-   VOID   Class2Struct (VOID);
-   VOID   Struct2Class (VOID);
+   VOID   Class2Struct ();
+   VOID   Struct2Class ();
 };
 
 #endif

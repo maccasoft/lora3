@@ -20,7 +20,7 @@
 #include "msgbase.h"
 #include "lorawin.h"
 
-TModem::TModem (void)
+TModem::TModem ()
 {
    Serial = NULL;
    Log = NULL;
@@ -43,7 +43,7 @@ TModem::TModem (void)
 #endif
 }
 
-TModem::~TModem (void)
+TModem::~TModem ()
 {
    if (Serial != NULL) {
       Serial->SetDTR (FALSE);
@@ -61,7 +61,7 @@ TModem::~TModem (void)
 #endif
 }
 
-USHORT TModem::GetResponse (VOID)
+USHORT TModem::GetResponse ()
 {
    USHORT RetVal = NO_RESPONSE, IsUpper;
    CHAR c, *p;
@@ -357,7 +357,7 @@ USHORT TModem::ReceiveFax (PSZ path)
 #define DLE    0x10
 #define DC2    0x12
 
-USHORT TModem::ReadG3Stream (VOID)
+USHORT TModem::ReadG3Stream ()
 {
    USHORT RetVal = FALSE, c, faxsize = 0;
    CHAR e_input_buf[11];
