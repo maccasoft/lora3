@@ -1,11 +1,20 @@
 
-// ----------------------------------------------------------------------
-// LoraBBS Professional Edition - Version 3.00.6
-// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
+// LoraBBS Version 2.99 Free Edition
+// Copyright (C) 1987-98 Marco Maccaferri
 //
-// History:
-//    03/10/95 - Initial coding.
-// ----------------------------------------------------------------------
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include "_ldefs.h"
 #include "msgbase.h"
@@ -463,14 +472,6 @@ VOID TMailProcessor::News (VOID)
 
    MsgTossed = MsgSent = 0L;
 
-   if (ValidateKey ("bbs", NULL, NULL) == KEY_BASIC) {
-      if (Log != NULL) {
-         Log->Write ("!WARNING: This function is available in the");
-         Log->Write ("!         ADVANCED and PROFESSIONAL versions only");
-      }
-      return;
-   }
-
    if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
       if (Data->First () == TRUE)
          do {
@@ -631,14 +632,6 @@ VOID TMailProcessor::Mail (VOID)
       Log->Write ("+Processing Internet Mail");
 
    MsgSent = MsgTossed = 0L;
-
-   if (ValidateKey ("bbs", NULL, NULL) == KEY_BASIC) {
-      if (Log != NULL) {
-         Log->Write ("!WARNING: This function is available in the");
-         Log->Write ("!         ADVANCED and PROFESSIONAL versions only");
-      }
-      return;
-   }
 
 #if !defined(__POINT__)
    if (stricmp (Cfg->MailPath, Cfg->NetMailPath)) {

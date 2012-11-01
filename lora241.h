@@ -1,4 +1,21 @@
 
+// LoraBBS Version 2.99 Free Edition
+// Copyright (C) 1987-98 Marco Maccaferri
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
 typedef unsigned int   bit;
 typedef unsigned short word;
 typedef unsigned char  byte;
@@ -34,62 +51,62 @@ struct _sys_msg {
    word  pip_board;
    byte  quick_board;
    byte  msg_priv;
-	long  msg_flags;
-	byte  write_priv;
-	long  write_flags;
-	byte  use_alias;
-	short max_msgs;
-	short max_age;
-	short age_rcvd;
-	char  forward1[80];
-	char  forward2[80];
-	char  forward3[80];
-	bit   msg_restricted :1;
-	bit   passthrough    :1;
-	bit   internet_mail  :1;
-	byte  areafix;
-	char  qwk_name[14];
-	long  afx_flags;
-	word  gold_board;
-	bit   sendonly 	   :1;
-	bit   receiveonly	   :1;
-	char  filler1[26];
+   long  msg_flags;
+   byte  write_priv;
+   long  write_flags;
+   byte  use_alias;
+   short max_msgs;
+   short max_age;
+   short age_rcvd;
+   char  forward1[80];
+   char  forward2[80];
+   char  forward3[80];
+   bit   msg_restricted :1;
+   bit   passthrough    :1;
+   bit   internet_mail  :1;
+   byte  areafix;
+   char  qwk_name[14];
+   long  afx_flags;
+   word  gold_board;
+   bit   sendonly       :1;
+   bit   receiveonly    :1;
+   char  filler1[26];
 };
 
 struct _sys_file {
-	char  file_name[70];
-	short file_num;
-	char  uppath[40];
-	char  filepath[40];
-	char  filelist[50];
-	bit   freearea  :1;
-	bit   norm_req  :1;
-	bit   know_req  :1;
-	bit   prot_req  :1;
-	bit   nonews    :1;
-	bit   no_global_search :1;
-	bit   no_filedate :1;
-	bit   file_restricted :1;
-	word  file_sig;
-	byte  file_priv;
-	long  file_flags;
-	byte  download_priv;
-	long  download_flags;
-	byte  upload_priv;
-	long  upload_flags;
-	byte  list_priv;
-	long  list_flags;
-	char  filler2[10];
-	char  short_name[13];
-	char  filler3[8];
-	char  tic_tag[32];
-	char  tic_forward1[80];
-	char  tic_forward2[80];
-	char  tic_forward3[80];
-	byte  tic_level;
-	long  tic_flags;
-	bit   cdrom     :1;
-	char  filler4[106];
+   char  file_name[70];
+   short file_num;
+   char  uppath[40];
+   char  filepath[40];
+   char  filelist[50];
+   bit   freearea  :1;
+   bit   norm_req  :1;
+   bit   know_req  :1;
+   bit   prot_req  :1;
+   bit   nonews    :1;
+   bit   no_global_search :1;
+   bit   no_filedate :1;
+   bit   file_restricted :1;
+   word  file_sig;
+   byte  file_priv;
+   long  file_flags;
+   byte  download_priv;
+   long  download_flags;
+   byte  upload_priv;
+   long  upload_flags;
+   byte  list_priv;
+   long  list_flags;
+   char  filler2[10];
+   char  short_name[13];
+   char  filler3[8];
+   char  tic_tag[32];
+   char  tic_forward1[80];
+   char  tic_forward2[80];
+   char  tic_forward3[80];
+   byte  tic_level;
+   long  tic_flags;
+   bit   cdrom     :1;
+   char  filler4[106];
 };
 
 #define MAT_CM           0x0001
@@ -274,166 +291,166 @@ struct _alias {
 struct _configuration {
    short version;
 
-	char sys_path[40];
+   char sys_path[40];
 
-	char log_name[40];
-	char log_style;
+   char log_name[40];
+   char log_style;
 
-	char sched_name[40];
-	char user_file[40];
+   char sched_name[40];
+   char user_file[40];
 
-	char norm_filepath[40];
-	char know_filepath[40];
-	char prot_filepath[40];
-	char outbound[40];
-	char netmail_dir[40];
-	char bad_msgs[40];
-	char dupes[40];
-	char quick_msgpath[40];
-	char pip_msgpath[40];
-	char ipc_path[40];
-	char net_info[40];
-	char glob_text_path[40];
-	char menu_path[40];
-	char flag_dir[40];
+   char norm_filepath[40];
+   char know_filepath[40];
+   char prot_filepath[40];
+   char outbound[40];
+   char netmail_dir[40];
+   char bad_msgs[40];
+   char dupes[40];
+   char quick_msgpath[40];
+   char pip_msgpath[40];
+   char ipc_path[40];
+   char net_info[40];
+   char glob_text_path[40];
+   char menu_path[40];
+   char flag_dir[40];
 
-	long keycode;
+   long keycode;
 
-	char about[40];
-	char files[40];
-	short  norm_max_kbytes;
-	short  prot_max_kbytes;
-	short  know_max_kbytes;
-	short  norm_max_requests;
-	short  prot_max_requests;
-	short  know_max_requests;
-	char def_pack;
+   char about[40];
+   char files[40];
+   short  norm_max_kbytes;
+   short  prot_max_kbytes;
+   short  know_max_kbytes;
+   short  norm_max_requests;
+   short  prot_max_requests;
+   short  know_max_requests;
+   char def_pack;
 
-	char enterbbs[70];
-	char banner[70];
-	char mail_only[70];
+   char enterbbs[70];
+   char banner[70];
+   char mail_only[70];
 
-	short  com_port;
-	short  old_speed;
-	char modem_busy[20];
-	char dial[20];
-	char init[40];
-	char term_init[40];
+   short  com_port;
+   short  old_speed;
+   char modem_busy[20];
+   char dial[20];
+   char init[40];
+   char term_init[40];
 
-	byte mustbezero;
+   byte mustbezero;
 
-	byte echomail_exit;
-	byte netmail_exit;
-	byte both_exit;
+   byte echomail_exit;
+   byte netmail_exit;
+   byte both_exit;
 
-	long speed;
-	short modem_OK_errorlevel;
+   long speed;
+   short modem_OK_errorlevel;
 
-	byte filler[10];
+   byte filler[10];
 
-	struct _altern_dial {
-		char prefix[20];
-		char suffix[20];
-	} altdial[10];
+   struct _altern_dial {
+      char prefix[20];
+      char suffix[20];
+   } altdial[10];
 
-	bit  lock_baud   :1;
-	bit  ansilogon   :2;
-	bit  birthdate   :1;
-	bit  voicephone  :1;
-	bit  dataphone   :1;
-	bit  emsi        :1;
-	bit  ibmset      :1;
+   bit  lock_baud   :1;
+   bit  ansilogon   :2;
+   bit  birthdate   :1;
+   bit  voicephone  :1;
+   bit  dataphone   :1;
+   bit  emsi        :1;
+   bit  ibmset      :1;
 
-	bit  wazoo       :1;
-	bit  msgtrack    :1;
-	bit  keeptransit :1;
-	bit  hslink      :1;
-	bit  puma        :1;
-	bit  secure      :1;
-	bit  janus       :1;
-	bit  terminal    :1;
+   bit  wazoo       :1;
+   bit  msgtrack    :1;
+   bit  keeptransit :1;
+   bit  hslink      :1;
+   bit  puma        :1;
+   bit  secure      :1;
+   bit  janus       :1;
+   bit  terminal    :1;
 
-	bit  fillerbug   :1;
-	bit  no_direct   :1;
-	bit  snooping    :1;
-	bit  snow_check  :1;
-	bit  unpack_norm :1;
-	bit  unpack_know :1;
-	bit  unpack_prot :1;
+   bit  fillerbug   :1;
+   bit  no_direct   :1;
+   bit  snooping    :1;
+   bit  snow_check  :1;
+   bit  unpack_norm :1;
+   bit  unpack_know :1;
+   bit  unpack_prot :1;
 
-	short  blank_timer;
+   short  blank_timer;
 
-	struct _language {
-		char txt_path[30];
-		char descr[24];
-		char basename[10];
-	} language[MAX_LANG];
+   struct _language {
+      char txt_path[30];
+      char descr[24];
+      char basename[10];
+   } language[MAX_LANG];
 
-	char sysop[36];
-	char system_name[50];
-	char location[50];
-	char phone[32];
-	char flags[50];
+   char sysop[36];
+   char system_name[50];
+   char location[50];
+   char phone[32];
+   char flags[50];
 
-	struct _alias old_alias[20];
+   struct _alias old_alias[20];
 
-	char newareas_create[50];
-	char newareas_link[50];
+   char newareas_create[50];
+   char newareas_link[50];
 
-	short  line_offset;
-	short  min_calls;
-	short  vote_limit;
-	short  target_up;
-	short  target_down;
-	byte vote_priv;
-	byte max_readpriv;
+   short  line_offset;
+   short  min_calls;
+   short  vote_limit;
+   short  target_up;
+   short  target_down;
+   byte vote_priv;
+   byte max_readpriv;
 
-	word speed_graphics;
+   word speed_graphics;
 
-	byte aftercaller_exit;
-	byte aftermail_exit;
-	short  max_connects;
-	short  max_noconnects;
+   byte aftercaller_exit;
+   byte aftermail_exit;
+   short  max_connects;
+   short  max_noconnects;
 
-	byte logon_level;
-	long logon_flags;
+   byte logon_level;
+   long logon_flags;
 
-	char areachange_key[4];
-	char dateformat[20];
-	char timeformat[20];
-	char external_editor[50];
+   char areachange_key[4];
+   char dateformat[20];
+   char timeformat[20];
+   char external_editor[50];
 
-	struct class_rec class[12];
+   struct class_rec class[12];
 
-	char local_editor[50];
+   char local_editor[50];
 
-	char QWKDir[40];
-	char BBSid[10];
-	word qwk_maxmsgs;
+   char QWKDir[40];
+   char BBSid[10];
+   word qwk_maxmsgs;
 
-	char galileo[30];
+   char galileo[30];
 
-	char norm_okfile[40];
-	char know_okfile[40];
-	char prot_okfile[40];
+   char norm_okfile[40];
+   char know_okfile[40];
+   char prot_okfile[40];
 
-	char reg_name[36];
-	long betakey;
+   char reg_name[36];
+   long betakey;
 
-	struct _packers {
-		char id[10];
-		char packcmd[30];
-		char unpackcmd[30];
-	} packers[10];
+   struct _packers {
+      char id[10];
+      char packcmd[30];
+      char unpackcmd[30];
+   } packers[10];
 
-	struct _nl {
-		char list_name[14];
-		char diff_name[14];
-		char arc_name[14];
-	} old_nl[10];
+   struct _nl {
+      char list_name[14];
+      char diff_name[14];
+      char arc_name[14];
+   } old_nl[10];
 
-	bit  ansigraphics   :2;
-	bit  avatargraphics :2;
+   bit  ansigraphics   :2;
+   bit  avatargraphics :2;
    bit  hotkeys        :2;
    bit  screenclears   :2;
 
@@ -484,7 +501,7 @@ struct _configuration {
    char areafix_help[40];
    char alert_nodes[50];
 
-	char automaint[40];
+   char automaint[40];
 
    byte min_login_level;
    long min_login_flags;
@@ -500,7 +517,7 @@ struct _configuration {
    char dl_counter_limits[4];
 
    char areas_bbs[40];
-	byte afx_remote_maint;
+   byte afx_remote_maint;
    byte afx_change_tag;
 
    bit  allow_rescan    :1;
@@ -579,17 +596,17 @@ struct _configuration {
    char tic_alert_nodes[50];
    char tic_newareas_create[50];
    char tic_newareas_link[50];
-	byte tic_remote_maint;
+   byte tic_remote_maint;
    byte tic_change_tag;
 
-	short uucp_point;
+   short uucp_point;
 
    byte  dial_timeout;
    byte  dial_pause;
 
    bit   newfilescheck  :2;
    bit   mono_attr      :1;
-	bit   force_intl     :1;
+   bit   force_intl     :1;
    bit   inp_dateformat :2;
    bit   single_pass    :1;
    bit   cdrom_swap     :1;
@@ -611,23 +628,23 @@ struct _configuration {
 
    bit   blanker_type   :3;
    bit   tcpip          :2;
-	bit   export_internet:1;
+   bit   export_internet:1;
 
-	char  internet_gate;
+   char  internet_gate;
 
    char  areafix_watch[50];
    char  tic_watch[50];
 
    byte  netmail;
    byte  echomail;
-	byte  internet;
+   byte  internet;
    byte  net_echo;
-	byte  echo_internet;
-	byte  net_internet;
-	byte  echo_net_internet;
+   byte  echo_internet;
+   byte  net_internet;
+   byte  echo_net_internet;
 
-	char  upload_check[50];
-	unsigned long setup_pwd;
+   char  upload_check[50];
+   unsigned long setup_pwd;
 
    struct _alias alias[MAX_ALIAS];
 
@@ -640,7 +657,7 @@ typedef struct _nodeinfo {
    short  zone;
    short  net;
    short  node;
-	short  point;
+   short  point;
    short  afx_level;
    char pw_session[20];
    char pw_areafix[20];
@@ -664,7 +681,7 @@ typedef struct _nodeinfo {
    char tic_aka;
    long baudrate;
    char pw_inbound_packet[9];
-	char mailer_aka;
-	long min_baud_rate;
-	char filler[40];
+   char mailer_aka;
+   long min_baud_rate;
+   char filler[40];
 };

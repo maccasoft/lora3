@@ -4,90 +4,90 @@
 ; Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 ; ----------------------------------------------------------------------
 
-LanguageName = "Italiano";
+LanguageName = "English";
 MenuName     = "MAIN";
 TextFiles    = "Misc\";
 MenuPath     = "Menu\";
 
-Yes       = "SI ";
+Yes       = "YES";
 No        = "NO ";
-None      = "Nessuno";
-Male      = "Maschio";
-Female    = "Femmina";
+None      = "None";
+Male      = "Male";
+Female    = "Female";
 
-YesKey    = "S";
+YesKey    = "Y";
 NoKey     = "N";
 HelpKey   = "?";
 MaleKey   = "M";
 FemaleKey = "F";
 
-January   = "Gennaio";
-February  = "Febbraio";
-March     = "Marzo";
-April     = "Aprile";
-May       = "Maggio";
-Juni      = "Giugno";
-July      = "Luglio";
-August    = "Agosto";
-September = "Settembre";
-October   = "Ottobre";
-November  = "Novembre";
-December  = "Dicembre";
+January   = "January";
+February  = "February";
+March     = "March";
+April     = "April";
+May       = "May";
+Juni      = "Juni";
+July      = "July";
+August    = "August";
+September = "September";
+October   = "October";
+November  = "November";
+December  = "December";
 
-MoreQuestion = "\026\001\017Continua [S,n,=]? \026\001\007";
+MoreQuestion = "\026\001\017More [S,n,=]? \026\001\007";
 DeleteMoreQuestion = "\r                    \r";
 NonStop = "=";
 Quit = "N";
-Continue = "S";
+Continue = "Y";
 
-PressEnter = "\026\001\017Premi [Enter] per continuare: ";
+PressEnter = "\026\001\017Press [Enter] to continue: ";
 
-DefYesNo = " [S,n]? ";
-YesDefNo = " [s,N]? ";
-DefYesNoHelp = " [S,n,?=aiuto]? ";
-YesDefNoHelp = " [s,N,?=aiuto]? ";
+DefYesNo = " [Y,n]? ";
+YesDefNo = " [y,N]? ";
+DefYesNoHelp = " [Y,n,?=help]? ";
+YesDefNoHelp = " [y,N,?=help]? ";
 
 ; -----
 ; Login
 ; -----
-EnterName       = "\n\026\001\012Scrivi il tuo NOME e COGNOME: \026\001\x1E";
-UserFromCity    = "\n\x16\x01\x0E%s di %s";
+EnterName       = "\n\026\001\012Please enter your full name: \026\001\x1E";
+UserFromCity    = "\n\x16\x01\x0E%s from %s";
 EnterPassword   = "\n\026\001\012Password: \026\001\x1E";
-InvalidPassword = "\n\026\001\014Nome o password non validi!\a\n";
-NameNotFound    = "\n\026\001\017Il tuo nome non e' stato trovato nel database.\n\n\026\001\016Nome scritto: %s\n";
-ContinueAsNew   = "\n\026\001\017Vuoi continuare come nuovo utente";
-AskCity         = "\n\026\001\012Scrivi la tua citta' e provincia: \026\001\x1E";
-AskDayphone     = "\n\026\001\012Scrivi il tuo numero di telefono: \026\001\x1E";
-AskPassword     = "\n\x16\x01\012Scegli la password da usare [minimo 4 car.]: \026\001\x1E";
-ReenterPassword = "\026\001\012Riscrivi la password per verifica: \026\001\x1E";
-PasswordNoMatch = "\n\026\001\015Le password non corrispondono. Riprova.\n\006\007";
-AskAnsi         = "\n\026\001\017Vuoi la grafica ANSI";
-AskAvatar       = "\n\026\001\017Vuoi la grafica AVATAR";
-AskColor        = "\n\026\001\012Vuoi vedere le scritte colorate";
-AskFullScreen   = "\n\026\001\012Vuoi usare gli elenchi a pieno schermo";
-AskAlias        = "\n\026\001\012Scrivi il tuo soprannome: \026\001\x1E";
-AskHotkey       = "\n\026\001\013Vuoi usare i tasti hotkey";
-AskIBMChars     = "\n\026\001\017Vuoi usare i caratteri IBM-PC";
-AskLines        = "\n\026\001\016Quante linee puoi visualizzare (10-66, raccomandato 24)? \026\001\x1E";
-AskPause        = "\n\026\001\016Vuoi fermarti alla fine di ogni pagina";
-AskScreenClear  = "\n\026\001\015Vuoi ricevere i codici di cancellazione schermo";
-AskBirthDate    = "\n\026\001\014Scrivi la tua data di nascita (mm-dd-yyyy): \026\001\x1E";
-AskMailCheck    = "\n\026\001\013Vuoi controllare la posta ad ogni collegamento";
-AskFileCheck    = "\n\026\001\016Vuoi vedere i nuovi file ad ogni collegamento";
+InvalidPassword = "\n\026\001\014Invalid name or password!\a\n";
+NameNotFound    = "\n\026\001\017Your name was not found in the system user file.\n\n\026\001\016Name entered: %s\n";
+ContinueAsNew   = "\n\026\001\017Do you want to continue as a new user";
+AskCity         = "\n\026\001\012Please enter your location: \026\001\x1E";
+AskDayphone     = "\n\026\001\012Write your home/voice number: \026\001\x1E";
+AskPassword     = "\n\x16\x01\012Select your password to use [minimum 4 chars]: \026\001\x1E";
+ReenterPassword = "\026\001\012Reenter your password for verify: \026\001\x1E";
+PasswordNoMatch = "\n\026\001\015Passwords do not match. Try again.\n\006\007";
+AskAnsi         = "\n\026\001\017Would you like ANSI graphics";
+AskAvatar       = "\n\026\001\017Would you like AVATAR graphics";
+AskColor        = "\n\026\001\012Do you want color codes to be sent";
+AskFullScreen   = "\n\026\001\012Do you want to use the full-screen enhancements";
+AskAlias        = "\n\026\001\012Choose your alias to use: \026\001\x1E";
+AskHotkey       = "\n\026\001\013Would you like to use hotkeys";
+AskIBMChars     = "\n\026\001\017Use IBM-PC characters";
+AskLines        = "\n\026\001\016How many lines does your display have (10-66, 24 recommended)? \026\001\x1E";
+AskPause        = "\n\026\001\016Do you want to pause after each screen page";
+AskScreenClear  = "\n\026\001\015Do you want screen clearing codes to be sent";
+AskBirthDate    = "\n\026\001\014Write your date of birth (mm-dd-yyyy): \026\001\x1E";
+AskMailCheck    = "\n\026\001\013Would you like to check for mail at every logon";
+AskFileCheck    = "\n\026\001\016Would you like to check for new files at every logon";
 
 ; ------
 ; Logout
 ; ------
-Disconnect = "\n\026\001\017Vuoi sconnetterti";
+Disconnect = "\n\026\001\017Disconnect";
 
 ; -------------
 ; Message areas
 ; -------------
-MessageAreaRequest      = "\n\026\001\017Area messaggi [Area, \"[\"=Prec, \"]\"=Succ, \"?\"=Elenco]: \026\001\x1E";
-MessageAreaHeader       = "\n\026\001\017Area             Msgs   Descrizione\n\031Ä\017  \031Ä\005  \031Ä\067\n";
+MessageAreaRequest      = "\n\026\001\017Message area [Area, \"[\"=Prior, \"]\"=Next, \"?\"=List]: \026\001\x1E";
+MessageAreaHeader       = "\n\026\001\017Area             Msgs   Description\n\031Ä\017  \031Ä\005  \031Ä\067\n";
 MessageAreaSeparator    = "\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n";
-MessageAreaDescription1 = "\026\001\016Usa i tasti freccia, oppure ^X / ^E per evidenziare un area, RETURN seleziona.\n";
-MessageAreaDescription2 = "\026\001\016Premi ^V per la prossima pagina, ^Y per la pagina precedente, X per uscire.";
+MessageAreaDescription1 = "\026\001\016Use your arrow keys or CTRL-X / CTRL-E to hilight an area, RETURN selects it.\n";
+MessageAreaDescription2 = "\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.";
 MessageAreaCursor       = "\x16\x01\x70%-15.15s\x16\x01\x07";
 MessageAreaKey          = "\026\001\015%-15.15s\x16\x01\x07";
 MessageAreaList         = "\026\001\015%-15.15s  \026\001\002%5ld  \026\001\003%.55s\n";
@@ -95,98 +95,98 @@ MessageAreaList         = "\026\001\015%-15.15s  \026\001\002%5ld  \026\001\003%
 ; --------------
 ; Message reader
 ; --------------
-ReaderFrom     = "\026\001\003Da:      \026\001\016%-36.36s \026\001\017%-.33s\n";
-ReaderTo       = "\026\001\003Per:     \026\001\016%-36.36s \026\001\012Msg #%lu, %-.23s\n";
-ReaderSubject  = "\026\001\003Soggett: \026\001\016%-.70s\n\n";
+ReaderFrom     = "\026\001\003From:    \026\001\016%-36.36s \026\001\017%-.33s\n";
+ReaderTo       = "\026\001\003To:      \026\001\016%-36.36s \026\001\012Msg #%lu, %-.23s\n";
+ReaderSubject  = "\026\001\003Subject: \026\001\016%-.70s\n\n";
 ReaderFile     = "\026\001\003File(s): \026\001\016%-.70s\n";
 MessageText    = "\026\001\003%s\n";
 MessageQuote   = "\026\001\017%s\n";
 MessageKludge  = "\026\001\015%s\n";
 MessageOrigin  = "\026\001\002%s\n";
 MessageDate    = "%D %C %Z %H:%M";
-MessageIsReply = "\n\026\001\017*** Questa e' la risposta al #%lu.\n";
-MessageSeeAlso = "\n\026\001\017*** Vedi anche il #%lu.\n";
-MessageIsBoth  = "\n\026\001\017*** Questa e' la risposta al #%lu.  *** Vedi anche il #%lu.\n";
+MessageIsReply = "\n\026\001\017*** This is a reply to #%lu.\n";
+MessageSeeAlso = "\n\026\001\017*** See also #%lu.\n";
+MessageIsBoth  = "\n\026\001\017*** This is a reply to #%lu.  *** See also #%lu.\n";
 
 ; -------------------------
 ; Fullscreen message reader
 ; -------------------------
 MessageHdr     = "\x0C\x16\x01\x13Ä \x16\x01\x1E%s \x16\x01\x13\031Ä%c";
-MessageNumber  = "%lu su %lu";
-MessageNumber1 = "%lu su %lu -%lu";
-MessageNumber2 = "%lu su %lu +%lu";
-MessageNumber3 = "%lu su %lu -%lu +%lu";
+MessageNumber  = "%lu of %lu";
+MessageNumber1 = "%lu of %lu -%lu";
+MessageNumber2 = "%lu of %lu +%lu";
+MessageNumber3 = "%lu of %lu -%lu +%lu";
 MessageFlags   = "\x16\x01\x1F   Msg#: \x16\x01\x1C%-35.35s \x16\x01\x1F%-.35s\x16\x07\n";
-MessageFrom    = "\x16\x01\x1F     Da: \x16\x01\x1E%-35.35s \x16\x01\x1F%-16.16s \x16\x01\x1F%-18.18s";
-MessageTo      = "\x16\x01\x1F    Per: \x16\x01\x1E%-35.35s \x16\x01\x1F%-16.16s \x16\x01\x1F%-18.18s";
-MessageSubject = "\x16\x01\x1F   Sogg: \x16\x01\x1E%s\x16\007\n";
+MessageFrom    = "\x16\x01\x1F   From: \x16\x01\x1E%-35.35s \x16\x01\x1F%-16.16s \x16\x01\x1F%-18.18s";
+MessageTo      = "\x16\x01\x1F     To: \x16\x01\x1E%-35.35s \x16\x01\x1F%-16.16s \x16\x01\x1F%-18.18s";
+MessageSubject = "\x16\x01\x1FSubject: \x16\x01\x1E%s\x16\007\n";
 MessageFile    = "\x16\x01\037File(s): \x16\x01\x1E%s\x16\007\n";
 
 ; ----------
 ; File areas
 ; ----------
-FileAreaRequest      = "\n\026\001\017Area file [Area, \"[\"=Prec, \"]\"=Succ, \"?\"=Elenco]: \026\001\x1E";
-FileAreaHeader       = "\n\026\001\017Area             Files  Descrizione\n\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n";
+FileAreaRequest      = "\n\026\001\017File area [Area, \"[\"=Prior, \"]\"=Next, \"?\"=List]: \026\001\x1E";
+FileAreaHeader       = "\n\026\001\017Area             Files  Description\n\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n";
 FileAreaSeparator    = "\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n";
-FileAreaDescription1 = "\026\001\016Usa i tasti freccia, oppure ^X / ^E per evidenziare un area, RETURN seleziona.\n";
-FileAreaDescription2 = "\026\001\016Premi ^V per la prossima pagina, ^Y per la pagina precedente, X per uscire.";
+FileAreaDescription1 = "\026\001\016Use your arrow keys or CTRL-X / CTRL-E to hilight an area, RETURN selects it.\n";
+FileAreaDescription2 = "\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.";
 FileAreaCursor       = "\x16\x01\x70%-15.15s\x16\x01\x07";
 FileAreaKey          = "\026\001\015%-15.15s\x16\x01\x07";
 FileAreaList         = "\026\001\015%-15.15s  \026\001\002%5ld  \026\001\003%.55s\n";
-FileAreaNotAvailable = "\n\026\001\017Quest'area non esiste\n";
+FileAreaNotAvailable = "\n\026\001\017That area doesn't exist\n";
 FileProtocolList     = "  \x16\x01\013%s ... \x16\x01\016%s\n";
-FileTaggedWarning    = "\n\026\001\015Hai %u files marcati per il download.\nVuoi prelevarli adesso";
-FileNoBytesWarning   = "\n\026\001\015Non puoi prelevare tutto in una volta sola.\n\006\007\006\007";
-FileNoTimeWarning    = "\n\026\001\015Non hai abbastanza tempo per prelevare questi files.\n\006\007\006\007";
-FileBeginDownload    = "\n\x16\x01\012Inizio il download con %s del file %s\n\x16\x01\012(Premere qualche volta \x16\x01\013CTRL-X \x16\x01\012per interrompere)\n";
-FileBeginDownload2   = "\n\x16\x01\012Inizio il download dei files %s\n\x16\x01\012(Premere qualche volta \x16\x01\013CTRL-X \x16\x01\012per interrompere)\n";
-FileTaggedHeader     = "\n\x16\x01\x0FHai marcato i seguenti files:\n\n";
-FileTaggedList       = "\026\001\016(%d) \026\001\015%-12.12s \026\001\016nell'area \026\001\015%s \026\001\012(%02lu:%02lu, %lu bytes)\n";
-FileTaggedTotal      = "\n\026\001\016Totale: \026\001\012%lu bytes \026\001\016(%lu:%02lu)\n";
-FileNoTagged         = "\n\026\001\014Nessun file marcato.\n";
-FileDownloadError    = "\006\007\n\n\x16\x01\015*** ERRORE NEL TRASFERIMENTO FILE ***\n\006\007\006\007";
-FileDownloadComplete = "\006\007\n\n\x16\x01\016*** TRASFERIMENTO COMPLETATO ***\n\006\007\006\007";
-FileBuildList        = "\n\x16\x01\017Costruisco la lista dei files. Attendere prego... ";
-FileNameToDelete     = "\n\x16\x01\013Nome del file da cancellare, RETURN per uscire: ";
-FileDeleted          = "\n\x16\x01\x0D%s cancellato...\n\006\007\006\007";
-FileToDetag          = "\n\026\001\017Numero del file da demarcare [1-%d, or A)ll]: ";
-FileDetagged         = "\n\026\001\016Il file \026\001\015%s \026\001\016e' stato demarcato.";
-FileTagEmpty         = "\n\026\001\016La coda dei file e' ora vuota.\n";
-FileToTag            = "\n\x16\x01\017File da marcare (#%d): ";
+FileTaggedWarning    = "\n\026\001\015You have %u files tagged for later download.\nDo you want to download these files now";
+FileNoBytesWarning   = "\n\026\001\015You don't have enough bytes to download these files.\n\006\007\006\007";
+FileNoTimeWarning    = "\n\026\001\015You don't have enough time to download these files.\n\006\007\006\007";
+FileBeginDownload    = "\n\x16\x01\012Beginning %s download of the file %s\n\x16\x01\012(Hit \x16\x01\013CTRL-X \x16\x01\012a few times to abort)\n";
+FileBeginDownload2   = "\n\x16\x01\012Beginning %s download of the file(s)\n\x16\x01\012(Hit \x16\x01\013CTRL-X \x16\x01\012a few times to abort)\n";
+FileTaggedHeader     = "\n\x16\x01\x0FYou have tagged the following files:\n\n";
+FileTaggedList       = "\026\001\016(%d) \026\001\015%-12.12s \026\001\016in area \026\001\015%s \026\001\012(%02lu:%02lu, %lu bytes)\n";
+FileTaggedTotal      = "\n\026\001\016Total: \026\001\012%lu bytes \026\001\016(%lu:%02lu)\n";
+FileNoTagged         = "\n\026\001\014No files are tagged.\n";
+FileDownloadError    = "\006\007\n\n\x16\x01\015*** ERROR DOWNLOADING FILES ***\n\006\007\006\007";
+FileDownloadComplete = "\006\007\n\n\x16\x01\016*** DOWNLOAD COMPLETE ***\n\006\007\006\007";
+FileBuildList        = "\n\x16\x01\017Building the list of files. Please wait... ";
+FileNameToDelete     = "\n\x16\x01\013Enter file name to delete, or RETURN to exit: ";
+FileDeleted          = "\n\x16\x01\x0D%s deleted from Library records...\n\006\007\006\007";
+FileToDetag          = "\n\026\001\017File number to detag [1-%d, or A)ll]: ";
+FileDetagged         = "\n\026\001\016File \026\001\015%s \026\001\016detagged.";
+FileTagEmpty         = "\n\026\001\016File queue is now empty.\n";
+FileToTag            = "\n\x16\x01\017Filename(s) to tag (#%d): ";
 FileTagConfirm       = "\026\001\016(%d) \026\001\015%-12.12s \026\001\012(%02lu:%02lu, %lu bytes)";
-FileNotFound         = "\n\026\007\026\001\014Non vedo il file \"%s\" in quest'area.\n";
+FileNotFound         = "\n\026\007\026\001\014I see no \"%s\" here.\n";
 
-FileTagListed              = "\r\026\007\x16\x01\017Nome del file da marcare (#%d): ";
-FileListTagconfirm         = "\r026\007\026\001\016(%d) \026\001\015%-12.12s \026\001\012(%02lu:%02lu, %lu bytes)  ";
-FileListNotFound           = "\r\026\007\026\001\014Non vedo il file \"%s\" in quest'area.  ";
-FileListHeader             = "\026\001\017 Nome file     Kb.  Data     Descrizione\n \031Ä\014 \031Ä\005 \031Ä\010 \031Ä\062\n";
+FileTagListed              = "\r\026\007\x16\x01\017Filename(s) to tag (#%d): ";
+FileListTagConfirm         = "\r026\007\026\001\016(%d) \026\001\015%-12.12s \026\001\012(%02lu:%02lu, %lu bytes)  ";
+FileListNotFound           = "\r\026\007\026\001\014I see no \"%s\" here.  ";
+FileListHeader             = "\026\001\017 File Name    Size  Date     Description\n \031Ä\014 \031Ä\005 \031Ä\010 \031Ä\062\n";
 FileListSeparator          = " \031Ä\014 \031Ä\005 \031Ä\010 \031Ä\062\n";
-FileListDescription1       = "\026\001\016Usa i tasti freccia, oppure ^X / ^E per evidenziare un area, RETURN per dettagli.\n";
-FileListDescription2       = "\026\001\016Premi ^V per la prossima pagina, ^Y per la pagina precedente, X per uscire.";
+FileListDescription1       = "\026\001\016Use your arrow keys or CTRL-X / CTRL-E to hilight a file, RETURN view details.\n";
+FileListDescription2       = "\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.";
 FileListTagged             = "\026\001\016*%-12.12s*\026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n";
 FileListNormal             = "\026\001\016 %-12.12s \026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n";
-FileListMoreQuestion       = "\026\001\017Continua [S,n,t,=]? \026\001\007";
-FileListDeleteMoreQuestion = "\r                      \r";
+FileListMoreQuestion       = "\026\001\017More [Y,n,t,=]? \026\001\007";
+FileListDeleteMoreQuestion = "\r                  \r";
 FileListTageKey            = "T";
-FileListNoFilesFound       = "\n\x16\x01\015Nessun file trovato secondo questi parametri di ricerca.\n\006\007\006\007";
+FileListNoFilesFound       = "\n\x16\x01\015Sorry, no files are found to match your search/list parameters.\n\006\007\006\007";
 FileListComment            = "                             \026\001\003%.50s\n";
 
 ; --------------
 ; Change options
 ; --------------
-CurrentPassword = "\n\026\001\017La tua password attuale: ";
-WhyPassword     = "\nLa password deve essere una parola singola (senza spazi).\nDeve essere lunga da 4 a %d lettere (o numeri).\n\n";
-WrongPassword   = "\n\026\001\014Password errata!\n";
+CurrentPassword = "\n\026\001\017Current password: ";
+WhyPassword     = "\nA password is a single word (no spaces).\nIt must be 4 to %d letters (or numbers) long.\n\n";
+WrongPassword   = "\n\026\001\014Wrong password!\n";
 
 ; ---------
 ; Multiline
 ; ---------
-OnlineTitle  = "\x0C\n\026\001\017\031 \x12Utenti collegati su %s\n\026\001\014\031 \x12\031Ä\x2C\n\n";
-OnlineHeader = "\x16\x01\012Nome                       Num.   Vel.  Situazione           Citta'\n\026\001\002\031Ä\x19  \031Ä\x04 \031Ä\x06  \031Ä\x13  \031Ä\x12\n";
+OnlineTitle  = "\x0C\n\026\001\017\031 \x14OnLine Users at %s\n\026\001\014\031 \x14\031Ä\x28\n\n";
+OnlineHeader = "\x16\x01\012Name                       Line  Speed  Status               Location\n\026\001\002\031Ä\x19  \031Ä\x04 \031Ä\x06  \031Ä\x13  \031Ä\x12\n";
 OnlineEntry  = "\026\001\013%-25.25s   \026\001\017%2u   %-5lu  \026\001\016%-19.19s  %-.18s\n";
 
 ; -------------
 ; Miscellaneous
 ; -------------
-MenuError = "\n\x16\x01\x0DScegli uno dei comandi presentati.\n\006\007\006\007";
+MenuError = "\n\x16\x01\x0DPlease select one of the choices presented.\n\006\007\006\007";
 

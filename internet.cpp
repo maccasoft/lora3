@@ -1,11 +1,20 @@
 
-// ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 3.00.11
-// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
+// LoraBBS Version 2.99 Free Edition
+// Copyright (C) 1987-98 Marco Maccaferri
 //
-// History:
-//    03/10/95 - Initial coding.
-// ----------------------------------------------------------------------
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include "_ldefs.h"
 #include "lora.h"
@@ -84,11 +93,6 @@ VOID TInternet::Telnet (PSZ pszServer, USHORT usPort)
 {
    USHORT c, Exit;
    CHAR Temp[30];
-
-   if (ValidateKey ("bbs", NULL, NULL) == KEY_BASIC) {
-      Embedded->Printf ("\n\x16\x01\015Sorry, command avalable only in the ADVANCED and PROFESSIONAL version\006\007\006\007");
-      return;
-   }
 
    if (pszServer == NULL || pszServer[0] == '\0') {
       Embedded->Printf ("\n\026\001\017Host name? ");
@@ -245,11 +249,6 @@ VOID TInternet::Telnet (PSZ pszServer, USHORT usPort)
 VOID TInternet::Finger (PSZ pszServer, USHORT usPort)
 {
    CHAR String[24], c;
-
-   if (ValidateKey ("bbs", NULL, NULL) == KEY_BASIC) {
-      Embedded->Printf ("\n\x16\x01\015Sorry, command avalable only in the ADVANCED and PROFESSIONAL version\006\007\006\007");
-      return;
-   }
 
    if (pszServer == NULL || pszServer[0] == '\0') {
       Embedded->Printf ("\n\026\001\017Host name? ");
@@ -608,11 +607,6 @@ VOID TInternet::FTP (PSZ pszServer, USHORT usPort)
    USHORT i;
    CHAR *p, *Local, *Old, *New;
 
-   if (ValidateKey ("bbs", NULL, NULL) == KEY_BASIC) {
-      Embedded->Printf ("\n\x16\x01\015Sorry, command avalable only in the ADVANCED and PROFESSIONAL version\006\007\006\007");
-      return;
-   }
-
    Binary = Hash = TRUE;
    DataPort = FTPDATA_PORT;
 
@@ -969,11 +963,6 @@ VOID TInternet::IRC (PSZ pszServer, PSZ pszNick, USHORT usPort)
    CHAR Temp[128], Nick[32], Object[64], *tempptr;
    CHAR InLine[128], OutLine[128], *inptr, c, *p;
    CHAR *FromHost;
-
-   if (ValidateKey ("bbs", NULL, NULL) == KEY_BASIC) {
-      Embedded->Printf ("\n\x16\x01\015Sorry, command avalable only in the ADVANCED and PROFESSIONAL version\006\007\006\007");
-      return;
-   }
 
    if (pszServer == NULL || pszServer[0] == '\0') {
       Embedded->Printf ("\n\026\001\017Host name? ");

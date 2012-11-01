@@ -247,8 +247,8 @@ WVList
 0
 58
 MItem
-21
-..\..\ncxl\nt\cxl.lib
+7
+cxl.lib
 59
 WString
 3

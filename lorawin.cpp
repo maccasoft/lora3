@@ -1,11 +1,20 @@
 
-// ----------------------------------------------------------------------
-// LoraBBS Professional Edition - Version 2.99.20
-// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
+// LoraBBS Version 2.99 Free Edition
+// Copyright (C) 1987-98 Marco Maccaferri
 //
-// History:
-//    03/10/95 - Initial coding.
-// ----------------------------------------------------------------------
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include "_ldefs.h"
 #include "lorawin.h"
@@ -116,13 +125,6 @@ USHORT CProductDlg::OnInitDialog (VOID)
    CHAR Temp[128], RegName[64], RegNumber[16];
 
    Center ();
-
-   if (ValidateKey ("bbs", RegName, RegNumber) != KEY_UNREGISTERED) {
-      sprintf (Temp, "Registered to %s", RegName);
-      SetDlgItemText (104, Temp);
-      sprintf (Temp, "Serial Number %s", RegNumber);
-      SetDlgItemText (105, Temp);
-   }
 
    return (TRUE);
 }
@@ -2491,33 +2493,6 @@ VOID ModemTimer (HWND hwnd)
 
    switch (Status) {
       case 0:
-         if (Log != NULL && ValidateKey ("bbs", NULL, NULL) == KEY_UNREGISTERED) {
-            Log->Write ("!WARNING: No license key found");
-            Log->Write ("!Your system is limited to 2 lines");
-/*
-            if ((i = CheckExpiration ()) == 0) {
-               Log->Write ("!This evaluation copy has expired");
-               Status = 200;
-            }
-            else
-               Log->Write ("!You have %d days left for evaluation", i);
-*/
-         }
-         switch (ValidateKey ("bbs", NULL, NULL)) {
-            case KEY_UNREGISTERED:
-            case KEY_BASIC:
-               if (Cfg->TaskNumber > 2) {
-                  Log->Write ("!Invalid line number (%d)", Cfg->TaskNumber);
-                  Status = 200;
-               }
-               break;
-            case KEY_ADVANCED:
-               if (Cfg->TaskNumber > 5) {
-                  Log->Write ("!Invalid line number (%d)", Cfg->TaskNumber);
-                  Status = 200;
-               }
-               break;
-         }
          if (Status != 200) {
             if (Modem == NULL && Cfg != NULL) {
                if ((Modem = new TModem) != NULL) {

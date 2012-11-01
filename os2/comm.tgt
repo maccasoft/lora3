@@ -12,7 +12,7 @@ ODLL
 3
 WString
 5
-o_2do
+o_2dn
 1
 0
 1
@@ -299,8 +299,8 @@ WVList
 0
 71
 MItem
-27
-c:\sources\ncxl\os2\cxl.lib
+7
+cxl.lib
 72
 WString
 3

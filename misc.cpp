@@ -1,11 +1,20 @@
 
-// ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 3.00.11
-// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
+// LoraBBS Version 2.99 Free Edition
+// Copyright (C) 1987-98 Marco Maccaferri
 //
-// History:
-//    05/20/95 - Initial coding.
-// ----------------------------------------------------------------------
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 #include "_ldefs.h"
 #if defined(__DOS__)
@@ -283,131 +292,6 @@ USHORT BuildEmptyPath (PSZ pszPath)
 }
 
 // ----------------------------------------------------------------------
-
-#define KEY_UNREGISTERED      0
-#define KEY_BASIC             1
-#define KEY_ADVANCED          2
-#define KEY_PROFESSIONAL      3
-#define KEY_POINT             4
-
-USHORT DLL_EXPORT ValidateKey (PSZ product, PSZ name, PSZ number)
-{
-   FILE *fp;
-   USHORT RetVal = KEY_UNREGISTERED;
-   CHAR Temp[64], Name[64], Serial[16], Check[32], *p;
-   ULONG Crc, Validation;
-
-#if defined(__OS2__)
-   sprintf (Check, "[%s-os/2]", product);
-#elif defined(__NT__)
-   sprintf (Check, "[%s-windows]", product);
-#elif defined(__LINUX__)
-   sprintf (Check, "[%s-linux]", product);
-#else
-   sprintf (Check, "[%s-dos]", product);
-#endif
-
-   if ((fp = fopen ("lora.key", "rt")) != NULL) {
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         if ((p = strchr (Temp, '\r')) != NULL)
-            *p = '\0';
-         if ((p = strchr (Temp, '\n')) != NULL)
-            *p = '\0';
-
-         if (!stricmp (Temp, Check)) {
-            fgets (Temp, sizeof (Temp) - 1, fp);
-            if ((p = strchr (Temp, '\r')) != NULL)
-               *p = '\0';
-            if ((p = strchr (Temp, '\n')) != NULL)
-               *p = '\0';
-
-            if (!strncmp (Temp, "name=", 5)) {
-               strcpy (Name, &Temp[5]);
-               fgets (Temp, sizeof (Temp) - 1, fp);
-               if ((p = strchr (Temp, '\r')) != NULL)
-                  *p = '\0';
-               if ((p = strchr (Temp, '\n')) != NULL)
-                  *p = '\0';
-
-               if (!strncmp (Temp, "serial=", 7)) {
-                  strcpy (Serial, &Temp[7]);
-                  fgets (Temp, sizeof (Temp) - 1, fp);
-                  if ((p = strchr (Temp, '\r')) != NULL)
-                     *p = '\0';
-                  if ((p = strchr (Temp, '\n')) != NULL)
-                     *p = '\0';
-
-                  if (!strncmp (Temp, "validation=", 11)) {
-                     Validation = atol (&Temp[11]);
-
-#if !defined(__POINT__)
-                     Crc = StringCrc32 ("30BASIC", 0xFFFFFFFFL);
-                     Crc = StringCrc32 (Check, Crc);
-                     Crc = StringCrc32 (Name, Crc);
-                     Crc = StringCrc32 (Serial, Crc);
-                     if (Validation == Crc)
-                        RetVal = KEY_BASIC;
-
-                     Crc = StringCrc32 ("30ADVANCED", 0xFFFFFFFFL);
-                     Crc = StringCrc32 (Check, Crc);
-                     Crc = StringCrc32 (Name, Crc);
-                     Crc = StringCrc32 (Serial, Crc);
-                     if (Validation == Crc)
-                        RetVal = KEY_ADVANCED;
-
-                     Crc = StringCrc32 ("30PROFESSIONAL", 0xFFFFFFFFL);
-                     Crc = StringCrc32 (Check, Crc);
-                     Crc = StringCrc32 (Name, Crc);
-                     Crc = StringCrc32 (Serial, Crc);
-                     if (Validation == Crc)
-                        RetVal = KEY_PROFESSIONAL;
-#else
-                     Crc = StringCrc32 ("30POINT", 0xFFFFFFFFL);
-                     Crc = StringCrc32 (Check, Crc);
-                     Crc = StringCrc32 (Name, Crc);
-                     Crc = StringCrc32 (Serial, Crc);
-                     if (Validation == Crc)
-                        RetVal = KEY_POINT;
-#endif
-                  }
-               }
-            }
-         }
-      }
-      fclose (fp);
-   }
-
-   if (RetVal != KEY_UNREGISTERED) {
-      if (name != NULL)
-         strcpy (name, Name);
-      if (number != NULL)
-         strcpy (number, Serial);
-   }
-
-   return (RetVal);
-}
-
-USHORT DLL_EXPORT CheckExpiration (VOID)
-{
-   #define EXPIRE_DAY        30
-   #define EXPIRE_MONTH       4
-   #define EXPIRE_YEAR     1997
-   USHORT RetVal = 0;
-   time_t today, expire;
-   struct tm xtm;
-
-   memset (&xtm, 0, sizeof (struct tm));
-   xtm.tm_mday = EXPIRE_DAY;
-   xtm.tm_mon = EXPIRE_MONTH - 1;
-   xtm.tm_year = EXPIRE_YEAR - 1900;
-   expire = mktime (&xtm);
-
-   today = time (NULL);
-   if (expire > today)
-      RetVal = (USHORT)((expire - today) / 86400L);
-
-   return (RetVal);
-}
 
 char *strinc (char *str1, char *str2)
 {
