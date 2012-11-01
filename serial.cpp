@@ -57,8 +57,10 @@ TSerial::~TSerial (void)
    if (hFile != INVALID_HANDLE_VALUE)
       CloseHandle (hFile);
 #elif defined(__LINUX__)
-   if (hFile >= 0)
+   if (hFile >= 0) {
+      ioctl (hFile, TCSETSW, &old_termio);
       close (hFile);
+   }
 #else
    if (hPort != NULL)
       PortClose (hPort);
@@ -109,6 +111,9 @@ USHORT TSerial::BytesReady (VOID)
             RetVal = TRUE;
       }
    }
+
+   if (RetVal == FALSE)
+      DosSleep (1L);
 #elif defined(__NT__)
    ULONG Available;
 
@@ -124,6 +129,9 @@ USHORT TSerial::BytesReady (VOID)
          }
       }
    }
+
+   if (RetVal == FALSE)
+      Sleep (1L);
 #elif defined(__LINUX__)
    int i;
 
@@ -235,7 +243,7 @@ VOID TSerial::ClearOutbound (VOID)
 
 USHORT TSerial::Initialize (VOID)
 {
-   USHORT RetVal = TRUE;
+   USHORT RetVal = FALSE;
 
 #if defined(__OS2__)
    UINT data;
@@ -247,11 +255,11 @@ USHORT TSerial::Initialize (VOID)
 
    if (DosOpen (Device, &hFile, &action, 0L, FILE_NORMAL, FILE_OPEN, OPEN_ACCESS_READWRITE|OPEN_SHARE_DENYNONE, 0L) == 0) {
       DevIOCtl ((VOID *)&dcbCom, sizeof (DCBINFO), NULL, 0, ASYNC_GETDCBINFO, IOCTL_ASYNC, hFile);
+      dcbCom.fbCtlHndShake &= ~(MODE_RTS_HANDSHAKE);
       dcbCom.fbCtlHndShake |= MODE_DTR_CONTROL|MODE_CTS_HANDSHAKE;
       dcbCom.fbFlowReplace &= ~(MODE_AUTO_TRANSMIT|MODE_AUTO_RECEIVE|MODE_ERROR_CHAR|MODE_NULL_STRIPPING|MODE_BREAK_CHAR);
       dcbCom.fbTimeout |= MODE_NOWAIT_READ_TIMEOUT;
       dcbCom.fbTimeout &= ~(MODE_NO_WRITE_TIMEOUT);
-
       dcbCom.usReadTimeout = 1;
       dcbCom.usWriteTimeout = 1;
       DevIOCtl (NULL, 0, (VOID *)&dcbCom, sizeof (DCBINFO), ASYNC_SETDCBINFO, IOCTL_ASYNC, hFile);
@@ -277,17 +285,31 @@ USHORT TSerial::Initialize (VOID)
       RetVal = TRUE;
    }
 #elif defined(__LINUX__)
-   if ((hFile = open (Device, O_RDWR)) >= 0) {
+   FILE *fpd;
+
+   if ((hFile = open (Device, O_RDWR|O_BINARY)) >= 0) {
       fcntl (hFile, F_SETFL, O_NONBLOCK);
 
       ioctl (hFile, TCGETS, &old_termio);
-      new_termio = old_termio;
-      new_termio.c_iflag &= ~(ICRNL|IGNPAR);
-//      new_termio.c_iflag |= IGNPAR;
-      new_termio.c_lflag &= ~(ISIG|ICANON|ECHO);
-//      new_termio.c_cflag &= ~(CLOCAL|PARENB|CRTSCTS);
-      new_termio.c_cflag |= CRTSCTS;
+//      new_termio = old_termio;
+      memcpy (&new_termio, &old_termio, sizeof (new_termio));
+fpd=fopen("serial.dbg", "wt");
+fprintf (fpd, "Before\n");
+fprintf (fpd, "  c_iflag=%04o\n", new_termio.c_iflag);
+fprintf (fpd, "  c_oflag=%04o\n", new_termio.c_oflag);
+fprintf (fpd, "  c_cflag=%04o\n", new_termio.c_cflag);
+fprintf (fpd, "  c_lflag=%04o\n", new_termio.c_lflag);
+      new_termio.c_iflag = 0;
+      new_termio.c_oflag = 0;
+      new_termio.c_lflag = 0;
+      new_termio.c_cflag = CRTSCTS;
       ioctl (hFile, TCSETSW, &new_termio);
+fprintf (fpd, "After\n");
+fprintf (fpd, "  c_iflag=%04o\n", new_termio.c_iflag);
+fprintf (fpd, "  c_oflag=%04o\n", new_termio.c_oflag);
+fprintf (fpd, "  c_cflag=%04o\n", new_termio.c_cflag);
+fprintf (fpd, "  c_lflag=%04o\n", new_termio.c_lflag);
+fclose (fpd);
 
       SetParameters (Speed, DataBits, Parity, StopBits);
       RetVal = TRUE;
@@ -619,8 +641,6 @@ VOID TSerial::SendByte (UCHAR byte)
    if (hFile != NULLHANDLE) {
       do {
          DosWrite (hFile, (PVOID)&byte, 1L, &written);
-         if (written != 1L)
-            DosSleep (1L);
       } while (written != 1L && EndRun == FALSE && Carrier () == TRUE);
    }
 #elif defined(__NT__)
@@ -629,8 +649,6 @@ VOID TSerial::SendByte (UCHAR byte)
    if (hFile != INVALID_HANDLE_VALUE && EndRun == FALSE)
       do {
          WriteFile (hFile, (LPCVOID)&byte, 1L, &written, NULL);
-         if (written != 1L)
-            Sleep (1L);
       } while (written != 1L && EndRun == FALSE && Carrier () == TRUE);
 #elif defined(__LINUX__)
    while (write (hFile, &byte, 1) != 1)
@@ -654,8 +672,6 @@ VOID TSerial::SendBytes (UCHAR *bytes, USHORT len)
    if (hFile != NULLHANDLE) {
       do {
          DosWrite (hFile, (PVOID)bytes, (long)len, &written);
-         if (written < len)
-            DosSleep (1L);
          bytes += written;
          len -= (USHORT)written;
       } while (len > 0 && EndRun == FALSE && Carrier () == TRUE);
@@ -666,8 +682,6 @@ VOID TSerial::SendBytes (UCHAR *bytes, USHORT len)
    if (hFile != INVALID_HANDLE_VALUE && EndRun == FALSE)
       do {
          WriteFile (hFile, (LPCVOID)bytes, (long)len, &written, NULL);
-         if (written < len)
-            Sleep (1L);
          bytes += written;
          len -= (USHORT)written;
       } while (len > 0 && EndRun == FALSE && Carrier () == TRUE);
@@ -697,8 +711,6 @@ VOID TSerial::UnbufferBytes (VOID)
       do {
          Written = 0L;
          DosWrite (hFile, (PVOID)p, TxBytes, &Written);
-         if (Written < TxBytes)
-            DosSleep (1L);
          p += Written;
          TxBytes -= (USHORT)Written;
       } while (TxBytes > 0 && EndRun == FALSE && Carrier () == TRUE);
@@ -713,8 +725,6 @@ VOID TSerial::UnbufferBytes (VOID)
       p = TxBuffer;
       do {
          WriteFile (hFile, (LPCVOID)p, (long)TxBytes, &written, NULL);
-         if (written < TxBytes)
-            Sleep (1L);
          p += written;
          TxBytes -= (USHORT)written;
       } while (TxBytes > 0 && EndRun == FALSE && Carrier () == TRUE);
@@ -723,10 +733,12 @@ VOID TSerial::UnbufferBytes (VOID)
    int i;
 
    if (TxBytes > 0) {
+      fcntl (hFile, F_SETFL, 0);
       do {
          i = write (hFile, TxBuffer, TxBytes);
          TxBytes -= (USHORT)i;
       } while (TxBytes > 0);
+      fcntl (hFile, F_SETFL, O_NONBLOCK);
    }
 #else
    char *p;
@@ -740,6 +752,31 @@ VOID TSerial::UnbufferBytes (VOID)
       } while (TxBytes > 0 && EndRun == FALSE && Carrier () == TRUE);
    }
 #endif
+}
+
+VOID TSerial::SetName (PSZ name)
+{
+   name = name;
+}
+
+VOID TSerial::SetCity (PSZ name)
+{
+   name = name;
+}
+
+VOID TSerial::SetLevel (PSZ level)
+{
+   level = level;
+}
+
+VOID TSerial::SetTimeLeft (ULONG seconds)
+{
+   seconds = seconds;
+}
+
+VOID TSerial::SetTime (ULONG seconds)
+{
+   seconds = seconds;
 }
 
 

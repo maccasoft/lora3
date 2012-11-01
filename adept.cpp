@@ -148,7 +148,7 @@ USHORT ADEPT::Add (class TCollection &MsgText)
 
       if (Written.Month == 0)
          Written.Month = 1;
-      sprintf (Data.date, "%2d %3.3s %02d  %02d:%02d:%02d", Written.Day, adeptMonths[Written.Month - 1], Written.Year % 100, Written.Hour, Written.Minute, 0);
+      sprintf (Data.date, "%2d %3.3s %02d  %02d:%02d:%02d", Written.Day, adeptMonths[Written.Month - 1], Written.Year % 100, Written.Hour, Written.Minute, Written.Second);
 
       Data.fflags |= (Sent == TRUE) ? MSGSENT : 0;
       Data.fflags |= (Crash == TRUE) ? MSGCRASH : 0;
@@ -170,6 +170,8 @@ USHORT ADEPT::Add (class TCollection &MsgText)
 
       lseek (fdHdr, 0L, SEEK_END);
       write (fdHdr, &Data, sizeof (Data));
+
+      TotalMsgs++;
    }
 
    return (RetVal);
@@ -269,6 +271,7 @@ VOID ADEPT::New (VOID)
    memset (&Written, 0, sizeof (Written));
    memset (&Arrived, 0, sizeof (Arrived));
    FromAddress[0] = ToAddress[0] = '\0';
+   Original = Reply = 0L;
    Text.Clear ();
 }
 
@@ -529,7 +532,7 @@ USHORT ADEPT::ReadHeader (ULONG ulMsg)
 
       sscanf (Data.date, "%2d %3s %2d  %2d:%2d:%02d", &dd, mm, &yy, &hr, &mn, &sc);
 
-      Written.Day = (UCHAR)dd;
+      Arrived.Day = Written.Day = (UCHAR)dd;
       for (i = 0; i < 12; i++) {
          if (!stricmp (adeptMonths[i], mm)) {
             Written.Month = (UCHAR)(i + 1);
@@ -538,11 +541,13 @@ USHORT ADEPT::ReadHeader (ULONG ulMsg)
       }
       if (Written.Month < 1 || Written.Month > 12)
          Written.Month = 1;
+      Arrived.Month = Written.Month;
       if ((Written.Year = (USHORT)(yy + 1900)) < 1980)
          Written.Year += 100;
-      Written.Hour = (UCHAR)hr;
-      Written.Minute = (UCHAR)mn;
-      Written.Second = (UCHAR)sc;
+      Arrived.Year = Written.Year;
+      Arrived.Hour = Written.Hour = (UCHAR)hr;
+      Arrived.Minute = Written.Minute = (UCHAR)mn;
+      Arrived.Second = Written.Second = (UCHAR)sc;
 
       Sent = (UCHAR)((Data.fflags & MSGSENT) ? TRUE : FALSE);
       Crash = (UCHAR)((Data.fflags & MSGCRASH) ? TRUE : FALSE);

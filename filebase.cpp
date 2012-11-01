@@ -743,92 +743,113 @@ USHORT TFileBase::Replace (VOID)
 {
    PSZ pszTemp;
    USHORT RetVal = FALSE;
+   ULONG ulCrc;
    FILEDATA fileData;
    FILEINDEX fileIndex;
    struct tm ftm;
 
    fUploader = FALSE;
+   ulCrc = StringCrc32 (szArea, 0xFFFFFFFFL);
 
    lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex), SEEK_SET);
    read (fdIdx, &fileIndex, sizeof (fileIndex));
 
-   lseek (fdDat, fileIndex.Offset, SEEK_SET);
-   read (fdDat, &fileData, sizeof (fileData));
-
-   if (fileData.Id == FILEBASE_ID) {
-      fileData.Flags |= FILE_DELETED;
-      lseek (fdDat, fileIndex.Offset, SEEK_SET);
-      write (fdDat, &fileData, sizeof (fileData));
-
-      lseek (fdDat, 0L, SEEK_END);
-
-      fileIndex.Offset = tell (fdDat);
-      memset (&ftm, 0, sizeof (ftm));
-      ftm.tm_min = UplDate.Minute;
-      ftm.tm_hour = UplDate.Hour;
-      ftm.tm_mday = UplDate.Day;
-      ftm.tm_mon = UplDate.Month - 1;
-      ftm.tm_year = UplDate.Year - 1900;
-      fileIndex.UploadDate = mktime (&ftm);
-      if (Unapproved == TRUE)
-         fileIndex.Flags |= FILE_UNAPPROVED;
-      else
-         fileIndex.Flags &= ~FILE_UNAPPROVED;
-      lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex), SEEK_SET);
-      write (fdIdx, &fileIndex, sizeof (fileIndex));
-
-      memset (&fileData, 0, sizeof (fileData));
-      strcpy (fileData.Area, Area);
-      strcpy (fileData.Name, Name);
-      strcpy (fileData.Complete, Complete);
-      strcpy (fileData.Keyword, Keyword);
-      fileData.Size = Size;
-      fileData.DlTimes = DlTimes;
-      memset (&ftm, 0, sizeof (ftm));
-      ftm.tm_min = Date.Minute;
-      ftm.tm_hour = Date.Hour;
-      ftm.tm_mday = Date.Day;
-      ftm.tm_mon = Date.Month - 1;
-      ftm.tm_year = Date.Year - 1900;
-      FileDate = fileData.FileDate = mktime (&ftm);
-      memset (&ftm, 0, sizeof (ftm));
-      ftm.tm_min = UplDate.Minute;
-      ftm.tm_hour = UplDate.Hour;
-      ftm.tm_mday = UplDate.Day;
-      ftm.tm_mon = UplDate.Month - 1;
-      ftm.tm_year = UplDate.Year - 1900;
-      UploadDate = fileData.UploadDate = mktime (&ftm);
-      fileData.Cost = Cost;
-      fileData.Password = Password;
-      fileData.Level = Level;
-      fileData.AccessFlags = AccessFlags;
-      fileData.DenyFlags = DenyFlags;
-      if (Unapproved == TRUE)
-         fileData.Flags |= FILE_UNAPPROVED;
-      if (CdRom == TRUE)
-         fileData.Flags |= FILE_CDROM;
-      if ((pszTemp = (PSZ)Description->First ()) != NULL) {
-         do {
-            fileData.Description += strlen (pszTemp) + 2;
-         } while ((pszTemp = (PSZ)Description->Next ()) != NULL);
+   if ((szArea[0] != '\0' && fileIndex.Area != ulCrc) || stricmp (fileIndex.Name, Name)) {
+      lseek (fdIdx, 0L, SEEK_SET);
+      while (read (fdIdx, &fileIndex, sizeof (fileIndex)) == sizeof (fileIndex)) {
+         if (!(fileIndex.Flags & FILE_DELETED)) {
+            if (szArea[0] == '\0' || fileIndex.Area == ulCrc) {
+               if (!stricmp (fileIndex.Name, Name)) {
+                  RetVal = TRUE;
+                  break;
+               }
+            }
+         }
       }
-      if (Uploader != NULL)
-        fileData.Uploader = (USHORT)(strlen (Uploader) + 1);
-
-      lseek (fdDat, 0L, SEEK_END);
-      write (fdDat, &fileData, sizeof (fileData));
-
-      if ((pszTemp = (PSZ)Description->First ()) != NULL) {
-         do {
-            write (fdDat, pszTemp, strlen (pszTemp));
-            write (fdDat, "\r\n", 2);
-         } while ((pszTemp = (PSZ)Description->Next ()) != NULL);
-      }
-
-      if (Uploader != NULL)
-        write (fdDat, Uploader, fileData.Uploader);
-
+   }
+   else
       RetVal = TRUE;
+
+   if (RetVal == TRUE) {
+      lseek (fdDat, fileIndex.Offset, SEEK_SET);
+      read (fdDat, &fileData, sizeof (fileData));
+      RetVal = FALSE;
+
+      if (fileData.Id == FILEBASE_ID) {
+         fileData.Flags |= FILE_DELETED;
+         lseek (fdDat, fileIndex.Offset, SEEK_SET);
+         write (fdDat, &fileData, sizeof (fileData));
+
+         lseek (fdDat, 0L, SEEK_END);
+
+         fileIndex.Offset = tell (fdDat);
+         memset (&ftm, 0, sizeof (ftm));
+         ftm.tm_min = UplDate.Minute;
+         ftm.tm_hour = UplDate.Hour;
+         ftm.tm_mday = UplDate.Day;
+         ftm.tm_mon = UplDate.Month - 1;
+         ftm.tm_year = UplDate.Year - 1900;
+         fileIndex.UploadDate = mktime (&ftm);
+         if (Unapproved == TRUE)
+            fileIndex.Flags |= FILE_UNAPPROVED;
+         else
+            fileIndex.Flags &= ~FILE_UNAPPROVED;
+         lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex), SEEK_SET);
+         write (fdIdx, &fileIndex, sizeof (fileIndex));
+
+         memset (&fileData, 0, sizeof (fileData));
+         strcpy (fileData.Area, Area);
+         strcpy (fileData.Name, Name);
+         strcpy (fileData.Complete, Complete);
+         strcpy (fileData.Keyword, Keyword);
+         fileData.Size = Size;
+         fileData.DlTimes = DlTimes;
+         memset (&ftm, 0, sizeof (ftm));
+         ftm.tm_min = Date.Minute;
+         ftm.tm_hour = Date.Hour;
+         ftm.tm_mday = Date.Day;
+         ftm.tm_mon = Date.Month - 1;
+         ftm.tm_year = Date.Year - 1900;
+         FileDate = fileData.FileDate = mktime (&ftm);
+         memset (&ftm, 0, sizeof (ftm));
+         ftm.tm_min = UplDate.Minute;
+         ftm.tm_hour = UplDate.Hour;
+         ftm.tm_mday = UplDate.Day;
+         ftm.tm_mon = UplDate.Month - 1;
+         ftm.tm_year = UplDate.Year - 1900;
+         UploadDate = fileData.UploadDate = mktime (&ftm);
+         fileData.Cost = Cost;
+         fileData.Password = Password;
+         fileData.Level = Level;
+         fileData.AccessFlags = AccessFlags;
+         fileData.DenyFlags = DenyFlags;
+         if (Unapproved == TRUE)
+            fileData.Flags |= FILE_UNAPPROVED;
+         if (CdRom == TRUE)
+            fileData.Flags |= FILE_CDROM;
+         if ((pszTemp = (PSZ)Description->First ()) != NULL) {
+            do {
+               fileData.Description += strlen (pszTemp) + 2;
+            } while ((pszTemp = (PSZ)Description->Next ()) != NULL);
+         }
+         if (Uploader != NULL)
+           fileData.Uploader = (USHORT)(strlen (Uploader) + 1);
+
+         lseek (fdDat, 0L, SEEK_END);
+         write (fdDat, &fileData, sizeof (fileData));
+
+         if ((pszTemp = (PSZ)Description->First ()) != NULL) {
+            do {
+               write (fdDat, pszTemp, strlen (pszTemp));
+               write (fdDat, "\r\n", 2);
+            } while ((pszTemp = (PSZ)Description->Next ()) != NULL);
+         }
+
+         if (Uploader != NULL)
+           write (fdDat, Uploader, fileData.Uploader);
+
+         RetVal = TRUE;
+      }
    }
 
    return (RetVal);
@@ -1008,11 +1029,6 @@ VOID TFileBase::SearchFile (PSZ pszFile)
                   }
                }
             }
-#if defined(__OS2__)
-            DosSleep (1L);
-#elif defined(__NT__)
-            Sleep (1L);
-#endif
          }
       }
    }
@@ -1078,11 +1094,6 @@ VOID TFileBase::SearchKeyword (PSZ pszKeyword)
                   }
                }
             }
-#if defined(__OS2__)
-            DosSleep (1L);
-#elif defined(__NT__)
-            Sleep (1L);
-#endif
          }
       }
    }
@@ -1189,11 +1200,6 @@ VOID TFileBase::SearchText (PSZ pszText)
                   }
                }
             }
-#if defined(__OS2__)
-            DosSleep (1L);
-#elif defined(__NT__)
-            Sleep (1L);
-#endif
          }
       }
    }
@@ -1260,11 +1266,6 @@ VOID TFileBase::SortByDate (ULONG ulDate)
                   }
                }
             }
-#if defined(__OS2__)
-            DosSleep (1L);
-#elif defined(__NT__)
-            Sleep (1L);
-#endif
          }
       }
    }
@@ -1328,11 +1329,6 @@ VOID TFileBase::SortByDownload (VOID)
                   }
                }
             }
-#if defined(__OS2__)
-            DosSleep (1L);
-#elif defined(__NT__)
-            Sleep (1L);
-#endif
          }
       }
    }
@@ -1397,17 +1393,88 @@ VOID TFileBase::SortByName (VOID)
                   }
                }
             }
-#if defined(__OS2__)
-            DosSleep (1L);
-#elif defined(__NT__)
-            Sleep (1L);
-#endif
          }
       }
    }
 
    if (fileIndex != NULL)
       free (fileIndex);
+}
+
+VOID TFileBase::ReadFileList (PSZ list, PSZ dl_path)
+{
+   FILE *fp;
+   USHORT PendingWrite;
+   CHAR Path[128], Temp[128], *p, *FileName;
+   struct stat statbuf;
+   struct tm *ltm;
+
+   if ((fp = fopen (list, "rt")) != NULL) {
+      PendingWrite = FALSE;
+      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+         if ((p = strchr (Temp, 0x0A)) != NULL)
+            p = '\0';
+         if (Temp[1] == '>') {
+            if (PendingWrite == TRUE)
+               Description->Add (&Temp[2]);
+         }
+         else {
+            if (PendingWrite == TRUE) {
+               Add ();
+               Clear ();
+               PendingWrite = FALSE;
+            }
+            if ((FileName = strtok (Temp, " ")) != NULL) {
+               if ((p = strtok (NULL, "")) != NULL) {
+                  while (*p == ' ')
+                     p++;
+                  if (*p == '(' || *p == '[') {
+                     while (*p != ')' && *p != ']' && *p != '\0') {
+                        if (isdigit (*p)) {
+                           DlTimes *= 10;
+                           DlTimes += *p - '0';
+                        }
+                        p++;
+                     }
+                     if (*p == ')' || *p == ']') {
+                        p++;
+                        while (*p == ' ')
+                           p++;
+                     }
+                  }
+                  if (*p != '\0')
+                     Description->Add (p);
+               }
+               sprintf (Path, "%s%s", dl_path, FileName);
+#if defined(__LINUX__)
+               strlwr (Path);
+#endif
+               if (!stat (Path, &statbuf)) {
+                  strcpy (Name, FileName);
+                  sprintf (Complete, "%s%s", dl_path, FileName);
+                  Size = statbuf.st_size;
+                  ltm = localtime ((time_t *)&statbuf.st_mtime);
+                  UplDate.Day = Date.Day = (UCHAR)ltm->tm_mday;
+                  UplDate.Month = Date.Month = (UCHAR)(ltm->tm_mon + 1);
+                  UplDate.Year = Date.Year = (USHORT)(ltm->tm_year + 1900);
+                  UplDate.Hour = Date.Hour = (UCHAR)ltm->tm_hour;
+                  UplDate.Minute = Date.Minute = (UCHAR)ltm->tm_min;
+                  Uploader = "Sysop";
+                  CdRom = FALSE;
+                  PendingWrite = TRUE;
+               }
+               else
+                  Clear ();
+            }
+         }
+      }
+      fclose (fp);
+
+      if (PendingWrite == TRUE) {
+         Add ();
+         Clear ();
+      }
+   }
 }
 
 

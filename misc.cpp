@@ -138,7 +138,7 @@ USHORT TimeUp (LONG lEndtime)
 
    _dos_gettime (&dt);
    l = (dt.minute % 60) * PER_MINUTE + (dt.second % 60) * PER_SECOND + dt.hsecond;
-   if (l < (lEndtime - PER_HOUR))
+   if (l < (lEndtime - 65536L))
       l += PER_HOUR;
 
    return ((USHORT)(((l - lEndtime) >= 0L) ? TRUE : FALSE));
@@ -389,14 +389,17 @@ USHORT DLL_EXPORT ValidateKey (PSZ product, PSZ name, PSZ number)
 
 USHORT DLL_EXPORT CheckExpiration (VOID)
 {
+   #define EXPIRE_DAY        15
+   #define EXPIRE_MONTH       3
+   #define EXPIRE_YEAR     1997
    USHORT RetVal = 0;
    time_t today, expire;
    struct tm xtm;
 
    memset (&xtm, 0, sizeof (struct tm));
-   xtm.tm_mday = 31;
-   xtm.tm_mon = 12 - 1;
-   xtm.tm_year = 1996 - 1900;
+   xtm.tm_mday = EXPIRE_DAY;
+   xtm.tm_mon = EXPIRE_MONTH - 1;
+   xtm.tm_year = EXPIRE_YEAR - 1900;
    expire = mktime (&xtm);
 
    today = time (NULL);

@@ -101,6 +101,11 @@ CNewUserDlg::CNewUserDlg (HWND p_hWnd) : CDialog ("21", p_hWnd)
 {
 }
 
+VOID CNewUserDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 21);
+}
+
 USHORT CNewUserDlg::OnInitDialog (VOID)
 {
    class TLimits *Limits;
@@ -115,6 +120,17 @@ USHORT CNewUserDlg::OnInitDialog (VOID)
    BM_SetCheck (119 + Cfg->City, TRUE);
    BM_SetCheck (123 + Cfg->PhoneNumber, TRUE);
    BM_SetCheck (127 + Cfg->Gender, TRUE);
+   BM_SetCheck (23 + Cfg->CheckAvatar, TRUE);
+   BM_SetCheck (26 + Cfg->CheckColor, TRUE);
+   BM_SetCheck (29 + Cfg->CheckFullScreen, TRUE);
+   BM_SetCheck (32 + Cfg->CheckHotKey, TRUE);
+   BM_SetCheck (35 + Cfg->CheckIBMChars, TRUE);
+   BM_SetCheck (38 + Cfg->AskLines, TRUE);
+   BM_SetCheck (41 + Cfg->AskPause, TRUE);
+   BM_SetCheck (44 + Cfg->AskScreenClear, TRUE);
+   BM_SetCheck (47 + Cfg->AskBirthDate, TRUE);
+   BM_SetCheck (50 + Cfg->AskMailCheck, TRUE);
+   BM_SetCheck (53 + Cfg->AskFileCheck, TRUE);
 
    if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
       if (Limits->First () == TRUE)
@@ -128,48 +144,40 @@ USHORT CNewUserDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
+UCHAR CNewUserDlg::GetSelection (USHORT id, USHORT Three)
+{
+   if (BM_QueryCheck (id) == TRUE)
+      return (NO);
+   else if (BM_QueryCheck (id + 1) == TRUE)
+      return (YES);
+   else if (Three == TRUE) {
+      if (BM_QueryCheck (id + 2) == TRUE)
+         return (REQUIRED);
+   }
+
+   return (NO);
+}
+
 VOID CNewUserDlg::OnOK (VOID)
 {
-   if (BM_QueryCheck (102) == TRUE)
-      Cfg->CheckAnsi = NO;
-   else if (BM_QueryCheck (103) == TRUE)
-      Cfg->CheckAnsi = YES;
-   if (BM_QueryCheck (106) == TRUE)
-      Cfg->RealName = NO;
-   else if (BM_QueryCheck (107) == TRUE)
-      Cfg->RealName = YES;
-   else if (BM_QueryCheck (108) == TRUE)
-      Cfg->RealName = REQUIRED;
-   if (BM_QueryCheck (110) == TRUE)
-      Cfg->CompanyName = NO;
-   else if (BM_QueryCheck (111) == TRUE)
-      Cfg->CompanyName = YES;
-   else if (BM_QueryCheck (112) == TRUE)
-      Cfg->CompanyName = REQUIRED;
-   if (BM_QueryCheck (115) == TRUE)
-      Cfg->Address = NO;
-   else if (BM_QueryCheck (116) == TRUE)
-      Cfg->Address = YES;
-   else if (BM_QueryCheck (117) == TRUE)
-      Cfg->Address = REQUIRED;
-   if (BM_QueryCheck (119) == TRUE)
-      Cfg->City = NO;
-   else if (BM_QueryCheck (120) == TRUE)
-      Cfg->City = YES;
-   else if (BM_QueryCheck (121) == TRUE)
-      Cfg->City = REQUIRED;
-   if (BM_QueryCheck (123) == TRUE)
-      Cfg->PhoneNumber = NO;
-   else if (BM_QueryCheck (124) == TRUE)
-      Cfg->PhoneNumber = YES;
-   else if (BM_QueryCheck (125) == TRUE)
-      Cfg->PhoneNumber = REQUIRED;
-   if (BM_QueryCheck (127) == TRUE)
-      Cfg->Gender = NO;
-   else if (BM_QueryCheck (128) == TRUE)
-      Cfg->Gender = YES;
-   else if (BM_QueryCheck (129) == TRUE)
-      Cfg->Gender = REQUIRED;
+   Cfg->CheckAnsi = GetSelection (102, FALSE);
+   Cfg->RealName = GetSelection (106, TRUE);
+   Cfg->CompanyName = GetSelection (110, TRUE);
+   Cfg->Address = GetSelection (115, TRUE);
+   Cfg->City = GetSelection (119, TRUE);
+   Cfg->PhoneNumber = GetSelection (123, TRUE);
+   Cfg->Gender = GetSelection (127, TRUE);
+   Cfg->CheckAvatar = GetSelection (23, FALSE);
+   Cfg->CheckColor = GetSelection (26, FALSE);
+   Cfg->CheckFullScreen = GetSelection (29, FALSE);
+   Cfg->CheckHotKey = GetSelection (32, FALSE);
+   Cfg->CheckIBMChars = GetSelection (35, FALSE);
+   Cfg->AskLines = GetSelection (38, FALSE);
+   Cfg->AskPause = GetSelection (41, FALSE);
+   Cfg->AskScreenClear = GetSelection (44, FALSE);
+   Cfg->AskBirthDate = GetSelection (47, FALSE);
+   Cfg->AskMailCheck = GetSelection (50, FALSE);
+   Cfg->AskFileCheck = GetSelection (53, FALSE);
 
    GetDlgItemText (130, Cfg->NewUserLimits, GetDlgItemTextLength (130));
 
@@ -200,7 +208,7 @@ USHORT CNewUserSecurityDlg::OnInitDialog (VOID)
    Center ();
    SetWindowTitle ("New Users Security");
 
-   SPBM_SetLimits (102, 65535U, 0L);
+   SPBM_SetLimits (102, 65535L, 0L);
    SPBM_SetCurrentValue (102, Cfg->NewUserLevel);
 
    for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
@@ -220,7 +228,7 @@ VOID CNewUserSecurityDlg::OnOK (VOID)
    USHORT i;
    ULONG Test;
 
-   Cfg->NewUserLevel = SPBM_QueryValue (102);
+   Cfg->NewUserLevel = (USHORT)SPBM_QueryValue (102);
 
    Cfg->NewUserFlags = 0L;
    for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
@@ -262,7 +270,7 @@ MENUCMD MenuCmd[] = {
    MNU_MSGBRIEFLIST, "Short message list",
    MNU_MSGFORWARD, "Read next message",
    MNU_MSGBACKWARD, "Read previous message",
-   MNU_MSGTEXTLIST, "Read message non-stop",
+   MNU_MSGREADNONSTOP, "Read message non-stop",
    MNU_INQUIRETEXT, "Inquire messages",
    MNU_MSGINDIVIDUAL, "Read individual message",
    MNU_MSGTITLELIST, "Verbose message list",
@@ -271,6 +279,11 @@ MENUCMD MenuCmd[] = {
    MNU_INQUIREPERSONAL, "Inquire personal messages",
    MNU_MSGSELECT, "Change message area",
    MNU_MSGMODIFY, "Change message",
+   MNU_MSGREADCURRENT, "Read current message",
+   MNU_TOGGLEKLUDGES, "Toggle kludges lines",
+   MNU_MSGUNRECEIVE, "Unreceive message",
+   MNU_MSGREADORIGINAL, "Read original message",
+   MNU_MSGREADREPLY, "Read reply message",
 
    // File areas
    MNU_FILENAMELIST, "File list",
@@ -279,7 +292,6 @@ MENUCMD MenuCmd[] = {
    MNU_FILEUPLOAD, "Upload file",
    MNU_FILENEWLIST, "New files list",
    MNU_FILEDOWNLOADANY, "Download from any area",
-   MNU_FILETAGGED, "Manage tagged files",
    MNU_FILEDELETE, "Kill files",
    MNU_FILESELECT, "Change file area",
    MNU_SEARCHFILENAME, "Locate files by name",
@@ -288,6 +300,10 @@ MENUCMD MenuCmd[] = {
    MNU_FILEDOWNLOADLIST, "Download list of files",
    MNU_FILEUPLOADUSER, "Upload file to user",
    MNU_FILEDISPLAY, "File Display",
+   MNU_ADDTAGGED, "Tag files",
+   MNU_DELETETAGGED, "Delete tagged files",
+   MNU_LISTTAGGED, "List tagged files",
+   MNU_DELETEALLTAGGED, "Delete all tagged files",
 
    // User configuration
    MNU_SETLANGUAGE, "Change language",
@@ -301,6 +317,21 @@ MENUCMD MenuCmd[] = {
    MNU_SETCITY, "Set city",
    MNU_SETPHONE, "Set phone number",
    MNU_SETGENDER, "Set gender",
+   MNU_TOGGLEFULLSCREEN, "Toggle fullscreen enhancements",
+   MNU_TOGGLEIBMCHARS, "Toggle IBM characters",
+   MNU_TOGGLEMOREPROMPT, "Toggle More? prompt",
+   MNU_TOGGLESCREENCLEAR, "Toggle screen clear",
+   MNU_TOGGLEINUSERLIST, "Toggle in user list",
+   MNU_SETARCHIVER, "Set default archiver",
+   MNU_SETPROTOCOL, "Set default protocol",
+   MNU_SETSIGNATURE, "Set personal signature",
+   MNU_SETVIDEOMODE, "Set video mode",
+   MNU_TOGGLEFULLED, "Toggle fullscreen editor",
+   MNU_TOGGLEFULLREAD, "Toggle fullscreen reader",
+   MNU_TOGGLENODISTURB, "Toggle do not disturb flag",
+   MNU_TOGGLEMAILCHECK, "Toggle logon mail check",
+   MNU_TOGGLEFILECHECK, "Toggle new files check",
+   MNU_SETBIRTHDATE, "Set birthdate",
 
    // Personal mail
    MNU_MAILLIST, "List mail",
@@ -318,6 +349,7 @@ MENUCMD MenuCmd[] = {
    MNU_OLRDOWNLOADPNT, "PointMail download",
    MNU_OLRREMOVEAREA, "Untag areas",
    MNU_OLRVIEWTAGGED, "View tagged areas",
+   MNU_OLRRESTRICTDATE, "Restrict date",
 
    // Miscellaneous
    MNU_DISPLAY, "Display file (anywhere)",
@@ -404,6 +436,11 @@ CMenuDlg::~CMenuDlg (void)
       delete Menu;
 }
 
+VOID CMenuDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 8);
+}
+
 USHORT CMenuDlg::OnInitDialog (VOID)
 {
    int i;
@@ -416,7 +453,7 @@ USHORT CMenuDlg::OnInitDialog (VOID)
    fild.cbSize = sizeof (FILEDLG);
    fild.fl = FDS_CENTER|FDS_OPEN_DIALOG;
    fild.pszTitle = "Open Menu File";
-   sprintf (fild.szFullFile, "*.mnu");
+   sprintf (fild.szFullFile, "%s*.mnu", Cfg->MenuPath);
 
    WinFileDlg (HWND_DESKTOP, m_hWnd, &fild);
    if (fild.lReturn == DID_OK) {
@@ -430,7 +467,7 @@ USHORT CMenuDlg::OnInitDialog (VOID)
    OpenFileName.nMaxCustFilter = 0L;
    OpenFileName.nFilterIndex = 1L;
    OpenFileName.lpstrFile = FullFile;
-   OpenFileName.nMaxFile = sizeof (FullFile);
+   OpenFileName.nMaxFile = sizeof (FullFile) - 1;
    OpenFileName.lpstrFileTitle = NULL;
    OpenFileName.nMaxFileTitle = 0;
    OpenFileName.lpstrInitialDir = NULL;
@@ -457,8 +494,8 @@ USHORT CMenuDlg::OnInitDialog (VOID)
       EM_SetTextLimit (102, sizeof (Menu->Display) - 1);
       EM_SetTextLimit (108, sizeof (Menu->Key) - 1);
       EM_SetTextLimit (112, sizeof (Menu->Argument) - 1);
-      SPBM_SetLimits (104, 255, 0);
-      SPBM_SetLimits (106, 255, 0);
+      SPBM_SetLimits (104, 255L, 0L);
+      SPBM_SetLimits (106, 255L, 0L);
 
       for (i = 0; MenuCmd[i].Text != NULL; i++) {
          sprintf (Temp, "%u - %s", MenuCmd[i].Id, MenuCmd[i].Text);
@@ -658,7 +695,7 @@ VOID CMenuSecurityDlg::OnOK (VOID)
    USHORT i;
    ULONG Test;
 
-   Data->Level = SPBM_QueryValue (102);
+   Data->Level = (USHORT)SPBM_QueryValue (102);
 
    Data->AccessFlags = 0L;
    for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
@@ -897,6 +934,11 @@ CFileDlg::~CFileDlg (void)
       delete Data;
 }
 
+VOID CFileDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 10);
+}
+
 VOID CFileDlg::DisplayData (VOID)
 {
    SetDlgItemText (102, Data->Key);
@@ -1124,7 +1166,7 @@ VOID CFileSecurityDlg::OnOK (VOID)
    USHORT i;
    ULONG Test;
 
-   Data->Level = SPBM_QueryValue (102);
+   Data->Level = (USHORT)SPBM_QueryValue (102);
 
    Data->AccessFlags = 0L;
    for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
@@ -1137,7 +1179,7 @@ VOID CFileSecurityDlg::OnOK (VOID)
          Data->DenyFlags |= Test;
    }
 
-   Data->DownloadLevel = SPBM_QueryValue (173);
+   Data->DownloadLevel = (USHORT)SPBM_QueryValue (173);
 
    Data->DownloadFlags = 0L;
    for (i = 174, Test = 0x80000000L; i <= 205; i++, Test >>= 1) {
@@ -1150,7 +1192,7 @@ VOID CFileSecurityDlg::OnOK (VOID)
          Data->DownloadDenyFlags |= Test;
    }
 
-   Data->UploadLevel = SPBM_QueryValue (242);
+   Data->UploadLevel = (USHORT)SPBM_QueryValue (242);
 
    Data->UploadFlags = 0L;
    for (i = 243, Test = 0x80000000L; i <= 274; i++, Test >>= 1) {
@@ -1181,6 +1223,7 @@ CFileListDlg::CFileListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
 
 USHORT CFileListDlg::OnInitDialog (VOID)
 {
+   USHORT i = 0, select = 0;
    class TFileData *File;
 
    SetWindowTitle ("File Areas List");
@@ -1209,6 +1252,10 @@ USHORT CFileListDlg::OnInitDialog (VOID)
 
             LVM_InsertItem (101);
 
+            if (!strcmp (File->Key, Data->Key))
+               select = i;
+            i++;
+
             LVM_SetItemText (101, 0, File->Key);
             sprintf (Temp, "%u", File->Level);
             LVM_SetItemText (101, 1, Temp);
@@ -1227,6 +1274,8 @@ USHORT CFileListDlg::OnInitDialog (VOID)
       MessageBox ("There are no areas that match the search parameters.", "File area search", MB_OK);
       EndDialog (FALSE);
    }
+   else
+      LVM_SelectItem (101, select);
 
    return (TRUE);
 }
@@ -1491,8 +1540,16 @@ CMessageDlg::~CMessageDlg (void)
       delete Data;
 }
 
+VOID CMessageDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 9);
+}
+
 USHORT CMessageDlg::OnInitDialog (VOID)
 {
+   FILE *fp;
+   CHAR Temp[128];
+
    Center ();
    Data = new TMsgData (Cfg->SystemPath);
 
@@ -1501,21 +1558,38 @@ USHORT CMessageDlg::OnInitDialog (VOID)
    EM_SetTextLimit (106, sizeof (Data->Path) - 1);
    EM_SetTextLimit (126, sizeof (Data->EchoTag) - 1);
    EM_SetTextLimit (128, sizeof (Data->NewsGroup) - 1);
+   EM_SetTextLimit (111, sizeof (Data->Origin) - 1);
 
    CB_AddString (107, "Squish<tm>");
    CB_AddString (107, "JAM");
    CB_AddString (107, "Fido (*.msg)");
    CB_AddString (107, "AdeptXBBS");
+   CB_AddString (107, "Hudson");
    CB_AddString (107, "USENET Newsgroup");
    CB_AddString (107, "Passthrough");
 
-   SPBM_SetLimits (138, 5000, 0);
-   SPBM_SetLimits (136, 366U, 0L);
+   SPBM_SetLimits (138, 5000L, 0L);
+   SPBM_SetLimits (136, 366L, 0L);
+   SPBM_SetLimits (140, 999999L, 0L);
+   SPBM_SetLimits (145, 255L, 1L);
 
    if (Cfg->MailAddress.First () == TRUE)
       do {
          CB_AddString (110, Cfg->MailAddress.String);
       } while (Cfg->MailAddress.Next () == TRUE);
+
+   CB_AddString (111, "<DEFAULT>");
+   CB_AddString (111, "<RANDOM>");
+
+   sprintf (Temp, "%sorigin.txt", Cfg->SystemPath);
+   if ((fp = fopen (Temp, "rt")) != NULL) {
+      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+         if (Temp[strlen (Temp) - 1] == '\n')
+            Temp[strlen (Temp) - 1] = '\0';
+         CB_AddString (111, Temp);
+      }
+      fclose (fp);
+   }
 
    if (Data->First () == FALSE)
       Data->New ();
@@ -1543,11 +1617,14 @@ VOID CMessageDlg::DisplayData (VOID)
       case ST_ADEPT:
          CB_SelectItem (107, 3);
          break;
-      case ST_USENET:
+      case ST_HUDSON:
          CB_SelectItem (107, 4);
          break;
-      case ST_PASSTHROUGH:
+      case ST_USENET:
          CB_SelectItem (107, 5);
+         break;
+      case ST_PASSTHROUGH:
+         CB_SelectItem (107, 6);
          break;
    }
    BM_SetCheck (113, Data->ShowGlobal);
@@ -1558,11 +1635,25 @@ VOID CMessageDlg::DisplayData (VOID)
    SetDlgItemText (128, Data->NewsGroup);
    SPBM_SetCurrentValue (138, Data->MaxMessages);
    SPBM_SetCurrentValue (136, Data->DaysOld);
+   SPBM_SetCurrentValue (140, Data->Highest);
    SetDlgItemText (110, Data->Address);
+   SPBM_SetCurrentValue (145, Data->Board);
+   if (Data->Origin[0] != '\0')
+      SetDlgItemText (111, Data->Origin);
+   else if (Data->OriginIndex == OIDX_DEFAULT)
+      SetDlgItemText (111, "<DEFAULT>");
+   else if (Data->OriginIndex == OIDX_RANDOM)
+      SetDlgItemText (111, "<RANDOM>");
+   else
+      CB_SelectItem (111, (USHORT)(Data->OriginIndex + 1));
 }
 
 VOID CMessageDlg::ReadData (VOID)
 {
+   FILE *fp;
+   USHORT index;
+   CHAR Temp[128];
+
    GetDlgItemText (102, GetDlgItemTextLength (102), Data->Key);
    GetDlgItemText (104, GetDlgItemTextLength (104), Data->Display);
    GetDlgItemText (106, GetDlgItemTextLength (106), Data->Path);
@@ -1580,9 +1671,12 @@ VOID CMessageDlg::ReadData (VOID)
          Data->Storage = ST_ADEPT;
          break;
       case 4:
-         Data->Storage = ST_USENET;
+         Data->Storage = ST_HUDSON;
          break;
       case 5:
+         Data->Storage = ST_USENET;
+         break;
+      case 6:
          Data->Storage = ST_PASSTHROUGH;
          break;
    }
@@ -1592,9 +1686,36 @@ VOID CMessageDlg::ReadData (VOID)
    Data->UpdateNews = (CHAR)BM_QueryCheck (130);
    GetDlgItemText (126, GetDlgItemTextLength (126), Data->EchoTag);
    GetDlgItemText (128, GetDlgItemTextLength (128), Data->NewsGroup);
-   Data->MaxMessages = SPBM_QueryValue (138);
-   Data->DaysOld = SPBM_QueryValue (136);
+   Data->MaxMessages = (USHORT)SPBM_QueryValue (138);
+   Data->DaysOld = (USHORT)SPBM_QueryValue (136);
+   Data->Highest = SPBM_QueryValue (140);
    GetDlgItemText (110, GetDlgItemTextLength (110), Data->Address);
+   GetDlgItemText (111, GetDlgItemTextLength (111), Temp);
+   Data->Board = (USHORT)SPBM_QueryValue (145);
+   Data->Origin[0] = '\0';
+   if (!strcmp (Temp, "<DEFAULT>"))
+      Data->OriginIndex = OIDX_DEFAULT;
+   else if (!strcmp (Temp, "<RANDOM>"))
+      Data->OriginIndex = OIDX_RANDOM;
+   else {
+      strcpy (Data->Origin, Temp);
+
+      sprintf (Temp, "%sorigin.txt", Cfg->SystemPath);
+      if ((fp = fopen (Temp, "rt")) != NULL) {
+         index = 1;
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+            if (Temp[strlen (Temp) - 1] == '\n')
+               Temp[strlen (Temp) - 1] = '\0';
+            if (!strcmp (Temp, Data->Origin)) {
+               Data->OriginIndex = index;
+               Data->Origin[0] = '\0';
+               break;
+            }
+            index++;
+         }
+         fclose (fp);
+      }
+   }
 }
 
 VOID CMessageDlg::OnAdd (VOID)
@@ -1779,7 +1900,7 @@ VOID CMessageSecurityDlg::OnOK (VOID)
    USHORT i;
    ULONG Test;
 
-   Data->Level = SPBM_QueryValue (102);
+   Data->Level = (USHORT)SPBM_QueryValue (102);
 
    Data->AccessFlags = 0L;
    for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
@@ -1792,7 +1913,7 @@ VOID CMessageSecurityDlg::OnOK (VOID)
          Data->DenyFlags |= Test;
    }
 
-   Data->WriteLevel = SPBM_QueryValue (173);
+   Data->WriteLevel = (USHORT)SPBM_QueryValue (173);
 
    Data->WriteFlags = 0L;
    for (i = 174, Test = 0x80000000L; i <= 205; i++, Test >>= 1) {
@@ -1823,6 +1944,7 @@ CMessageListDlg::CMessageListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
 
 USHORT CMessageListDlg::OnInitDialog (VOID)
 {
+   USHORT i =  0, select = 0;
    class TMsgData *Msg;
 
    SetWindowTitle ("Message Areas List");
@@ -1853,6 +1975,10 @@ USHORT CMessageListDlg::OnInitDialog (VOID)
 
             LVM_InsertItem (101);
 
+            if (!strcmp (Msg->Key, Data->Key))
+               select = i;
+            i++;
+
             LVM_SetItemText (101, 0, Msg->Key);
             sprintf (Temp, "%u", Msg->Level);
             LVM_SetItemText (101, 1, Temp);
@@ -1869,6 +1995,8 @@ USHORT CMessageListDlg::OnInitDialog (VOID)
       MessageBox ("There are no areas that match the search parameters.", "Message area search", MB_OK);
       EndDialog (FALSE);
    }
+   else
+      LVM_SelectItem (101, select);
 
    return (TRUE);
 }
@@ -2086,6 +2214,11 @@ CLimitsDlg::CLimitsDlg (HWND p_hWnd) : CDialog ("4", p_hWnd)
 {
 }
 
+VOID CLimitsDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 4);
+}
+
 USHORT CLimitsDlg::OnInitDialog (VOID)
 {
    class TLimits *Limits;
@@ -2123,9 +2256,9 @@ VOID CLimitsDlg::OnOK (VOID)
       if (Limits->Read (Temp) == TRUE) {
          GetDlgItemText (110, GetDlgItemTextLength (110), Limits->Key);
          GetDlgItemText (103, GetDlgItemTextLength (103), Limits->Description);
-         Limits->CallTimeLimit = SPBM_QueryValue (105);
-         Limits->DayTimeLimit = SPBM_QueryValue (107);
-         Limits->DayDownloadLimit = SPBM_QueryValue (111);
+         Limits->CallTimeLimit = (USHORT)SPBM_QueryValue (105);
+         Limits->DayTimeLimit = (USHORT)SPBM_QueryValue (107);
+         Limits->DayDownloadLimit = (USHORT)SPBM_QueryValue (111);
 
          Limits->Update ();
 
@@ -2148,9 +2281,9 @@ VOID CLimitsDlg::Add (VOID)
 
       GetDlgItemText (110, GetDlgItemTextLength (110), Limits->Key);
       GetDlgItemText (103, GetDlgItemTextLength (103), Limits->Description);
-      Limits->CallTimeLimit = SPBM_QueryValue (105);
-      Limits->DayTimeLimit = SPBM_QueryValue (107);
-      Limits->DayDownloadLimit = SPBM_QueryValue (111);
+      Limits->CallTimeLimit = (USHORT)SPBM_QueryValue (105);
+      Limits->DayTimeLimit = (USHORT)SPBM_QueryValue (107);
+      Limits->DayDownloadLimit = (USHORT)SPBM_QueryValue (111);
 
       Limits->Add ();
 
@@ -2182,7 +2315,7 @@ VOID CLimitsDlg::Delete (VOID)
          SetDlgItemText (103, Limits->Description);
          SPBM_SetCurrentValue (105, Limits->CallTimeLimit);
          SPBM_SetCurrentValue (107, Limits->DayTimeLimit);
-         SPBM_SetCurrentValue (111, (USHORT)Limits->DayDownloadLimit);
+         SPBM_SetCurrentValue (111, Limits->DayDownloadLimit);
 
          LM_DeleteAll (101);
          if (Limits->First () == TRUE)
@@ -2209,7 +2342,7 @@ VOID CLimitsDlg::SelectItem (VOID)
          SetDlgItemText (103, Limits->Description);
          SPBM_SetCurrentValue (105, Limits->CallTimeLimit);
          SPBM_SetCurrentValue (107, Limits->DayTimeLimit);
-         SPBM_SetCurrentValue (111, (USHORT)Limits->DayDownloadLimit);
+         SPBM_SetCurrentValue (111, Limits->DayDownloadLimit);
       }
       delete Limits;
    }
@@ -2223,6 +2356,11 @@ CBBSGeneralDlg::CBBSGeneralDlg (HWND p_hWnd) : CDialog ("22", p_hWnd)
 {
 }
 
+VOID CBBSGeneralDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 22);
+}
+
 USHORT CBBSGeneralDlg::OnInitDialog (VOID)
 {
    Center ();
@@ -2233,6 +2371,8 @@ USHORT CBBSGeneralDlg::OnInitDialog (VOID)
    EM_SetTextLimit (106, sizeof (Cfg->MailPath) - 1);
    EM_SetTextLimit (102, sizeof (Cfg->MainMenu) - 1);
    EM_SetTextLimit (113, sizeof (Cfg->UsersHomePath) - 1);
+   EM_SetTextLimit (25, sizeof (Cfg->EditorCmd) - 1);
+   SPBM_SetLimits (131, 255L, 1L);
 
    CB_AddString (107, "Squish<tm>");
    CB_AddString (107, "JAM");
@@ -2263,6 +2403,9 @@ USHORT CBBSGeneralDlg::OnInitDialog (VOID)
    SetDlgItemText (102, Cfg->MainMenu);
    BM_SetCheck (120 + Cfg->Ansi, TRUE);
    BM_SetCheck (118 + Cfg->IEMSI, TRUE);
+   BM_SetCheck (23, Cfg->ExternalEditor);
+   SetDlgItemText (25, Cfg->EditorCmd);
+   SPBM_SetCurrentValue (131, Cfg->MailBoard);
 
    return (TRUE);
 }
@@ -2301,6 +2444,10 @@ VOID CBBSGeneralDlg::OnOK (VOID)
       Cfg->IEMSI = NO;
    else if (BM_QueryCheck (119) == TRUE)
       Cfg->IEMSI = YES;
+
+   Cfg->ExternalEditor = (UCHAR)BM_QueryCheck (23);
+   GetDlgItemText (25, GetDlgItemTextLength (25), Cfg->EditorCmd);
+   Cfg->MailBoard = (USHORT)SPBM_QueryValue (131);
 
    EndDialog (TRUE);
 }
@@ -2409,6 +2556,11 @@ CUserDlg::~CUserDlg (void)
       delete Data;
 }
 
+VOID CUserDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 17);
+}
+
 USHORT CUserDlg::OnInitDialog (VOID)
 {
 #if !defined(__POINT__)
@@ -2480,6 +2632,10 @@ VOID CUserDlg::DisplayData (VOID)
    BM_SetCheck (121, Data->Color);
    BM_SetCheck (122, Data->HotKey);
    SetDlgItemText (130, Data->LimitClass);
+   BM_SetCheck (18, Data->ScreenClear);
+   BM_SetCheck (19, Data->IBMChars);
+   BM_SetCheck (21, Data->InUserList);
+   BM_SetCheck (20, Data->MorePrompt);
 }
 
 VOID CUserDlg::ReadData (VOID)
@@ -2509,6 +2665,10 @@ VOID CUserDlg::ReadData (VOID)
    Data->Color = (CHAR)BM_QueryCheck (121);
    Data->HotKey = (CHAR)BM_QueryCheck (122);
    GetDlgItemText (130, GetDlgItemTextLength (130), Data->LimitClass);
+   Data->ScreenClear = (CHAR)BM_QueryCheck (18);
+   Data->IBMChars = (CHAR)BM_QueryCheck (19);
+   Data->InUserList = (CHAR)BM_QueryCheck (21);
+   Data->MorePrompt = (CHAR)BM_QueryCheck (20);
 }
 
 VOID CUserDlg::Add (VOID)
@@ -2763,7 +2923,7 @@ VOID CUserSecurityDlg::OnOK (VOID)
    USHORT i;
    ULONG Test;
 
-   Data->Level = SPBM_QueryValue (102);
+   Data->Level = (USHORT)SPBM_QueryValue (102);
 
    Data->AccessFlags = 0L;
    for (i = 104, Test = 0x80000000L; i <= 135; i++, Test >>= 1) {
@@ -2884,6 +3044,11 @@ COfflineDlg::COfflineDlg (HWND p_hWnd) : CDialog ("42", p_hWnd)
 {
 }
 
+VOID COfflineDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 42);
+}
+
 USHORT COfflineDlg::OnInitDialog (VOID)
 {
    Center ();
@@ -2903,7 +3068,7 @@ VOID COfflineDlg::OnOK (VOID)
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), Cfg->TempPath);
    GetDlgItemText (104, GetDlgItemTextLength (104), Cfg->OLRPacketName);
-   Cfg->OLRMaxMessages = SPBM_QueryValue (106);
+   Cfg->OLRMaxMessages = (USHORT)SPBM_QueryValue (106);
 
    EndDialog (TRUE);
 }
@@ -2957,6 +3122,11 @@ CProtocolDlg::~CProtocolDlg (void)
 {
    if (Data != NULL)
       delete Data;
+}
+
+VOID CProtocolDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 44);
 }
 
 USHORT CProtocolDlg::OnInitDialog (VOID)
@@ -3021,9 +3191,9 @@ VOID CProtocolDlg::ReadData (VOID)
    GetDlgItemText (126, GetDlgItemTextLength (126), Data->UploadCtlString);
    GetDlgItemText (128, GetDlgItemTextLength (128), Data->DownloadKeyword);
    GetDlgItemText (130, GetDlgItemTextLength (130), Data->UploadKeyword);
-   Data->FileNamePos = SPBM_QueryValue (132);
-   Data->SizePos = SPBM_QueryValue (134);
-   Data->CpsPos = SPBM_QueryValue (136);
+   Data->FileNamePos = (USHORT)SPBM_QueryValue (132);
+   Data->SizePos = (USHORT)SPBM_QueryValue (134);
+   Data->CpsPos = (USHORT)SPBM_QueryValue (136);
    Data->Batch = (CHAR)BM_QueryCheck (137);
    Data->DisablePort = (CHAR)BM_QueryCheck (138);
    Data->ChangeToUploadPath = (CHAR)BM_QueryCheck (139);

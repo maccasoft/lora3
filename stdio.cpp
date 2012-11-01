@@ -57,6 +57,14 @@ USHORT TStdio::BytesReady (VOID)
       RetVal = FALSE;
 #endif
 
+#if defined(__OS2__)
+   if (RetVal == FALSE)
+      DosSleep (1L);
+#elif defined(__NT__)
+   if (RetVal == FALSE)
+      Sleep (1L);
+#endif
+
    return (RetVal);
 }
 
@@ -177,6 +185,31 @@ VOID TStdio::UnbufferBytes (VOID)
 #if !defined(__LINUX__)
    fflush (stdout);
 #endif
+}
+
+VOID TStdio::SetName (PSZ name)
+{
+   name = name;
+}
+
+VOID TStdio::SetCity (PSZ name)
+{
+   name = name;
+}
+
+VOID TStdio::SetLevel (PSZ level)
+{
+   level = level;
+}
+
+VOID TStdio::SetTimeLeft (ULONG seconds)
+{
+   seconds = seconds;
+}
+
+VOID TStdio::SetTime (ULONG seconds)
+{
+   seconds = seconds;
 }
 
 

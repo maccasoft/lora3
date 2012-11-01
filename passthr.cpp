@@ -128,6 +128,7 @@ VOID PASSTHR::New (VOID)
    Written.Month = 1;
    memset (&Arrived, 0, sizeof (Arrived));
    Arrived.Month = 1;
+   Original = Reply = 0L;
    Text.Clear ();
 }
 

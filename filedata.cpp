@@ -116,6 +116,9 @@ VOID TFileData::Class2Struct (FILES *File)
    File->ActiveFiles = ActiveFiles;
    File->UnapprovedFiles = UnapprovedFiles;
    strcpy (File->EchoTag, EchoTag);
+   File->UseFilesBBS = UseFilesBBS;
+   File->DlCost = DlCost;
+   strcpy (File->FileList, FileList);
 }
 
 VOID TFileData::Delete (VOID)
@@ -141,32 +144,34 @@ VOID TFileData::Delete (VOID)
                write (fdNew, File, sizeof (FILES));
          }
 
-         lseek (fdDat, 0L, SEEK_SET);
-         lseek (fdNew, 0L, SEEK_SET);
-
          if ((Position = tell (fdIdx)) > 0L)
             Position -= sizeof (Idx);
-         lseek (fdIdx, 0L, SEEK_SET);
 
-         while (read (fdNew, File, sizeof (FILES)) == sizeof (FILES)) {
-            memset (&Idx, 0, sizeof (Idx));
-            strcpy (Idx.Key, File->Key);
-            Idx.Level = File->Level;
-            Idx.AccessFlags = File->AccessFlags;
-            Idx.DenyFlags = File->DenyFlags;
-            Idx.Position = tell (fdDat);
+         close (fdDat);
+         close (fdIdx);
+         fdIdx = sopen (IdxFile, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
+         fdDat = sopen (DataFile, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
 
-            write (fdIdx, &Idx, sizeof (Idx));
-            write (fdDat, File, sizeof (FILES));
-         }
+         if (fdDat != -1 && fdIdx != -1) {
+            lseek (fdNew, 0L, SEEK_SET);
 
-         chsize (fdIdx, tell (fdIdx));
-         chsize (fdDat, tell (fdDat));
+            while (read (fdNew, File, sizeof (FILES)) == sizeof (FILES)) {
+               memset (&Idx, 0, sizeof (Idx));
+               strcpy (Idx.Key, File->Key);
+               Idx.Level = File->Level;
+               Idx.AccessFlags = File->AccessFlags;
+               Idx.DenyFlags = File->DenyFlags;
+               Idx.Position = tell (fdDat);
 
-         lseek (fdIdx, Position, SEEK_SET);
-         if (Next () == FALSE) {
-            if (Previous () == FALSE)
-               New ();
+               write (fdIdx, &Idx, sizeof (Idx));
+               write (fdDat, File, sizeof (FILES));
+            }
+
+            lseek (fdIdx, Position, SEEK_SET);
+            if (Next () == FALSE) {
+               if (Previous () == FALSE)
+                  New ();
+            }
          }
 
          free (File);
@@ -574,6 +579,9 @@ VOID TFileData::Struct2Class (FILES *File)
    ActiveFiles = File->ActiveFiles;
    UnapprovedFiles = File->UnapprovedFiles;
    strcpy (EchoTag, File->EchoTag);
+   UseFilesBBS = File->UseFilesBBS;
+   DlCost = File->DlCost;
+   strcpy (FileList, File->FileList);
 
    strcpy (LastKey, File->Key);
 }

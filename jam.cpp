@@ -63,6 +63,9 @@ USHORT JAM::Add (class TMsgBase *MsgBase)
    Arrived.Minute = MsgBase->Arrived.Minute;
    Arrived.Second = MsgBase->Arrived.Second;
 
+   Reply = MsgBase->Reply;
+   Original = MsgBase->Original;
+
    Crash = MsgBase->Crash;
    Direct = MsgBase->Direct;
    FileAttach = MsgBase->FileAttach;
@@ -134,6 +137,9 @@ USHORT JAM::Add (class TCollection &MsgText)
    jamHdr.Attribute |= (ReceiptRequest == TRUE) ? MSG_RECEIPTREQ : 0;
    jamHdr.Attribute |= (Received == TRUE) ? MSG_READ : 0;
    jamHdr.Attribute |= (Sent == TRUE) ? MSG_SENT : 0;
+
+   jamHdr.ReplyTo = Original;
+   jamHdr.ReplyNext = Reply;
 
    lseek (fdHdr, 0L, SEEK_END);
 
@@ -323,6 +329,9 @@ ULONG JAM::MsgnToUid (ULONG ulMsg)
       }
    }
 
+   if (jamHdrInfo.ActiveMsgs == 0L)
+      ulMsg = 0L;
+
    return (ulMsg);
 }
 
@@ -335,6 +344,7 @@ VOID JAM::New (VOID)
    memset (&Written, 0, sizeof (Written));
    memset (&Arrived, 0, sizeof (Arrived));
    FromAddress[0] = ToAddress[0] = '\0';
+   Original = Reply = 0L;
    Text.Clear ();
 }
 
@@ -434,6 +444,8 @@ USHORT JAM::Open (PSZ pszName)
          fdHdr = -1;
       }
    }
+   else
+      memset (&jamHdrInfo, 0, sizeof (JAMHDRINFO));
 
    Id = 0L;
 
@@ -676,6 +688,9 @@ USHORT JAM::ReadHeader (ULONG ulMsg)
       Arrived.Minute = (UCHAR)local->tm_min;
       Arrived.Second = (UCHAR)local->tm_sec;
 
+      Original = jamHdr.ReplyTo;
+      Reply = jamHdr.ReplyNext;
+
       if (pSubfield != NULL)
          free (pSubfield);
       pSubfield = NULL;
@@ -908,7 +923,7 @@ VOID JAM::SetHWM (ULONG ulMsg)
 
 ULONG JAM::UidToMsgn (ULONG ulMsg)
 {
-   ULONG i = 1L;
+   ULONG RetVal = 0L, i = 1L;
    JAMIDXREC jamIdx;
 
    if (fdJdx != -1 && fdHdr != -1) {
@@ -918,7 +933,7 @@ ULONG JAM::UidToMsgn (ULONG ulMsg)
          read (fdHdr, &jamHdr, sizeof (JAMHDR));
          if (!(jamHdr.Attribute & MSG_DELETED)) {
             if (jamHdr.MsgNum == ulMsg) {
-               ulMsg = i;
+               RetVal = i;
                break;
             }
             i++;
@@ -926,7 +941,10 @@ ULONG JAM::UidToMsgn (ULONG ulMsg)
       }
    }
 
-   return (ulMsg);
+   if (jamHdrInfo.ActiveMsgs == 0L)
+      RetVal = 0L;
+
+   return (RetVal);
 }
 
 VOID JAM::UnLock (VOID)
@@ -987,6 +1005,9 @@ USHORT JAM::WriteHeader (ULONG ulMsg)
       jamHdr.Attribute |= (ReceiptRequest == TRUE) ? MSG_RECEIPTREQ : 0;
       jamHdr.Attribute |= (Received == TRUE) ? MSG_READ : 0;
       jamHdr.Attribute |= (Sent == TRUE) ? MSG_SENT : 0;
+
+      jamHdr.ReplyTo = Original;
+      jamHdr.ReplyNext = Reply;
 
       lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
       write (fdHdr, &jamHdr, sizeof (JAMHDR));

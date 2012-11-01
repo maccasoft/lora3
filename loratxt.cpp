@@ -41,7 +41,7 @@
 short  last_sel = 100;
 USHORT Status, Current, Daemon = FALSE;
 CHAR   PollNode[64], ExternalProgram[128];
-LONG   TimeOut, CallDelay, ModemT, EventsT;
+LONG   TimeOut, CallDelay = 0L, ModemT, EventsT;
 class  TConfig *Cfg;
 class  TModem *Modem;
 class  TPMLog *Log;
@@ -52,9 +52,9 @@ VOID DisplayScreen (VOID)
 {
    CHAR Temp[128];
 
-   if (Daemon == FALSE) {
-      videoinit ();
+   videoinit ();
 
+   if (Daemon == FALSE) {
       hidecur ();
       if (wopen (0, 0, 24, 79, 5, LGREY|_BLACK, LGREY|_BLACK) != 0) {
          box_ (1, 0, 24, 79, 0, LGREY|_BLACK);
@@ -125,12 +125,10 @@ VOID RefreshOutbound (VOID)
 
 VOID ClearScreen (VOID)
 {
-   if (Daemon == FALSE) {
-      wcloseall ();
-      showcur ();
-      videoupdate ();
-      closevideo ();
-   }
+   wcloseall ();
+   showcur ();
+   videoupdate ();
+   closevideo ();
 }
 
 USHORT CPollDlg (VOID)
@@ -176,7 +174,7 @@ USHORT CPollDlg (VOID)
             wprints (1, (short)(56 - strlen (Nodes->SysopName)), BLUE|_LGREY, Nodes->SysopName);
 
             wprints (3, 1, WHITE|_LGREY, "Priority:   (Normal/Crash/Direct/Immediate)");
-            strcpy (Flag, "I");
+            strcpy (Flag, "i");
             do {
                winpbeg (WHITE|_BLUE, WHITE|_BLUE);
                winpdef (3, 11, Flag, "?", 0, 2, NULL, 0);
@@ -211,6 +209,490 @@ USHORT CPollDlg (VOID)
             Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
 
          RefreshOutbound ();
+      }
+   }
+
+   return (FALSE);
+}
+
+USHORT CRequestDlg (VOID)
+{
+   FILE *fp;
+   short i;
+   CHAR Temp[64], String[128], File[128], Flag[8], *p;
+   class TAddress Addr;
+   class TNodes *Nodes;
+
+   Flag[0] = Temp[0] = '\0';
+   String[0] = '\0';
+
+   if (wopen (10, 15, 12, 65, 1, WHITE|_LGREY, WHITE|_LGREY) > 0) {
+      wshadow (DGREY|_BLACK);
+      wtitle (" Request File(s) ", TCENTER, WHITE|_LGREY);
+
+      wprints (0, 1, WHITE|_GREEN, " Address ");
+      winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+      winpdef (0, 11, Temp, "?????????????????????????????????????", 0, 2, NULL, 0);
+      if (winpread () == W_ESCPRESS)
+         Temp[0] = '\0';
+      hidecur ();
+      wclose ();
+   }
+
+   if (Temp[0] != '\0') {
+      Cfg->MailAddress.First ();
+      Addr.Parse (Temp);
+      if (Addr.Zone == 0)
+         Addr.Zone = Cfg->MailAddress.Zone;
+      if (Addr.Net == 0)
+         Addr.Net = Cfg->MailAddress.Net;
+      Addr.Add ();
+      Addr.First ();
+
+      if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+         if (Nodes->Read (Addr) == TRUE) {
+            wopen (9, 10, 15, 68, 0, WHITE|_LGREY, WHITE|_LGREY);
+            wshadow (DGREY|_BLACK);
+            wtitle (" Request File(s) ", TCENTER, WHITE|_LGREY);
+            whline (2, 0, 58, 0, WHITE|_LGREY);
+            wprints (0, 1, BLUE|_LGREY, Nodes->SystemName);
+            wprints (0, (short)(56 - strlen (Nodes->Address)), BLUE|_LGREY, Nodes->Address);
+            wprints (1, 1, BLUE|_LGREY, Nodes->Location);
+            wprints (1, (short)(56 - strlen (Nodes->SysopName)), BLUE|_LGREY, Nodes->SysopName);
+
+            wprints (3, 1, WHITE|_LGREY, "File(s):");
+            wprints (4, 1, WHITE|_LGREY, "Priority:   (Normal/Crash/Direct/Immediate)");
+
+            String[0] = '\0';
+            winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+            winpdef (3, 11, String, "?????????????????????????????????????", 0, 2, NULL, 0);
+            i = winpread ();
+            strtrim (String);
+
+            if (String[0] != '\0' && i != W_ESCPRESS) {
+               strcpy (Flag, "i");
+               do {
+                  winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+                  winpdef (4, 11, Flag, "?", 0, 2, NULL, 0);
+                  i = winpread ();
+                  Flag[0] = (CHAR)tolower (Flag[0]);
+               } while (Flag[0] != 'i' && Flag[0] != 'n' && Flag[0] != 'c' && Flag[0] != 'd');
+            }
+
+            hidecur ();
+            wclose ();
+
+            if (i == W_ESCPRESS)
+               String[0] = '\0';
+         }
+         else {
+            sprintf (Temp, "Node %s not found !", Addr.String);
+            MessageBox (" Request File(s) ", Temp);
+            String[0] = '\0';
+         }
+         delete Nodes;
+      }
+   }
+
+   if (String[0] != '\0') {
+      strcpy (Temp, Cfg->Outbound);
+      Temp[strlen (Temp) - 1] = '\0';
+
+      if (Cfg->MailAddress.Zone != Addr.Zone) {
+         sprintf (File, "%s.%03x", Temp, Addr.Zone);
+#if defined(__LINUX__)
+         mkdir (File, 0666);
+#else
+         mkdir (File);
+#endif
+         if (Addr.Point != 0) {
+#if defined(__LINUX__)
+            sprintf (File, "%s.%03x/%04x%04x.pnt", Temp, Addr.Zone, Addr.Net, Addr.Node);
+            mkdir (File, 0666);
+            sprintf (File, "%s.%03x/%04x%04x.pnt/%08x.req", Temp, Addr.Zone, Addr.Net, Addr.Node, Addr.Point);
+#else
+            sprintf (File, "%s.%03x\\%04x%04x.pnt", Temp, Addr.Zone, Addr.Net, Addr.Node);
+            mkdir (File);
+            sprintf (File, "%s.%03x\\%04x%04x.pnt\\%08x.req", Temp, Addr.Zone, Addr.Net, Addr.Node, Addr.Point);
+#endif
+         }
+         else
+#if defined(__LINUX__)
+            sprintf (File, "%s.%03x/%04x%04x.req", Temp, Addr.Zone, Addr.Net, Addr.Node);
+#else
+            sprintf (File, "%s.%03x\\%04x%04x.req", Temp, Addr.Zone, Addr.Net, Addr.Node);
+#endif
+      }
+      else {
+         if (Addr.Point != 0) {
+#if defined(__LINUX__)
+            sprintf (File, "%s/%04x%04x.pnt", Temp, Addr.Net, Addr.Node);
+            mkdir (File, 0666);
+            sprintf (File, "%s/%04x%04x.pnt/%08x.req", Temp, Addr.Net, Addr.Node, Addr.Point);
+#else
+            sprintf (File, "%s\\%04x%04x.pnt", Temp, Addr.Net, Addr.Node);
+            mkdir (File);
+            sprintf (File, "%s\\%04x%04x.pnt\\%08x.req", Temp, Addr.Net, Addr.Node, Addr.Point);
+#endif
+         }
+         else
+#if defined(__LINUX__)
+            sprintf (File, "%s/%04x%04x.req", Temp, Addr.Net, Addr.Node);
+#else
+            sprintf (File, "%s\\%04x%04x.req", Temp, Addr.Net, Addr.Node);
+#endif
+      }
+
+      if ((fp = fopen (File, "at")) != NULL) {
+         if ((p = strtok (String, " ")) != NULL)
+            do {
+               fprintf (fp, "%s\n", p);
+            } while ((p = strtok (NULL, " ")) != NULL);
+         fclose (fp);
+      }
+
+      if (Outbound != NULL) {
+         Outbound->PollNode (Addr.String, Flag[0]);
+
+         if (Log != NULL)
+            Log->Write ("+Building the outbound queue");
+         Outbound->BuildQueue (Cfg->Outbound);
+         unlink ("rescan.now");
+         if (Log != NULL)
+            Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
+
+         RefreshOutbound ();
+      }
+   }
+
+   return (FALSE);
+}
+
+USHORT CAttachDlg (VOID)
+{
+   FILE *fp;
+   short i;
+   CHAR Temp[64], String[128], File[128], Flag[8], *p;
+   class TAddress Addr;
+   class TNodes *Nodes;
+
+   Flag[0] = Temp[0] = '\0';
+   String[0] = '\0';
+
+   if (wopen (10, 15, 12, 65, 1, WHITE|_LGREY, WHITE|_LGREY) > 0) {
+      wshadow (DGREY|_BLACK);
+      wtitle (" File Attach ", TCENTER, WHITE|_LGREY);
+
+      wprints (0, 1, WHITE|_GREEN, " Address ");
+      winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+      winpdef (0, 11, Temp, "?????????????????????????????????????", 0, 2, NULL, 0);
+      if (winpread () == W_ESCPRESS)
+         Temp[0] = '\0';
+      hidecur ();
+      wclose ();
+   }
+
+   if (Temp[0] != '\0') {
+      Cfg->MailAddress.First ();
+      Addr.Parse (Temp);
+      if (Addr.Zone == 0)
+         Addr.Zone = Cfg->MailAddress.Zone;
+      if (Addr.Net == 0)
+         Addr.Net = Cfg->MailAddress.Net;
+      Addr.Add ();
+      Addr.First ();
+
+      if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+         if (Nodes->Read (Addr) == TRUE) {
+            wopen (9, 10, 15, 68, 0, WHITE|_LGREY, WHITE|_LGREY);
+            wshadow (DGREY|_BLACK);
+            wtitle (" File Attach ", TCENTER, WHITE|_LGREY);
+            whline (2, 0, 58, 0, WHITE|_LGREY);
+            wprints (0, 1, BLUE|_LGREY, Nodes->SystemName);
+            wprints (0, (short)(56 - strlen (Nodes->Address)), BLUE|_LGREY, Nodes->Address);
+            wprints (1, 1, BLUE|_LGREY, Nodes->Location);
+            wprints (1, (short)(56 - strlen (Nodes->SysopName)), BLUE|_LGREY, Nodes->SysopName);
+
+            wprints (3, 1, WHITE|_LGREY, "File(s):");
+            wprints (4, 1, WHITE|_LGREY, "Priority:   (Normal/Crash/Direct/Hold)");
+
+            String[0] = '\0';
+            winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+            winpdef (3, 11, String, "?????????????????????????????????????", 0, 2, NULL, 0);
+            i = winpread ();
+            strtrim (String);
+
+            if (String[0] != '\0' && i != W_ESCPRESS) {
+               strcpy (Flag, "h");
+               do {
+                  winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+                  winpdef (4, 11, Flag, "?", 0, 2, NULL, 0);
+                  i = winpread ();
+                  Flag[0] = (CHAR)tolower (Flag[0]);
+               } while (Flag[0] != 'h' && Flag[0] != 'n' && Flag[0] != 'c' && Flag[0] != 'd');
+               if (Flag[0] == 'n')
+                  Flag[0] = 'f';
+            }
+
+            hidecur ();
+            wclose ();
+
+            if (i == W_ESCPRESS)
+               String[0] = '\0';
+         }
+         else {
+            sprintf (Temp, "Node %s not found !", Addr.String);
+            MessageBox (" File Attach ", Temp);
+            String[0] = '\0';
+         }
+         delete Nodes;
+      }
+   }
+
+   if (String[0] != '\0') {
+      strcpy (Temp, Cfg->Outbound);
+      Temp[strlen (Temp) - 1] = '\0';
+
+      if (Cfg->MailAddress.Zone != Addr.Zone) {
+         sprintf (File, "%s.%03x", Temp, Addr.Zone);
+#if defined(__LINUX__)
+         mkdir (File, 0666);
+         if (Addr.Point != 0) {
+            sprintf (File, "%s.%03x/%04x%04x.pnt", Temp, Addr.Zone, Addr.Net, Addr.Node);
+            mkdir (File, 0666);
+            sprintf (File, "%s.%03x/%04x%04x.pnt/%08x.%clo", Temp, Addr.Zone, Addr.Net, Addr.Node, Addr.Point, Flag[0]);
+         }
+         else
+            sprintf (File, "%s.%03x/%04x%04x.%clo", Temp, Addr.Zone, Addr.Net, Addr.Node, Flag[0]);
+      }
+      else {
+         if (Addr.Point != 0) {
+            sprintf (File, "%s/%04x%04x.pnt", Temp, Addr.Net, Addr.Node);
+            mkdir (File, 0666);
+            sprintf (File, "%s/%04x%04x.pnt/%08x.%clo", Temp, Addr.Net, Addr.Node, Addr.Point, Flag[0]);
+         }
+         else
+            sprintf (File, "%s/%04x%04x.%clo", Temp, Addr.Net, Addr.Node, Flag[0]);
+#else
+         mkdir (File);
+         if (Addr.Point != 0) {
+            sprintf (File, "%s.%03x\\%04x%04x.pnt", Temp, Addr.Zone, Addr.Net, Addr.Node);
+            mkdir (File);
+            sprintf (File, "%s.%03x\\%04x%04x.pnt\\%08x.%clo", Temp, Addr.Zone, Addr.Net, Addr.Node, Addr.Point, Flag[0]);
+         }
+         else
+            sprintf (File, "%s.%03x\\%04x%04x.%clo", Temp, Addr.Zone, Addr.Net, Addr.Node, Flag[0]);
+      }
+      else {
+         if (Addr.Point != 0) {
+            sprintf (File, "%s\\%04x%04x.pnt", Temp, Addr.Net, Addr.Node);
+            mkdir (File);
+            sprintf (File, "%s\\%04x%04x.pnt\\%08x.%clo", Temp, Addr.Net, Addr.Node, Addr.Point, Flag[0]);
+         }
+         else
+            sprintf (File, "%s\\%04x%04x.%clo", Temp, Addr.Net, Addr.Node, Flag[0]);
+#endif
+      }
+
+      if ((fp = fopen (File, "at")) != NULL) {
+         if ((p = strtok (String, " ")) != NULL)
+            do {
+               fprintf (fp, "%s\n", p);
+            } while ((p = strtok (NULL, " ")) != NULL);
+         fclose (fp);
+      }
+
+      if (Outbound != NULL) {
+         Outbound->PollNode (Addr.String, Flag[0]);
+
+         if (Log != NULL)
+            Log->Write ("+Building the outbound queue");
+         Outbound->BuildQueue (Cfg->Outbound);
+         unlink ("rescan.now");
+         if (Log != NULL)
+            Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
+
+         RefreshOutbound ();
+      }
+   }
+
+   return (FALSE);
+}
+
+USHORT CRescanDlg (VOID)
+{
+   short i;
+   CHAR Temp[64], String[128], *t, *p;
+   class TAddress Addr;
+   class TNodes *Nodes;
+   class TAreaManager *AreaMgr;
+
+   Temp[0] = '\0';
+   String[0] = '\0';
+
+   if (wopen (10, 15, 12, 65, 1, WHITE|_LGREY, WHITE|_LGREY) > 0) {
+      wshadow (DGREY|_BLACK);
+      wtitle (" Rescan Area(s) ", TCENTER, WHITE|_LGREY);
+
+      wprints (0, 1, WHITE|_GREEN, " Address ");
+      winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+      winpdef (0, 11, Temp, "?????????????????????????????????????", 0, 2, NULL, 0);
+      if (winpread () == W_ESCPRESS)
+         Temp[0] = '\0';
+      hidecur ();
+      wclose ();
+   }
+
+   if (Temp[0] != '\0') {
+      Cfg->MailAddress.First ();
+      Addr.Parse (Temp);
+      if (Addr.Zone == 0)
+         Addr.Zone = Cfg->MailAddress.Zone;
+      if (Addr.Net == 0)
+         Addr.Net = Cfg->MailAddress.Net;
+      Addr.Add ();
+      Addr.First ();
+
+      if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+         if (Nodes->Read (Addr) == TRUE) {
+            wopen (9, 10, 14, 68, 0, WHITE|_LGREY, WHITE|_LGREY);
+            wshadow (DGREY|_BLACK);
+            wtitle (" Rescan Area(s) ", TCENTER, WHITE|_LGREY);
+            whline (2, 0, 58, 0, WHITE|_LGREY);
+            wprints (0, 1, BLUE|_LGREY, Nodes->SystemName);
+            wprints (0, (short)(56 - strlen (Nodes->Address)), BLUE|_LGREY, Nodes->Address);
+            wprints (1, 1, BLUE|_LGREY, Nodes->Location);
+            wprints (1, (short)(56 - strlen (Nodes->SysopName)), BLUE|_LGREY, Nodes->SysopName);
+
+            wprints (3, 1, WHITE|_LGREY, "Area(s):");
+
+            String[0] = '\0';
+            winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+            winpdef (3, 11, String, "?????????????????????????????????????", 0, 2, NULL, 0);
+            i = winpread ();
+            strtrim (String);
+
+            hidecur ();
+            wclose ();
+
+            if (i == W_ESCPRESS)
+               String[0] = '\0';
+         }
+         else {
+            sprintf (Temp, "Node %s not found !", Addr.String);
+            MessageBox (" Rescan Area(s) ", Temp);
+            String[0] = '\0';
+         }
+         delete Nodes;
+      }
+   }
+
+   if (String[0] != '\0') {
+      if ((AreaMgr = new TAreaManager) != NULL) {
+         AreaMgr->Cfg = Cfg;
+         AreaMgr->Log = Log;
+
+         t = String;
+         while ((p = strtok (t, " ")) != NULL) {
+            t = strtok (NULL, "");
+            AreaMgr->Rescan (p, Addr.String);
+         }
+
+         delete AreaMgr;
+      }
+   }
+
+   return (FALSE);
+}
+
+USHORT CNewEcholinkDlg (VOID)
+{
+   short i;
+   CHAR Temp[64], String[128], *t, *p;
+   class TAddress Addr;
+   class TNodes *Nodes;
+   class TAreaManager *AreaMgr;
+
+   Temp[0] = '\0';
+   String[0] = '\0';
+
+   if (wopen (10, 15, 12, 65, 1, WHITE|_LGREY, WHITE|_LGREY) > 0) {
+      wshadow (DGREY|_BLACK);
+      wtitle (" New Echomail Link ", TCENTER, WHITE|_LGREY);
+
+      wprints (0, 1, WHITE|_GREEN, " Address ");
+      winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+      winpdef (0, 11, Temp, "?????????????????????????????????????", 0, 2, NULL, 0);
+      if (winpread () == W_ESCPRESS)
+         Temp[0] = '\0';
+      hidecur ();
+      wclose ();
+   }
+
+   if (Temp[0] != '\0') {
+      Cfg->MailAddress.First ();
+      Addr.Parse (Temp);
+      if (Addr.Zone == 0)
+         Addr.Zone = Cfg->MailAddress.Zone;
+      if (Addr.Net == 0)
+         Addr.Net = Cfg->MailAddress.Net;
+      Addr.Add ();
+      Addr.First ();
+
+      if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+         if (Nodes->Read (Addr) == TRUE) {
+            wopen (9, 10, 14, 68, 0, WHITE|_LGREY, WHITE|_LGREY);
+            wshadow (DGREY|_BLACK);
+            wtitle (" New Echomail Link ", TCENTER, WHITE|_LGREY);
+            whline (2, 0, 58, 0, WHITE|_LGREY);
+            wprints (0, 1, BLUE|_LGREY, Nodes->SystemName);
+            wprints (0, (short)(56 - strlen (Nodes->Address)), BLUE|_LGREY, Nodes->Address);
+            wprints (1, 1, BLUE|_LGREY, Nodes->Location);
+            wprints (1, (short)(56 - strlen (Nodes->SysopName)), BLUE|_LGREY, Nodes->SysopName);
+
+            wprints (3, 1, WHITE|_LGREY, "Area(s):");
+
+            String[0] = '\0';
+            winpbeg (WHITE|_BLUE, WHITE|_BLUE);
+            winpdef (3, 11, String, "?????????????????????????????????????", 0, 2, NULL, 0);
+            i = winpread ();
+            strtrim (String);
+
+            hidecur ();
+            wclose ();
+
+            if (i == W_ESCPRESS)
+               String[0] = '\0';
+         }
+         else {
+            sprintf (Temp, "Node %s not found !", Addr.String);
+            MessageBox (" New Echomail Link ", Temp);
+            String[0] = '\0';
+         }
+         delete Nodes;
+      }
+   }
+
+   if (String[0] != '\0') {
+      if ((AreaMgr = new TAreaManager) != NULL) {
+         AreaMgr->Cfg = Cfg;
+         AreaMgr->Log = Log;
+
+         t = String;
+         while ((p = strtok (t, " ")) != NULL) {
+            t = strtok (NULL, "");
+            if (!stricmp (p, "%-ALL"))
+               AreaMgr->RemoveAll (Addr.String);
+            else if (*p == '-')
+               AreaMgr->RemoveArea (Addr.String, ++p);
+            else {
+               if (*p == '+')
+                  p++;
+               AreaMgr->AddArea (Addr.String, p);
+            }
+         }
+
+         delete AreaMgr;
       }
    }
 
@@ -863,18 +1345,29 @@ VOID MailerThread (PVOID Args)
 VOID FaxReceiveThread (PVOID Args)
 {
    CHAR Temp[128];
+   class TFax *Fax;
 
    Args = Args;
 
+   if (Cfg->FaxCommand[0] != '\0') {
 #if defined(__LINUX__)
-   sprintf (Temp, Cfg->FaxCommand, atoi (&Cfg->Device[3]), Cfg->Speed, Modem->Serial->hFile);
+      sprintf (Temp, Cfg->FaxCommand, atoi (&Cfg->Device[3]), Cfg->Speed, Modem->Serial->hFile);
 #elif defined(__DOS__)
-   sprintf (Temp, Cfg->FaxCommand, atoi (&Cfg->Device[3]), Cfg->Speed, atoi (Cfg->Device) - 1);
+      sprintf (Temp, Cfg->FaxCommand, atoi (&Cfg->Device[3]), Cfg->Speed, atoi (Cfg->Device) - 1);
 #endif
 
-   Log->Write ("+Spawning to %s", Temp);
-   RunExternal (Temp);
-   Log->Write (":Returned from %s", Temp);
+      Log->Write ("+Spawning to %s", Temp);
+      RunExternal (Temp);
+      Log->Write (":Returned from %s", Temp);
+   }
+   else {
+      if ((Fax = new TFax) != NULL) {
+         Fax->Com = Modem->Serial;
+         Fax->Log = Log;
+         Fax->faxreceive ();
+         delete Fax;
+      }
+   }
 
    Modem->SendCommand (Cfg->Hangup);
    if (Modem->Serial != NULL && Log != NULL) {
@@ -952,7 +1445,7 @@ VOID ModemTimer (VOID)
                Current++;
             if (Current >= 3) {
                Status = WAITFORCALL;
-               TimeOut = TimerSet (15L * 6000L);
+               TimeOut = TimerSet (10L * 6000L);
                Modem->Terminal = TRUE;
             }
             else {
@@ -970,7 +1463,7 @@ VOID ModemTimer (VOID)
                ;
             if (Current >= 3) {
                Status = WAITFORCALL;
-               TimeOut = TimerSet (15L * 6000L);
+               TimeOut = TimerSet (10L * 6000L);
             }
             else
                Status = INITIALIZE;
@@ -1171,7 +1664,11 @@ VOID EventsTimer (PVOID Args)
          CallDelay = TimerSet ((ULONG)Events->CallDelay * 100L);
          Events->Save ();
       }
-      else if (TimeUp (CallDelay) && Outbound != NULL && Outbound->TotalNodes > 0 && Status != WAITFORCONNECT) {
+
+      if (CallDelay == 0L)
+         CallDelay = TimerSet ((ULONG)Events->CallDelay * 100L);
+
+      if (TimeUp (CallDelay) && Outbound != NULL && Outbound->TotalNodes > 0 && Status != WAITFORCONNECT) {
          if (Events->Address[0] != '\0') {
             Address.Parse (Events->Address);
             if (Cfg->MailAddress.First () == TRUE) {
@@ -1280,21 +1777,21 @@ VOID AddShadow (VOID)
 
 VOID AddModemShadow (VOID)
 {
-   whline (4, 0, 22, 3, RED|_LGREY);
+   whline (4, 0, 28, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
 VOID AddMailShadow (VOID)
 {
-   whline (2, 0, 20, 3, RED|_LGREY);
-   whline (5, 0, 20, 3, RED|_LGREY);
+   whline (2, 0, 26, 3, RED|_LGREY);
+   whline (5, 0, 26, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
 VOID AddEchoShadow (VOID)
 {
-   whline (2, 0, 23, 3, RED|_LGREY);
-   whline (6, 0, 23, 3, RED|_LGREY);
+   whline (2, 0, 29, 3, RED|_LGREY);
+   whline (6, 0, 29, 3, RED|_LGREY);
    wshadow (DGREY|_BLACK);
 }
 
@@ -1321,23 +1818,23 @@ VOID ProcessMenu (VOID)
       wmenubeg (1, 1, 12, 26, 3, RED|_LGREY, BLUE|_LGREY, AddSystemShadow);
       wmenuitem (0, 0, " Forced poll      Alt-M ", 0, 109, M_CLALL, ProcessSelection, 0, 0);
       wmenuitem (1, 0, " Request file(s)  Alt-R ", 0, 107, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (2, 0, " Send file(s)     Alt-S ", 0, 108, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem (2, 0, " Send file(s)     Alt-S ", 0, 108, M_CLALL, ProcessSelection, 0, 0);
       wmenuitem (3, 0, " Mail                -> ", 0, 100, 0, NULL, 0, 0);
-         wmenubeg (4, 26, 12, 47, 3, RED|_LGREY, BLUE|_LGREY, AddMailShadow);
-         wmenuitem (0, 0, " Import Mail        ", 0, 101, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (1, 0, " Pack NetMail       ", 0, 103, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (3, 0, " Process NEWSgroups ", 0, 116, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (4, 0, " Process E-Mail     ", 0, 118, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (6, 0, " Rebuild Outbound   ", 0, 106, M_CLALL, ProcessSelection, 0, 0);
+         wmenubeg (4, 26, 12, 53, 3, RED|_LGREY, BLUE|_LGREY, AddMailShadow);
+         wmenuitem (0, 0, " Import Mail        Alt-I ", 0, 101, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (1, 0, " Pack NetMail             ", 0, 103, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (3, 0, " Process NEWSgroups       ", 0, 116, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (4, 0, " Process E-Mail           ", 0, 118, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (6, 0, " Rebuild Outbound   Alt-Q ", 0, 106, M_CLALL, ProcessSelection, 0, 0);
          wmenuend (101, M_VERT|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
       wmenuitem (4, 0, " ECHOmail            -> ", 0, 110, 0, NULL, 0, 0);
-         wmenubeg (5, 26, 14, 50, 3, RED|_LGREY, BLUE|_LGREY, AddEchoShadow);
-         wmenuitem (0, 0, " Process ECHOmail      ", 0, 104, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (1, 0, " Export echomail       ", 0, 102, M_CLALL, ProcessSelection, 0, 0);
-         wmenuitem (3, 0, " Request ECHOmail link ", 0, 111, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-         wmenuitem (4, 0, " New ECHOmail link     ", 0, 112, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-         wmenuitem (5, 0, " Rescan ECHOmail       ", 0, 113, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-         wmenuitem (7, 0, " Write AREAS.BBS       ", 0, 117, M_CLALL, ProcessSelection, 0, 0);
+         wmenubeg (5, 26, 14, 56, 3, RED|_LGREY, BLUE|_LGREY, AddEchoShadow);
+         wmenuitem (0, 0, " Process ECHOmail      Alt-P ", 0, 104, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (1, 0, " Export echomail             ", 0, 102, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (3, 0, " Request ECHOmail link       ", 0, 111, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+         wmenuitem (4, 0, " New ECHOmail link           ", 0, 112, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (5, 0, " Rescan ECHOmail             ", 0, 113, M_CLALL, ProcessSelection, 0, 0);
+         wmenuitem (7, 0, " Write AREAS.BBS             ", 0, 117, M_CLALL, ProcessSelection, 0, 0);
          wmenuend (104, M_VERT|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
       wmenuitem (5, 0, " TIC                 -> ", 0, 120, 0, NULL, 0, 0);
          wmenubeg (6, 26, 9, 46, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
@@ -1349,13 +1846,14 @@ VOID ProcessMenu (VOID)
       wmenuitem (9, 0, " Exit             Alt-X ", 0, 130, M_CLALL, ProcessSelection, 0, 0);
       wmenuend (109, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
    wmenuitem (0, 11, " Global ", 'G', 200, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 11, 8, 31, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
+      wmenubeg (1, 11, 9, 31, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
       wmenuitem (0, 0, " General Options   ", 0, 201, M_CLALL, ProcessSelection, 0, 0);
       wmenuitem (1, 0, " Site Informations ", 0, 202, M_CLALL, ProcessSelection, 0, 0);
       wmenuitem (2, 0, " Addresses         ", 0, 204, M_CLALL, ProcessSelection, 0, 0);
       wmenuitem (3, 0, " Directory / Paths ", 0, 208, M_CLALL, ProcessSelection, 0, 0);
       wmenuitem (4, 0, " Time Adjustment   ", 0, 205, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
       wmenuitem (5, 0, " Internet Options  ", 0, 206, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem (6, 0, " Fax Options       ", 0, 207, M_CLALL, ProcessSelection, 0, 0);
       wmenuend (201, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
    wmenuitem (0, 20, " Mailer ", 'M', 300, M_HASPD, NULL, 0, 0);
       wmenubeg (1, 20, 8, 42, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
@@ -1378,12 +1876,13 @@ VOID ProcessMenu (VOID)
       wmenuitem (7, 0, " External Protocols ", 0, 408, M_CLALL, ProcessSelection, 0, 0);
       wmenuend (401, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
    wmenuitem (0, 35, " Modem ", 'o', 500, M_HASPD, NULL, 0, 0);
-      wmenubeg (1, 35, 8, 53, 3, RED|_LGREY, BLUE|_LGREY, AddModemShadow);
-      wmenuitem (0, 0, " Hardware        ", 0, 501, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (1, 0, " Command Strings ", 0, 502, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (2, 0, " Answer Control  ", 0, 503, M_CLALL, ProcessSelection, 0, 0);
-      wmenuitem (3, 0, " Nodelist Flags  ", 0, 504, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
-      wmenuitem (5, 0, " Hangup          ", 0, 505, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenubeg (1, 35, 8, 59, 3, RED|_LGREY, BLUE|_LGREY, AddModemShadow);
+      wmenuitem (0, 0, " Hardware              ", 0, 501, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem (1, 0, " Command Strings       ", 0, 502, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem (2, 0, " Answer Control        ", 0, 503, M_CLALL, ProcessSelection, 0, 0);
+      wmenuitem (3, 0, " Nodelist Flags        ", 0, 504, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem (5, 0, " Hangup                ", 0, 505, M_CLALL|M_NOSEL, ProcessSelection, 0, 0);
+      wmenuitem (5, 0, " Answer Now      Alt-A ", 0, 506, M_CLALL, ProcessSelection, 0, 0);
       wmenuend (501, M_PD|M_SAVE, 0, 0, BLUE|_LGREY, WHITE|_LGREY, DGREY|_LGREY, YELLOW|_BLACK);
    wmenuitem (0, 43, " Manager ", 'a', 600, M_HASPD, NULL, 0, 0);
       wmenubeg (1, 43, 8, 61, 3, RED|_LGREY, BLUE|_LGREY, AddShadow);
@@ -1424,8 +1923,32 @@ VOID ProcessMenu (VOID)
          case 105:      // System / Process TIC
             MailProcessorThread ((PVOID)(MAIL_TIC|MAIL_STARTTIMER));
             break;
+         case 106:
+            if (Outbound != NULL) {
+               if (Log != NULL)
+                  Log->Write ("+Building the outbound queue");
+               Outbound->BuildQueue (Cfg->Outbound);
+               unlink ("rescan.now");
+               if (Log != NULL)
+                  Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
+
+               RefreshOutbound ();
+            }
+            break;
+         case 107:
+            CRequestDlg ();
+            break;
+         case 108:
+            CAttachDlg ();
+            break;
          case 109:
             CPollDlg ();
+            break;
+         case 112:
+            CNewEcholinkDlg ();
+            break;
+         case 113:
+            CRescanDlg ();
             break;
          case 115:
             kbput (0x2500);
@@ -1437,7 +1960,7 @@ VOID ProcessMenu (VOID)
             MailProcessorThread ((PVOID)(MAIL_EMAIL|MAIL_STARTTIMER));
             break;
          case 119:
-            NodelistThread (NULL);
+            CompileNodelist (TRUE);
             break;
          case 130:
             kbput (0x2d00);
@@ -1456,6 +1979,10 @@ VOID ProcessMenu (VOID)
             break;
          case 206:
             if ((RetVal = CInternetDlg ()) == TRUE)
+               Cfg->Save ();
+            break;
+         case 207:
+            if ((RetVal = CFaxDlg ()) == TRUE)
                Cfg->Save ();
             break;
          case 208:
@@ -1490,6 +2017,10 @@ VOID ProcessMenu (VOID)
             break;
          case 404:
             if ((RetVal = COfflineDlg ()) == TRUE)
+               Cfg->Save ();
+            break;
+         case 405:
+            if ((RetVal = CNewUsersDlg ()) == TRUE)
                Cfg->Save ();
             break;
          case 501:
@@ -1539,6 +2070,11 @@ VOID ProcessMenu (VOID)
          case 503:
             if ((RetVal = CAnswerDlg ()) == TRUE)
                Cfg->Save ();
+            break;
+         case 506:
+            Modem->Serial->SendBytes ((UCHAR *)"ATA\r", 4);
+            Status = ANSWERING;
+            TimeOut = TimerSet (4500L);
             break;
          case 601:
             CEventDlg ();
@@ -1732,16 +2268,42 @@ void main (int argc, char *argv[])
                      case 0x011b:
                         ProcessMenu ();
                         break;
-
+                     case 0x1E00:   // Alt-A - Auto answer
+                        Modem->Serial->SendBytes ((UCHAR *)"ATA\r", 4);
+                        Status = ANSWERING;
+                        TimeOut = TimerSet (4500L);
+                        break;
+                     case 0x1700:   // Alt-I - Import mail
+                        MailProcessorThread ((PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL));
+                        break;
                      case 0x2500:   // Alt-K - Local login
                         LocalThread (NULL);
                         break;
-
                      case 0x3200:   // Alt-M - Manual Poll
                         CPollDlg ();
                         break;
+                     case 0x1900:   // Alt-P - Process ECHOmail
+                        MailProcessorThread ((PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL|MAIL_EXPORT|MAIL_PACK|MAIL_STARTTIMER));
+                        break;
+                     case 0x1000:   // Alt-Q - Rescan outbound
+                        if (Outbound != NULL) {
+                           if (Log != NULL)
+                              Log->Write ("+Building the outbound queue");
+                           Outbound->BuildQueue (Cfg->Outbound);
+                           unlink ("rescan.now");
+                           if (Log != NULL)
+                              Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
 
-                     case 0x2D00:   // Alt-X  - Uscita
+                           RefreshOutbound ();
+                        }
+                        break;
+                     case 0x1300:   // Alt-R - Request files
+                        CRequestDlg ();
+                        break;
+                     case 0x1F00:   // Alt-S - Send files
+                        CAttachDlg ();
+                        break;
+                     case 0x2D00:   // Alt-X - Uscita
                         EndRun = TRUE;
                         break;
                   }
@@ -1754,7 +2316,7 @@ void main (int argc, char *argv[])
    }
    else {
       if (DoNodelist == TRUE)
-         NodelistThread (NULL);
+         CompileNodelist (TRUE);
 
       Flags = MAIL_POSTQUIT|MAIL_NOEXTERNAL;
       if (DoImport == TRUE)

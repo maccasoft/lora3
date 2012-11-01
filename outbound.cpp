@@ -48,9 +48,19 @@ TOutbound::~TOutbound (void)
    Nodes.Clear ();
 }
 
+VOID TOutbound::Clear (VOID)
+{
+   Files.Clear ();
+   Nodes.Clear ();
+   TotalFiles = 0;
+   TotalSize = 0L;
+   New ();
+}
+
 USHORT TOutbound::Add (VOID)
 {
    USHORT RetVal = FALSE;
+   PSZ p;
    OUTFILE Out;
 
    memset (&Out, 0, sizeof (Out));
@@ -59,8 +69,16 @@ USHORT TOutbound::Add (VOID)
    Out.Node = Node;
    Out.Point = Point;
    strcpy (Out.Domain, Domain);
-   strcpy (Out.Name, strlwr (Name));
-   strcpy (Out.Complete, strlwr (Complete));
+   if (Name[0] == '\0') {
+      if ((p = strchr (Complete, '\0')) != NULL) {
+         while (p > Complete && *p != '\\' && *p != ':' && *p != '/')
+            p--;
+         strcpy (Out.Name, ++p);
+      }
+   }
+   else
+      strcpy (Out.Name, Name);
+   strcpy (Out.Complete, Complete);
    Out.Size = Size;
    Out.ArcMail = ArcMail;
    Out.MailPKT = MailPKT;
@@ -135,7 +153,6 @@ USHORT TOutbound::Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoin
          else
             sprintf (Out.Name, "%04x%04x.hut", usNet, usNode);
          Out.Name[strlen (Out.Name) - 3] = Flags[i];
-         strlwr (Out.Name);
          strcpy (Out.Complete, FileName);
          Out.Size = statbuf.st_size;
          Out.MailPKT = TRUE;
@@ -179,12 +196,12 @@ USHORT TOutbound::Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoin
                   strcpy (Out.Domain, pszDomain);
                if ((p = strchr (pFile, '!')) != NULL) {
                   *p++ = '\0';
-                  strcpy (Out.Name, strlwr (p));
+                  strcpy (Out.Name, p);
                }
                else if ((p = strchr (pFile, '\0')) != NULL) {
                   while (p > pFile && *p != '\\' && *p != ':' && *p != '/')
                      p--;
-                  strcpy (Out.Name, strlwr (++p));
+                  strcpy (Out.Name, ++p);
                }
                strcpy (Out.Complete, pFile);
                Out.Size = statbuf.st_size;
@@ -254,7 +271,6 @@ USHORT TOutbound::Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoin
          sprintf (Out.Name, "%08x.req", usPoint);
       else
          sprintf (Out.Name, "%04x%04x.req", usNet, usNode);
-      strlwr (Out.Name);
       strcpy (Out.Complete, FileName);
       Out.Size = statbuf.st_size;
       Out.Request = TRUE;
@@ -292,6 +308,7 @@ USHORT TOutbound::AddQueue (OUTFILE &Out)
             else if (Out.Status == 'O' || Out.Status == 'F')
                Temp->Normal = TRUE;
             RetVal = TRUE;
+            break;
          }
       } while ((Temp = (QUEUE *)Nodes.Next ()) != NULL && RetVal == FALSE);
 
@@ -364,7 +381,7 @@ USHORT TOutbound::AddQueue (OUTFILE &Out)
          TotalNodes++;
       }
 
-      RetVal = Insert;
+      RetVal = TRUE;
    }
 
    return (RetVal);
@@ -399,6 +416,8 @@ VOID TOutbound::BuildQueue (PSZ pszPath)
          *p-- = '\0';
    }
    *p-- = '\0';
+   if (*p == ':')
+      strcat (p, "\\");
 
    // Il primo loop cerca le directory di outbound aventi come
    // nome del file la directory di base passata come argomento e, se di zone diversa
@@ -452,7 +471,7 @@ VOID TOutbound::BuildQueue (PSZ pszPath)
                               if (Temp[0] == '^' || Temp[0] == '#')
                                  p++;
                               if (p[0] != '~' && stat (AdjustPath (p), &statbuf) == 0) {
-                                 strcpy (Out.Complete, strlwr (p));
+                                 strcpy (Out.Complete, p);
                                  if ((p = strchr (Temp, '\0')) != NULL) {
                                     while (p > Temp && *p != '\\' && *p != ':' && *p != '/')
                                        p--;
@@ -512,7 +531,7 @@ VOID TOutbound::BuildQueue (PSZ pszPath)
                         else
                            sprintf (Out.Complete, "%s\\%s", BasePath, ent->d_name);
                         stat (AdjustPath (Out.Complete), &statbuf);
-                        strcpy (Out.Name, strlwr (ent->d_name));
+                        strcpy (Out.Name, ent->d_name);
                         Out.Size = statbuf.st_size;
                         Out.DeleteAfter = TRUE;
                         Out.MailPKT = TRUE;
@@ -533,7 +552,7 @@ VOID TOutbound::BuildQueue (PSZ pszPath)
                         else
                            sprintf (Out.Complete, "%s\\%s", BasePath, ent->d_name);
                         stat (AdjustPath (Out.Complete), &statbuf);
-                        strcpy (Out.Name, strlwr (ent->d_name));
+                        strcpy (Out.Name, ent->d_name);
                         Out.Size = statbuf.st_size;
                         Out.DeleteAfter = TRUE;
                         Out.Request = TRUE;
@@ -595,7 +614,7 @@ VOID TOutbound::BuildQueue (PSZ pszPath)
                                           if (Temp[0] == '^' || Temp[0] == '#')
                                              p++;
                                           if (p[0] != '~' && stat (AdjustPath (p), &statbuf) == 0) {
-                                             strcpy (Out.Complete, strlwr (p));
+                                             strcpy (Out.Complete, p);
                                              if ((p = strchr (Temp, '\0')) != NULL) {
                                                 while (p > Temp && *p != '\\' && *p != ':' && *p != '/')
                                                    p--;
@@ -650,7 +669,7 @@ VOID TOutbound::BuildQueue (PSZ pszPath)
                                     Out.Status = (CHAR)toupper (p[1]);
                                     sprintf (Out.Complete, "%s\\%04x%04x.pnt\\%s", BasePath, Out.Net, Out.Node, ent->d_name);
                                     stat (AdjustPath (Out.Complete), &statbuf);
-                                    strcpy (Out.Name, strlwr (ent->d_name));
+                                    strcpy (Out.Name, ent->d_name);
                                     Out.Size = statbuf.st_size;
                                     Out.DeleteAfter = TRUE;
                                     Out.MailPKT = TRUE;
@@ -667,7 +686,7 @@ VOID TOutbound::BuildQueue (PSZ pszPath)
                                     Out.Status = (CHAR)toupper (p[1]);
                                     sprintf (Out.Complete, "%s\\%04x%04x.pnt\\%s", BasePath, Out.Net, Out.Node, ent->d_name);
                                     stat (AdjustPath (Out.Complete), &statbuf);
-                                    strcpy (Out.Name, strlwr (ent->d_name));
+                                    strcpy (Out.Name, ent->d_name);
                                     Out.Size = statbuf.st_size;
                                     Out.DeleteAfter = TRUE;
                                     Out.Request = TRUE;
@@ -915,10 +934,11 @@ VOID TOutbound::Remove (VOID)
    QUEUE *Temp;
 
    if ((Out = (OUTFILE *)Files.Value ()) != NULL) {
+      AdjustPath (Out->Complete);
       if (Out->DeleteAfter == TRUE)
          unlink (Out->Complete);
       else if (Out->TruncateAfter == TRUE) {
-         if ((fd = sopen (AdjustPath (Out->Complete), O_WRONLY|O_BINARY|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE)) != -1)
+         if ((fd = sopen (Out->Complete, O_WRONLY|O_BINARY|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE)) != -1)
             close (fd);
       }
 
@@ -979,7 +999,7 @@ VOID TOutbound::Remove (VOID)
 VOID TOutbound::AddAttempt (PSZ address, USHORT failed, PSZ status)
 {
    int fd;
-   USHORT attempts;
+   USHORT attempts = 0;
    CHAR i, FileName[128], Status[32];
    QUEUE *Queue, *Current;
    class TAddress Addr;
@@ -998,7 +1018,7 @@ VOID TOutbound::AddAttempt (PSZ address, USHORT failed, PSZ status)
          sprintf (FileName, "%s%04x%04x.pnt/%08x.$$%c", Outbound, Addr.Net, Addr.Node, Addr.Point, i);
       else
          sprintf (FileName, "%s%04x%04x.$$%c", Outbound, Addr.Net, Addr.Node, i);
-      if ((fd = open (strlwr (FileName), O_RDWR|O_BINARY)) != -1) {
+      if ((fd = open (FileName, O_RDWR|O_BINARY)) != -1) {
          read (fd, &attempts, sizeof (attempts));
          read (fd, Status, sizeof (Status));
          close (fd);
@@ -1023,7 +1043,7 @@ VOID TOutbound::AddAttempt (PSZ address, USHORT failed, PSZ status)
    strcpy (Status, status);
    attempts++;
 
-   if ((fd = open (strlwr (FileName), O_RDWR|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) != -1) {
+   if ((fd = open (FileName, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) != -1) {
       write (fd, &attempts, sizeof (attempts));
       write (fd, Status, sizeof (Status));
       close (fd);
@@ -1107,7 +1127,7 @@ VOID TOutbound::Update (VOID)
                sprintf (FileName, "%s%04x%04x.pnt/%08x.$$%c", Outbound, Net, Node, Point, i);
             else
                sprintf (FileName, "%s%04x%04x.$$%c", Outbound, Net, Node, i);
-            unlink (strlwr (FileName));
+            unlink (FileName);
          }
       } while (NextNode () == TRUE);
 
@@ -1124,7 +1144,7 @@ VOID TOutbound::Update (VOID)
                sprintf (FileName, "%s%04x%04x.pnt/%08x.%clo", Outbound, Net, Node, Point, Status);
             else
                sprintf (FileName, "%s%04x%04x.%clo", Outbound, Net, Node, Status);
-            unlink (strlwr (FileName));
+            unlink (FileName);
          }
       } while (Next () == TRUE);
 
@@ -1141,7 +1161,7 @@ VOID TOutbound::Update (VOID)
                sprintf (FileName, "%s%04x%04x.pnt/%08x.$$%c", Outbound, Net, Node, Point, Failed + '0');
             else
                sprintf (FileName, "%s%04x%04x.$$%c", Outbound, Net, Node, Failed + '0');
-            if ((fd = open (strlwr (FileName), O_RDWR|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) != -1) {
+            if ((fd = open (FileName, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) != -1) {
                write (fd, &Attempts, 2);
                close (fd);
             }
@@ -1177,7 +1197,6 @@ VOID TOutbound::Update (VOID)
             else
                sprintf (FileName, "%s%04x%04x.%clo", Outbound, Net, Node, Status);
 
-            strlwr (FileName);
             if ((fp = _fsopen (AdjustPath (FileName), "ab", SH_DENYNO)) != NULL) {
                if (TruncateAfter == TRUE)
                   fprintf (fp, "#%s\r\n", Complete);

@@ -11,9 +11,15 @@
 #include "msgbase.h"
 #include "lorawin.h"
 
+enum {
+   ALREADY_LINKED = 2,
+   NOT_FOUND
+};
+
 TAreaManager::TAreaManager (void)
 {
    Log = NULL;
+   EchoLink = NULL;
 }
 
 TAreaManager::~TAreaManager (void)
@@ -106,6 +112,8 @@ VOID TAreaManager::UpdateAreasBBS (VOID)
                         fprintf (fp, "=%-30s", MsgData->Path);
                      else if (MsgData->Storage == ST_FIDO)
                         fprintf (fp, "%-30s", MsgData->Path);
+                     else if (MsgData->Storage == ST_HUDSON)
+                        fprintf (fp, "%-30d", MsgData->Board);
                      EchoLink->Load (MsgData->EchoTag);
                      fprintf (fp, " %-30s", MsgData->EchoTag);
                      if (EchoLink->First () == TRUE)
@@ -154,31 +162,49 @@ USHORT TAreaManager::Passive (PSZ address, USHORT flag)
    return (RetVal);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Rimuove tutte le aree agganciate ad un nodo                               //
+///////////////////////////////////////////////////////////////////////////////
 USHORT TAreaManager::RemoveAll (PSZ address)
 {
-   USHORT RetVal = FALSE;
+   USHORT RetVal = FALSE, DoDelete = FALSE;
    CHAR Temp[96];
 
-   if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
-      if (Data->First () == TRUE)
-         do {
-            if (Data->EchoMail == TRUE && Data->EchoTag[0] != '\0') {
-               EchoLink->Load (Data->EchoTag);
-               if (EchoLink->Check (address) == TRUE) {
-                  EchoLink->Delete ();
-                  EchoLink->Save ();
-                  sprintf (Temp, "Area %s has been removed.", strupr (Data->EchoTag));
-                  Text.Add (Temp);
-                  RetVal = TRUE;
+   if (EchoLink == NULL) {
+      EchoLink = new TEchoLink (Cfg->SystemPath);
+      DoDelete = TRUE;
+   }
+
+   if (EchoLink != NULL) {
+      if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+         if (Data->First () == TRUE)
+            do {
+               if (Data->EchoMail == TRUE && Data->EchoTag[0] != '\0') {
+                  EchoLink->Load (Data->EchoTag);
+                  if (EchoLink->Check (address) == TRUE) {
+                     EchoLink->Delete ();
+                     EchoLink->Save ();
+                     sprintf (Temp, "Area %s has been removed.", strupr (Data->EchoTag));
+                     Text.Add (Temp);
+                     RetVal = TRUE;
+                  }
                }
-            }
-         } while (Data->Next () == TRUE);
-      delete Data;
+            } while (Data->Next () == TRUE);
+         delete Data;
+      }
+   }
+
+   if (EchoLink != NULL && DoDelete == TRUE) {
+      delete EchoLink;
+      EchoLink = NULL;
    }
 
    return (RetVal);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Imposta la password di sessione                                           //
+///////////////////////////////////////////////////////////////////////////////
 USHORT TAreaManager::SetSessionPwd (PSZ address, PSZ pwd)
 {
    USHORT RetVal = FALSE;
@@ -270,10 +296,89 @@ USHORT TAreaManager::SetOutPacketPwd (PSZ address, PSZ pwd)
    return (RetVal);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Aggancia un'area ad un nuodo                                              //
+///////////////////////////////////////////////////////////////////////////////
+USHORT TAreaManager::AddArea (PSZ address, PSZ area)
+{
+   USHORT RetVal = FALSE, DoDelete = FALSE;
+
+   ///////////////////////////////////////////////////////////////////////////////
+   // Si assicura che la classe EchoLink sia accessibile                        //
+   ///////////////////////////////////////////////////////////////////////////////
+   if (EchoLink == NULL) {
+      EchoLink = new TEchoLink (Cfg->SystemPath);
+      DoDelete = TRUE;
+   }
+
+   if (EchoLink != NULL) {
+      EchoLink->Load (area);
+      if (EchoLink->First () == TRUE) {
+         if (EchoLink->Check (address) == TRUE)
+            RetVal = ALREADY_LINKED;
+         else {
+            EchoLink->AddString (address);
+            EchoLink->Save ();
+            RetVal = TRUE;
+         }
+      }
+      else {
+         ///////////////////////////////////////////////////////////////////////////////
+         // Se non trova l'area negli echolink, ne verifica l'esistenza               //
+         ///////////////////////////////////////////////////////////////////////////////
+         RetVal = NOT_FOUND;
+         if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+            if (Data->ReadEcho (area) == TRUE) {
+               EchoLink->Load (area);
+               EchoLink->AddString (address);
+               EchoLink->Save ();
+               RetVal = TRUE;
+            }
+            delete Data;
+         }
+      }
+   }
+
+   if (EchoLink != NULL && DoDelete == TRUE) {
+      delete EchoLink;
+      EchoLink = NULL;
+   }
+
+   return (RetVal);
+}
+
+USHORT TAreaManager::RemoveArea (PSZ address, PSZ area)
+{
+   USHORT RetVal = FALSE, DoDelete = FALSE;
+
+   if (EchoLink == NULL) {
+      EchoLink = new TEchoLink (Cfg->SystemPath);
+      DoDelete = TRUE;
+   }
+
+   if (EchoLink != NULL) {
+      EchoLink->Load (area);
+      if (EchoLink->First () == TRUE) {
+         if (EchoLink->Check (address) == TRUE) {
+            EchoLink->Delete ();
+            EchoLink->Save ();
+            RetVal = TRUE;
+         }
+      }
+   }
+
+   if (EchoLink != NULL && DoDelete == TRUE) {
+      delete EchoLink;
+      EchoLink = NULL;
+   }
+
+   return (RetVal);
+}
+
 VOID TAreaManager::ProcessAreafix (VOID)
 {
    FILE *fp;
-   USHORT Ok, DoList, DoRescan, DoLinked, DoUnlinked, Found;
+   USHORT i, Ok, DoList, DoRescan, DoLinked, DoUnlinked;
    USHORT DoListPacker, DoReport, DoHelp;
    CHAR Temp[96], *Password, *p;
    ULONG Total;
@@ -380,6 +485,13 @@ VOID TAreaManager::ProcessAreafix (VOID)
                   }
                   else if (*p == '-' && strcmp (p, "---")) {
                      p++;
+                     if (RemoveArea (Msg->FromAddress, p) == FALSE)
+                        sprintf (Temp, "Area %s never linked.", strupr (p));
+                     else
+                        sprintf (Temp, "Area %s has been removed.", strupr (p));
+                     Text.Add (Temp);
+                     DoReport = TRUE;
+/*
                      EchoLink->Load (p);
                      if (EchoLink->First () == TRUE) {
                         if (EchoLink->Check (Msg->FromAddress) == TRUE) {
@@ -394,10 +506,20 @@ VOID TAreaManager::ProcessAreafix (VOID)
                         sprintf (Temp, "Area %s never linked.", strupr (p));
                      Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
                      DoReport = TRUE;
+*/
                   }
                   else if (*p != '\0' && strcmp (p, "---") && *p != '\001') {
                      if (*p == '+')
                         p++;
+                     if ((i = AddArea (Msg->FromAddress, p)) == TRUE)
+                        sprintf (Temp, "Area %s has been added.\n", strupr (p));
+                     else if (i == NOT_FOUND)
+                        sprintf (Temp, "Area %s not found.\n", strupr (p));
+                     else if (i == ALREADY_LINKED)
+                        sprintf (Temp, "Area %s already linked.\n", strupr (p));
+                     Text.Add (Temp);
+                     DoReport = TRUE;
+/*
                      EchoLink->Load (p);
                      if (EchoLink->First () == TRUE) {
                         if (EchoLink->Check (Msg->FromAddress) == TRUE)
@@ -429,6 +551,7 @@ VOID TAreaManager::ProcessAreafix (VOID)
                      }
                      Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
                      DoReport = TRUE;
+*/
                   }
                }
             } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
@@ -987,6 +1110,8 @@ VOID TAreaManager::Rescan (PSZ pszEchoTag, PSZ pszAddress)
             Msg = new FIDOSDM (Data->Path);
          else if (Data->Storage == ST_ADEPT)
             Msg = new ADEPT (Data->Path);
+         else if (Data->Storage == ST_HUDSON)
+            Msg = new HUDSON (Data->Path, (UCHAR)Data->Board);
 
          if (Msg != NULL) {
             if ((Packet = new PACKET) != NULL) {
@@ -1063,9 +1188,14 @@ VOID TAreaManager::Rescan (PSZ pszEchoTag, PSZ pszAddress)
 
                if (Packet->Open (Temp, FALSE) == TRUE) {
                   Number = Msg->Lowest ();
+                  // Evita di esportare il messaggio #1 delle basi Fido (l'high water mark)
+                  if (Number == 1L && Data->Storage == ST_FIDO) {
+                     if (Msg->Next (Number) == FALSE)
+                        Number = 0L;
+                  }
                   do {
                      if (Msg->Read (Number) == TRUE) {
-                        sprintf (Temp, "AREA:%s", pszEchoTag);
+                        sprintf (Temp, "AREA:%s", Data->EchoTag);
                         if ((Text = (PSZ)Msg->Text.First ()) != NULL) {
                            Msg->Text.Insert (Temp, (USHORT)(strlen (Temp) + 1));
                            if (*Text != '\0')

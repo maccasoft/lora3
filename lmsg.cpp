@@ -176,8 +176,11 @@ VOID PurgeMessages (CHAR *Area, USHORT WriteDate)
 
 VOID PackMessages (CHAR *Area)
 {
+   USHORT Skip;
+   PSZ p;
    class TMsgData *Data;
    class TMsgBase *Msg;
+   class TCollection Done;
 
    printf (" * Pack (Compressing) Messages\n");
 
@@ -198,18 +201,144 @@ VOID PackMessages (CHAR *Area)
                Msg = new FIDOSDM (Data->Path);
             else if (Data->Storage == ST_ADEPT)
                Msg = new ADEPT (Data->Path);
+            else if (Data->Storage == ST_HUDSON) {
+               Skip = FALSE;
+               if ((p = (PSZ)Done.First ()) != NULL)
+                  do {
+                     if (!stricmp (p, Data->Path)) {
+                        Skip = TRUE;
+                        break;
+                     }
+                  } while ((p = (PSZ)Done.Next ()) != NULL);
+               if (Skip == FALSE) {
+                  Done.Add (Data->Path);
+                  Msg = new HUDSON (Data->Path, (UCHAR)Data->Board);
+               }
+            }
             if (Msg != NULL) {
                cprintf (" +-- %-15.15s %-49.49s ", Data->Key, Data->Display);
                fflush (stdout);
                Msg->Pack ();
-               Data->ActiveMsgs = Msg->Number ();
-               Data->FirstMessage = Msg->Lowest ();
-               Data->LastMessage = Msg->Highest ();
-               Data->Update ();
+               if (Data->Storage != ST_HUDSON) {
+                  Data->ActiveMsgs = Msg->Number ();
+                  Data->FirstMessage = Msg->Lowest ();
+                  Data->LastMessage = Msg->Highest ();
+                  Data->Update ();
+               }
                cprintf ("\r\n");
             }
             if (Msg != NULL)
                delete Msg;
+
+            if (Area != NULL)
+               break;
+         } while (Data->Next () == TRUE);
+      delete Data;
+   }
+}
+
+typedef struct {
+   ULONG Subject;
+   ULONG Number;
+} MSGLINK;
+
+VOID LinkMessages (CHAR *Area)
+{
+   int i, m;
+   ULONG Number, Prev, Next, Crc, Total;
+   CHAR Temp[128], *p;
+   MSGLINK *Link;
+   class TMsgData *Data;
+   class TMsgBase *Msg;
+
+   printf (" * Reply-linking Messages\n");
+
+   if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+      if (Data->First () == TRUE)
+         do {
+            if (Area != NULL) {
+               if (Data->Read (Area) == FALSE)
+                  break;
+            }
+
+            Msg = NULL;
+            if (Data->Storage == ST_JAM)
+               Msg = new JAM (Data->Path);
+            else if (Data->Storage == ST_SQUISH)
+               Msg = new SQUISH (Data->Path);
+            else if (Data->Storage == ST_FIDO)
+               Msg = new FIDOSDM (Data->Path);
+            else if (Data->Storage == ST_ADEPT)
+               Msg = new ADEPT (Data->Path);
+            if (Msg != NULL) {
+               cprintf (" +-- %-15.15s %-40.40s ", Data->Key, Data->Display);
+               fflush (stdout);
+               if ((Total = Msg->Number ()) != 0L) {
+                  Msg->Lock (0L);
+                  if ((Link = (MSGLINK *)malloc (Total * sizeof (MSGLINK))) != NULL) {
+                     memset (Link, 0, Total * sizeof (MSGLINK));
+                     Number = Msg->Lowest ();
+                     i = 0;
+                     do {
+                        Msg->ReadHeader (Number);
+                        strcpy (Temp, Msg->Subject);
+                        p = strupr (Temp);
+                        if (!strncmp (p, "RE:", 3)) {
+                           p += 3;
+                           if (*p == ' ')
+                              p++;
+                        }
+                        Link[i].Subject = StringCrc32 (p, 0xFFFFFFFFL);
+                        Link[i].Number = Number;
+                        i++;
+
+                        if ((i % 10) == 0)
+                           cprintf ("%6lu / %6lu\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b", i, Total);
+                     } while (Msg->Next (Number) == TRUE);
+
+                     cprintf ("%6lu / %6lu\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b", i, Total);
+
+                     Number = Msg->Lowest ();
+                     i = 0;
+                     do {
+                        Msg->ReadHeader (Number);
+
+                        Prev = Next = 0;
+                        Crc = Link[i].Subject;
+
+                        for (m = 0; m < Total; m++) {
+                           if (m == i)
+                              continue;
+                           if (Link[m].Subject == Crc) {
+                              if (m < i)
+                                 Prev = Link[m].Number;
+                              else if (m > i) {
+                                 Next = Link[m].Number;
+                                 break;
+                              }
+                           }
+                        }
+
+                        if ((i % 10) == 0)
+                           cprintf ("%6lu / %6lu\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b", i, Total);
+
+                        if (Msg->Original != Prev || Msg->Reply != Next) {
+                           Msg->Original = Prev;
+                           Msg->Reply = Next;
+                           Msg->WriteHeader (Number);
+                        }
+
+                        i++;
+                     } while (Msg->Next (Number) == TRUE);
+
+                     cprintf ("%6lu / %6lu\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b", i, Total);
+                     free (Link);
+                  }
+                  Msg->UnLock ();
+               }
+               cprintf ("\r\n");
+               delete Msg;
+            }
 
             if (Area != NULL)
                break;
@@ -329,9 +458,9 @@ void main (int argc, char *argv[])
       if (Pack == TRUE)
          PackMessages (Area);
       if (Link == TRUE)
-         ;
+         LinkMessages (Area);
 
-      if (Purge == TRUE || Pack == TRUE || Reindex == TRUE)
+      if (Purge == TRUE || Pack == TRUE || Reindex == TRUE || Link == TRUE)
          printf (" * Done\n\n");
       else
          printf (" * Nothing to do\n\n");

@@ -101,14 +101,17 @@ ULONG TDupes::GetEID (class TMsgBase *Msg)
    CHAR *Text;
    ULONG Crc = 0L;
 
-   if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
+   if ((Text = (CHAR *)Msg->Text.First ()) != NULL) {
       do {
+         if (*Text != '\001' && strncmp (Text, "AREA:", 5))
+            break;
          if (!strncmp (Text, "\001MSGID: ", 8) || !strncmp (Text, "\001Message-ID: ", 13)) {
             Crc = StringCrc32 (Text, 0xFFFFFFFFL);
             Found = TRUE;
             break;
          }
       } while ((Text = (CHAR *)Msg->Text.Next ()) != NULL);
+   }
 
    if (Found == FALSE) {
       Crc = StringCrc32 (Msg->From, 0xFFFFFFFFL);
@@ -119,25 +122,33 @@ ULONG TDupes::GetEID (class TMsgBase *Msg)
    return (Crc);
 }
 
+#define MAX_INDEX    32
+
 USHORT TDupes::Load (PSZ pszEchoTag)
 {
-   int fd;
+   int fd, i, readed;
    USHORT Found = FALSE;
-   DUPEIDX idx;
+   DUPEIDX *idx;
 
-   if ((fd = sopen (IndexFile, O_RDONLY|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
-      while (read (fd, &idx, sizeof (DUPEIDX)) == sizeof (DUPEIDX)) {
-         if (!stricmp (pszEchoTag, idx.EchoTag)) {
-            Found = TRUE;
-            break;
+   if ((idx = (DUPEIDX *)malloc (sizeof (DUPEIDX) * MAX_INDEX)) != NULL) {
+      if ((fd = sopen (IndexFile, O_RDONLY|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+         while ((readed = read (fd, idx, sizeof (DUPEIDX) * MAX_INDEX)) != 0) {
+            readed /= sizeof (DUPEIDX);
+            for (i = 0; i < readed; i++) {
+               if (!stricmp (pszEchoTag, idx[i].EchoTag)) {
+                  Found = TRUE;
+                  break;
+               }
+            }
          }
+         close (fd);
       }
-      close (fd);
+      free (idx);
    }
 
    if (Found == TRUE) {
       if ((fd = sopen (DataFile, O_RDONLY|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
-         lseek (fd, idx.Position, SEEK_SET);
+         lseek (fd, idx[i].Position, SEEK_SET);
          read (fd, &dd, sizeof (DUPEDATA));
          close (fd);
       }
@@ -152,29 +163,35 @@ USHORT TDupes::Load (PSZ pszEchoTag)
 
 VOID TDupes::Save (VOID)
 {
-   int fd;
+   int fd, i, readed;
    USHORT Found = FALSE;
-   DUPEIDX idx;
+   DUPEIDX *idx, nidx;
 
    if (dd.EchoTag[0] != '\0') {
-      if ((fd = sopen (IndexFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
-         while (read (fd, &idx, sizeof (DUPEIDX)) == sizeof (DUPEIDX)) {
-            if (!stricmp (idx.EchoTag, dd.EchoTag)) {
-               Found = TRUE;
-               break;
+      if ((idx = (DUPEIDX *)malloc (sizeof (DUPEIDX) * MAX_INDEX)) != NULL) {
+         if ((fd = sopen (IndexFile, O_RDONLY|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+            while ((readed = read (fd, idx, sizeof (DUPEIDX) * MAX_INDEX)) != 0) {
+               readed /= sizeof (DUPEIDX);
+               for (i = 0; i < readed; i++) {
+                  if (!stricmp (dd.EchoTag, idx[i].EchoTag)) {
+                     Found = TRUE;
+                     break;
+                  }
+               }
             }
+            close (fd);
          }
-         close (fd);
+         free (idx);
       }
 
       if ((fd = sopen (DataFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
          if (Found == TRUE)
-            lseek (fd, idx.Position, SEEK_SET);
+            lseek (fd, idx[i].Position, SEEK_SET);
          else {
             lseek (fd, 0L, SEEK_END);
-            memset (&idx, 0, sizeof (DUPEIDX));
-            strcpy (idx.EchoTag, dd.EchoTag);
-            idx.Position = tell (fd);
+            memset (&nidx, 0, sizeof (DUPEIDX));
+            strcpy (nidx.EchoTag, dd.EchoTag);
+            nidx.Position = tell (fd);
          }
          write (fd, &dd, sizeof (DUPEDATA));
          close (fd);
@@ -182,7 +199,7 @@ VOID TDupes::Save (VOID)
          if (Found == FALSE) {
             if ((fd = sopen (IndexFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
                lseek (fd, 0L, SEEK_END);
-               write (fd, &idx, sizeof (DUPEIDX));
+               write (fd, &nidx, sizeof (DUPEIDX));
                close (fd);
             }
          }

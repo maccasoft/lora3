@@ -18,9 +18,7 @@
 #include "ibmkeys.h"
 #endif
 
-#if defined(__DOS__) || defined(__OS2__) || defined(__LINUX__)
 #include "cxl.h"
-#endif
 
 #if defined(__LINUX__)
 #include <signal.h>
@@ -32,7 +30,7 @@
 #endif
 
 #define RSIZE        2048
-#define TSIZE        128
+#define TSIZE        512
 
 class DLL_EXPORT TCom
 {
@@ -54,6 +52,12 @@ public:
    virtual VOID   SendByte (UCHAR byte) = 0;
    virtual VOID   SendBytes (UCHAR *bytes, USHORT len) = 0;
    virtual VOID   UnbufferBytes (VOID) = 0;
+
+   virtual VOID   SetName (PSZ name) = 0;
+   virtual VOID   SetCity (PSZ name) = 0;
+   virtual VOID   SetLevel (PSZ level) = 0;
+   virtual VOID   SetTimeLeft (ULONG seconds) = 0;
+   virtual VOID   SetTime (ULONG seconds) = 0;
 
 protected:
    UCHAR  RxBuffer[RSIZE], TxBuffer[TSIZE];
@@ -108,6 +112,12 @@ public:
    VOID   SetParameters (ULONG ulSpeed, USHORT nData, UCHAR nParity, USHORT nStop);
    VOID   UnbufferBytes (VOID);
 
+   VOID   SetName (PSZ name);
+   VOID   SetCity (PSZ name);
+   VOID   SetLevel (PSZ level);
+   VOID   SetTimeLeft (ULONG seconds);
+   VOID   SetTime (ULONG seconds);
+
 private:
 #if defined(__DOS__)
    PORT   *hPort;
@@ -117,7 +127,6 @@ private:
 #endif
 };
 
-#if defined(__OS2__) || defined(__DOS__) || defined(__LINUX__)
 class DLL_EXPORT TScreen : public TCom
 {
 public:
@@ -137,13 +146,18 @@ public:
    VOID   SendBytes (UCHAR *bytes, USHORT len);
    VOID   UnbufferBytes (VOID);
 
+   VOID   SetName (PSZ name);
+   VOID   SetCity (PSZ name);
+   VOID   SetLevel (PSZ level);
+   VOID   SetTimeLeft (ULONG seconds);
+   VOID   SetTime (ULONG seconds);
+
 private:
    CXLWIN wh;
-   USHORT RxPosition;
+   USHORT RxPosition, Counter;
    USHORT Attr, Count, Params[10];
    CHAR   Prec, Ansi;
 };
-#endif
 
 class DLL_EXPORT TTcpip : public TCom
 {
@@ -171,6 +185,12 @@ public:
    VOID   SendBytes (UCHAR *bytes, USHORT len);
    VOID   UnbufferBytes (VOID);
    USHORT WaitClient (VOID);
+
+   VOID   SetName (PSZ name);
+   VOID   SetCity (PSZ name);
+   VOID   SetLevel (PSZ level);
+   VOID   SetTimeLeft (ULONG seconds);
+   VOID   SetTime (ULONG seconds);
 
 private:
    int    Sock, Accepted;
@@ -202,6 +222,12 @@ public:
    VOID   SendBytes (UCHAR *bytes, USHORT len);
    VOID   UnbufferBytes (VOID);
 
+   VOID   SetName (PSZ name);
+   VOID   SetCity (PSZ name);
+   VOID   SetLevel (PSZ level);
+   VOID   SetTimeLeft (ULONG seconds);
+   VOID   SetTime (ULONG seconds);
+
 private:
    USHORT RxPosition;
 #if defined(__LINUX__)
@@ -217,9 +243,8 @@ public:
    TPipe (void);
    ~TPipe (void);
 
-#if defined(__NT__)
-   HANDLE hClientR, hClientW;
-#endif
+   CHAR   Name[64], City[64], Level[64];
+   ULONG  TimeLeft, Time;
 
    USHORT BytesReady (VOID);
    VOID   BufferByte (UCHAR byte);
@@ -227,13 +252,8 @@ public:
    USHORT Carrier (VOID);
    VOID   ClearOutbound (VOID);
    VOID   ClearInbound (VOID);
-#if defined(__OS2__)
-   USHORT Initialize (PSZ pszPipeName, USHORT usInstances);
-   USHORT ConnectServer (PSZ pszPipeName);
-#elif defined(__NT__)
-   USHORT Initialize (VOID);
-   USHORT ConnectServer (HANDLE hRead, HANDLE hWrite);
-#endif
+   USHORT Initialize (PSZ pszPipeName, PSZ pszCtlName, USHORT usInstances);
+   USHORT ConnectServer (PSZ pszPipeName, PSZ pszCtlName);
    UCHAR  ReadByte (VOID);
    USHORT ReadBytes (UCHAR *bytes, USHORT len);
    VOID   SendByte (UCHAR byte);
@@ -241,11 +261,18 @@ public:
    VOID   UnbufferBytes (VOID);
    USHORT WaitClient (VOID);
 
+   VOID   SetName (PSZ name);
+   VOID   SetCity (PSZ name);
+   VOID   SetLevel (PSZ level);
+   VOID   SetTimeLeft (ULONG seconds);
+   VOID   SetTime (ULONG seconds);
+
 private:
+   USHORT CtlConnect, PipeConnect;
 #if defined(__OS2__)
-   HFILE  hFile;
+   HFILE  hFile, hFileCtl;
 #elif defined(__NT__)
-   HANDLE hServerR, hServerW;
+   HANDLE hFile, hFileCtl;
 #endif
 };
 #endif

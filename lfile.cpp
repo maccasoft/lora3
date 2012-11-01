@@ -14,12 +14,12 @@ VOID ExportFilesBBS (VOID)
 
    printf (" * Export to FILES.BBS\r\n");
 
-   if ((Data = new TFileData (".\\")) != NULL) {
+   if ((Data = new TFileData (Cfg->SystemPath)) != NULL) {
       if (Data->First () == TRUE)
          do {
             Total = 0L;
             printf (" +-- %-15.15s %-45.45s ", Data->Key, Data->Display);
-            if ((File = new TFileBase (".\\", Data->Key)) != NULL) {
+            if ((File = new TFileBase (Cfg->SystemPath, Data->Key)) != NULL) {
                sprintf (Path, "%sfiles.bbs", Data->Download);
                if ((fp = fopen (Path, "wt")) != NULL) {
                   File->SortByName ();
@@ -58,23 +58,19 @@ VOID ImportFilesBBS (VOID)
    unlink ("filebase.dat");
    unlink ("filebase.idx");
 
-   if ((Data = new TFileData (".\\")) != NULL) {
+   if ((Data = new TFileData (Cfg->SystemPath)) != NULL) {
       if (Data->First () == TRUE)
          do {
             PendingWrite = FALSE;
             Total = 0L;
             printf (" +-- %-15.15s %-45.45s ", Data->Key, Data->Display);
-            if ((File = new TFileBase (".\\", Data->Key)) != NULL) {
+            if ((File = new TFileBase (Cfg->SystemPath, Data->Key)) != NULL) {
                sprintf (Path, "%sfiles.bbs", Data->Download);
                if ((fp = fopen (Path, "rt")) != NULL) {
                   while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
                      if ((p = strchr (Temp, 0x0A)) != NULL)
                         *p = '\0';
-                     if (Temp[1] == '>') {
-                        if (PendingWrite == TRUE)
-                           File->Description->Add (&Temp[2], (USHORT)(strlen (&Temp[2]) + 1));
-                     }
-                     else {
+                     if (Temp[0] != ' ') {
                         if (PendingWrite == TRUE) {
                            File->Add ();
                            Total++;
@@ -121,6 +117,17 @@ VOID ImportFilesBBS (VOID)
                               File->CdRom = Data->CdRom;
                               PendingWrite = TRUE;
                            }
+                           else
+                              File->Clear ();
+                        }
+                     }
+                     else if (PendingWrite == TRUE) {
+                        p = Temp;
+                        while (*p == ' ' || *p == '\t')
+                           p++;
+                        if (*p == '>' || *p == '|' || *p == '+') {
+                           p++;
+                           File->Description->Add (p);
                         }
                      }
                   }
@@ -159,12 +166,12 @@ VOID PurgeFiles (USHORT DaysOld)
    printf (" * Purging Files\r\n");
    Today = time (NULL) / 86400L;
 
-   if ((Data = new TFileData (".\\")) != NULL) {
+   if ((Data = new TFileData (Cfg->SystemPath)) != NULL) {
       if (Data->First () == TRUE)
          do {
             Deleted = Total = 0L;
             printf (" +-- %-15.15s %-29.29s ", Data->Key, Data->Display);
-            if ((File = new TFileBase (".\\", Data->Key)) != NULL) {
+            if ((File = new TFileBase (Cfg->SystemPath, Data->Key)) != NULL) {
                if (File->First () == TRUE)
                   do {
                      Total++;
@@ -197,7 +204,7 @@ VOID PackFilebase (VOID)
 
    printf (" * Packing (Compressing) Filebase\r\n");
 
-   if ((File = new TFileBase (".\\", "")) != NULL) {
+   if ((File = new TFileBase (Cfg->SystemPath, "")) != NULL) {
       File->Pack ();
       delete File;
    }
@@ -213,11 +220,11 @@ VOID CreateFilesList (VOID)
    printf (" * Creating List of Files (bbslist.txt)\r\n");
 
    if ((fp = _fsopen ("bbslist.txt", "wt", SH_DENYNO)) != NULL) {
-      if ((Data = new TFileData (".\\")) != NULL) {
+      if ((Data = new TFileData (Cfg->SystemPath)) != NULL) {
          if (Data->First () == TRUE)
             do {
                printf (" +-- %-15.15s %-29.29s ", Data->Key, Data->Display);
-               if ((File = new TFileBase (".\\", Data->Key)) != NULL) {
+               if ((File = new TFileBase (Cfg->SystemPath, Data->Key)) != NULL) {
                   File->SortByName ();
                   if (File->First () == TRUE) {
                      fprintf (fp, "\nLibrary: %s\n", Data->Key);
@@ -287,6 +294,8 @@ VOID UpdateFilebase (USHORT KeepDate)
                   while ((ent = readdir (dir)) != NULL) {
                      if (!strcmp (ent->d_name, ".") || !strcmp (ent->d_name, ".."))
                         continue;
+                     if (!stricmp (ent->d_name, "files.bbs") || !stricmp (ent->d_name, "descript.ion"))
+                        continue;
                      if (File->Read (ent->d_name) == FALSE) {
                         sprintf (Path, "%s%s", Data->Download, ent->d_name);
                         if (!stat (AdjustPath (Path), &statbuf)) {
@@ -322,9 +331,17 @@ VOID UpdateFilebase (USHORT KeepDate)
                            File->Description->Add ("Description missing");
                            if (Packer != NULL) {
                               if (Packer->CheckArc (Path) == TRUE) {
-                                 Packer->DoUnpack (Path, ".\\", "file_id.diz");
-                                 if (!stat ("file_id.diz", &statbuf)) {
-                                    if ((fp = fopen ("file_id.diz", "rt")) != NULL) {
+#if defined(__LINUX__)
+                                 mkdir ("lfiletmp", 0666);
+#else
+                                 mkdir ("lfiletmp");
+#endif
+                                 if (strstr (Packer->UnpackCmd, "%3") == NULL && strstr (Packer->UnpackCmd, "%f") == NULL)
+                                    strcat (Packer->UnpackCmd, " %3");
+                                 Packer->DoUnpack (Path, "lfiletmp", "file_id.diz");
+                                 strcpy (Temp, "lfiletmp\\file_id.diz");
+                                 if (!stat (AdjustPath (Temp), &statbuf)) {
+                                    if ((fp = fopen (Temp, "rt")) != NULL) {
                                        File->Description->Clear ();
                                        while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
                                           if ((p = strchr (Temp, '\n')) != NULL)
@@ -335,8 +352,10 @@ VOID UpdateFilebase (USHORT KeepDate)
                                        }
                                        fclose (fp);
                                     }
-                                    unlink ("file_id.diz");
+                                    strcpy (Temp, "lfiletmp\\file_id.diz");
+                                    unlink (AdjustPath (Temp));
                                  }
+                                 rmdir ("lfiletmp");
                               }
                            }
                            File->Add ();

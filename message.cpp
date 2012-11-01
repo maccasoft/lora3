@@ -15,6 +15,7 @@ class TMsgAreaListing : public TListings
 public:
    TMsgAreaListing (void);
 
+   CHAR   Area[16];
    CHAR   Command[16];
    class  TConfig *Cfg;
    class  TMsgData *Current;
@@ -34,6 +35,8 @@ public:
    class  TConfig *Cfg;
    class  TMsgData *Current;
 
+   CHAR   Area[16];
+
    VOID   Begin (VOID);
    USHORT DrawScreen (VOID);
    VOID   PrintCursor (USHORT y);
@@ -46,12 +49,13 @@ public:
 class TMessageList : public TListings
 {
 public:
-   USHORT Forward, ShowKludges;
+   USHORT ShowKludges;
    CHAR   LastRead[16];
    ULONG  Number;
    class  TConfig *Cfg;
    class  TMsgBase *Msg;
    class  TMsgData *Current;
+   class  TMessage *Parent;
 
    VOID   Begin (VOID);
    USHORT DrawScreen (VOID);
@@ -66,7 +70,8 @@ public:
 
 VOID TMessageList::Begin (VOID)
 {
-   USHORT i, Continue;
+   USHORT i, Total = 0;
+   ULONG Msgn;
    LISTDATA ld;
 
    i = 0;
@@ -76,24 +81,45 @@ VOID TMessageList::Begin (VOID)
    Data.Clear ();
 
    if (Msg  != NULL) {
-      if (Forward == TRUE)
-         Continue = Msg->Next (Number);
-      else
-         Continue = Msg->Previous (Number);
+      Msg->Lock (0L);
 
-      while (Embedded->AbortSession () == FALSE && Continue == TRUE) {
+      do {
          if (Msg->ReadHeader (Number) == TRUE) {
-            sprintf (ld.Key, "%lu", Number);
-            sprintf (ld.Display, "%-22.22s  %-21.21s  %-.23s", Msg->From, Msg->To, Msg->Subject);
-            Data.Add (&ld, sizeof (LISTDATA));
+            if (Msg->Private == FALSE || !stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+               Msgn = Msg->UidToMsgn (Number);
+               sprintf (ld.Key, "%5lu", Msgn);
+               if (!stricmp (Msg->From, User->Name))
+                  sprintf (ld.Display, "\026\001\007%5lu  \026\001\014%-20.20s  \026\001\012%-20.20s  \026\001\013%-.28s", Msgn, Msg->From, Msg->To, Msg->Subject);
+               else if (!stricmp (Msg->To, User->Name))
+                  sprintf (ld.Display, "\026\001\007%5lu  \026\001\016%-20.20s  \026\001\014%-20.20s  \026\001\013%-.28s", Msgn, Msg->From, Msg->To, Msg->Subject);
+               else
+                  sprintf (ld.Display, "\026\001\007%5lu  \026\001\016%-20.20s  \026\001\012%-20.20s  \026\001\013%-.28s", Msgn, Msg->From, Msg->To, Msg->Subject);
+               Data.Add (&ld, sizeof (LISTDATA));
+            }
          }
-         if (Forward == TRUE)
-            Continue = Msg->Next (Number);
-         else
-            Continue = Msg->Previous (Number);
-      }
+         Total++;
+#if defined(__OS2__)
+         if ((Total % 16) == 0L)
+            DosSleep (1L);
+#elif defined(__NT__)
+         if ((Total % 16) == 0L)
+            Sleep (1L);
+#endif
+      } while (Embedded->AbortSession () == FALSE && Msg->Next (Number) == TRUE);
+
+      Msg->UnLock ();
    }
 
+   if ((pld = (LISTDATA *)Data.First ()) != NULL) {
+      do {
+         List.Add (pld->Key);
+         i++;
+         if (i >= (User->ScreenHeight - 6))
+            break;
+      } while ((pld = (LISTDATA *)Data.Next ()) != NULL);
+   }
+
+/*
    if ((pld = (LISTDATA *)Data.First ()) != NULL) {
       do {
          if (!strcmp (pld->Key, LastRead))
@@ -113,8 +139,6 @@ VOID TMessageList::Begin (VOID)
       List.Clear ();
       if ((pld = (LISTDATA *)Data.First ()) != NULL) {
          do {
-            if (!strcmp (pld->Key, LastRead))
-               Found = TRUE;
             List.Add (pld->Key, (USHORT)(strlen (pld->Key) + 1));
             i++;
             if (i >= (User->ScreenHeight - 6))
@@ -122,6 +146,7 @@ VOID TMessageList::Begin (VOID)
          } while ((pld = (LISTDATA *)Data.Next ()) != NULL);
       }
    }
+*/
 }
 
 USHORT TMessageList::DrawScreen (VOID)
@@ -130,11 +155,12 @@ USHORT TMessageList::DrawScreen (VOID)
 
    i = 0;
    do {
+      List.Next ();
       pld = (LISTDATA *)Data.Value ();
-      if (Found == TRUE && !strcmp (pld->Key, LastRead)) {
-         y = (USHORT)(i + 4);
-         Found = FALSE;
-      }
+//      if (Found == TRUE && !strcmp (pld->Key, LastRead)) {
+//         y = (USHORT)(i + 4);
+//         Found = FALSE;
+//      }
       PrintLine ();
       i++;
    } while (Data.Next () != NULL && i < (User->ScreenHeight - 6));
@@ -145,41 +171,43 @@ USHORT TMessageList::DrawScreen (VOID)
 VOID TMessageList::PrintTitles (VOID)
 {
    Embedded->Printf ("\x0C\x16\x01\x0B%s \x16\x01\x0A- \x16\x01\x0B%s\026\007\n", Current->Key, Current->Display);
-   Embedded->Printf ("\026\001\012    #  From                    To                     Subject\n");
-   Embedded->Printf ("=====  ======================  =====================  =======================\n");
+   Embedded->Printf ("\026\001\017    #  From                  To                    Subject\n\031Ä\005  \031Ä\024  \031Ä\024  \031Ä\034\n");
 
-   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "=====  ======================  =====================  =======================\n");
+   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "\026\001\017\031Ä\005  \031Ä\024  \031Ä\024  \031Ä\034\n");
 
-   Embedded->Printf ("\026\001\012Hit \026\001\013CTRL-V \026\001\012for next page, \026\001\013CTRL-Y \026\001\012for previous page, \026\001\013? \026\001\012for help, or \026\001\013X \026\001\012to exit.\n");
-   Embedded->Printf ("\026\001\012To highlight a message, use your \026\001\013arrow keys\026\001\012, \026\001\013RETURN \026\001\012reads it.");
+   Embedded->Printf ("\026\001\016Use your arrow keys or CTRL-X / CTRL-E to hilight an area, RETURN selects it.\n");
+   Embedded->Printf ("\026\001\016Hit CTRL-V for next page, CTRL-Y for previous page, or X to exit.");
 
    Embedded->PrintfAt (4, 1, "");
 }
 
 VOID TMessageList::PrintLine (VOID)
 {
-   Embedded->Printf ("\026\001\013%-5.5s  \026\001\016%s\n", pld->Key, pld->Display);
+   Embedded->Printf ("%s\n", pld->Display);
 }
 
 VOID TMessageList::PrintCursor (USHORT y)
 {
-   Embedded->PrintfAt (y, 1, "\x16\x01\x70%-5.5s\x16\x01\x0E", (PSZ)List.Value ());
+   Embedded->PrintfAt (y, 1, "\x16\x01\x70%-5.5s\x16\x01\x07", (PSZ)List.Value ());
 }
 
 VOID TMessageList::RemoveCursor (USHORT y)
 {
-   Embedded->PrintfAt (y, 1, "\x16\x01\x0B%-5.5s\x16\x01\x0E", (PSZ)List.Value ());
+   Embedded->PrintfAt (y, 1, "\x16\x01\x07%-5.5s\x16\x01\x07", (PSZ)List.Value ());
 }
 
 VOID TMessageList::Select (VOID)
 {
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
-   CHAR *Text, Temp[96], *p, *a;
+   CHAR *Text, Temp[96], *p, Flags[96];
    ULONG Msgn;
 
    if (Msg != NULL) {
-      Msg->Read (atoi ((PSZ)List.Value ()));
-      Msgn = Msg->Current;
+      Msgn = atol ((PSZ)List.Value ());
+      Msg->Read (Msg->MsgnToUid (Msgn));
+
+      if (Log != NULL)
+         Log->Write (":Display Msg. #%lu, area %s (%lu)", Msgn, Current->Key, Msg->Current);
 
       if ((p = (CHAR *)Msg->Text.First ()) != NULL)
          do {
@@ -222,30 +250,64 @@ VOID TMessageList::Select (VOID)
                break;
          } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
 
-      strcpy (Temp, "===============================================================================");
-      Temp[79 - strlen (Current->Display) - 3] = '\0';
-      Embedded->BufferedPrintf ("\x0C\x16\x01\x09= \x16\x01\x0E%s \x16\x01\x09%s\n", Current->Display, Temp);
+      Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEHDR), Current->Display, (CHAR)(80 - strlen (Current->Display) - 3));
+      if (Msg->Original != 0L && Msg->Reply == 0L)
+         sprintf (Temp, Language->Text (LNG_MESSAGENUMBER1), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Original));
+      else if (Msg->Original == 0L && Msg->Reply != 0L)
+         sprintf (Temp, Language->Text (LNG_MESSAGENUMBER2), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Reply));
+      else if (Msg->Original != 0L && Msg->Reply != 0L)
+         sprintf (Temp, Language->Text (LNG_MESSAGENUMBER3), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Original), Msg->UidToMsgn (Msg->Reply));
+      else
+         sprintf (Temp, Language->Text (LNG_MESSAGENUMBER), Msgn, Msg->Number ());
+      Flags[0] = '\0';
+      if (Msg->Received == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_RCV));
+      if (Msg->Sent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_SNT));
+      if (Msg->Private == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_PVT));
+      if (Msg->Crash == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_CRA));
+      if (Msg->KillSent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_KS));
+      if (Msg->Local == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_LOC));
+      if (Msg->Hold == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_HLD));
+      if (Msg->FileAttach == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_ATT));
+      if (Msg->FileRequest == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_FRQ));
+      if (Msg->Intransit == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_TRS));
+      Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFLAGS), Temp, Flags);
 
-      Embedded->BufferedPrintf ("\x16\x01\x0A    Msg: \x16\x01\x0E%lu of %lu (%lu left)\n", Msgn, Current->LastMessage, Current->LastMessage - Msgn);
-      sprintf (Temp, "%02d %3.3s %d %2d:%02d", Msg->Written.Day, Language->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute);
-      Embedded->BufferedPrintf ("\x16\x01\x0A   From: \x16\x01\x0E%-35.35s \x16\x01\x0F%-16.16s \x16\x01\x07%s\n", Msg->From, Msg->FromAddress, Temp);
-      sprintf (Temp, "%02d %3.3s %d %2d:%02d", Msg->Arrived.Day, Language->Months[Msg->Arrived.Month - 1], Msg->Arrived.Year, Msg->Arrived.Hour, Msg->Arrived.Minute);
-      Embedded->BufferedPrintf ("\x16\x01\x0A     To: \x16\x01\x0E%-35.35s \x16\x01\x0F%-16.16s \x16\x01\x07%s\n", Msg->To, Msg->ToAddress, Temp);
-      Embedded->BufferedPrintf ("\x16\x01\x0ASubject: \x16\x01\x0E%s\n", Msg->Subject);
-      Embedded->BufferedPrintf ("\x16\x01\x09===============================================================================\n");
+      Parent->BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+      Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFROM), Msg->From, Msg->FromAddress, Temp);
+      Parent->BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Arrived);
+      Embedded->BufferedPrintf (Language->Text (LNG_MESSAGETO), Msg->To, Msg->ToAddress, Temp);
+      if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFILE), Msg->Subject);
+      else
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Msg->Subject);
+      Embedded->BufferedPrintf ("\x16\x01\x13\031Ä\120");
+
       Line = 6;
 
       if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
          do {
             if (ShowKludges == TRUE || (strncmp (Text, "SEEN-BY: ", 9) && Text[0] != 1)) {
-               if (strchr (Text, '>') != NULL)
-                  Embedded->BufferedPrintf (Language->MessageQuote, Text);
-               else if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1)
-                  Embedded->BufferedPrintf (Language->MessageKludge, Text);
+               if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1) {
+                  if (Text[0] == 1)
+                     Text++;
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEKLUDGE), Text);
+               }
                else if (!strncmp (Text, " * Origin", 9) || !strncmp (Text, "---", 3))
-                  Embedded->BufferedPrintf (Language->MessageOrigin, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEORIGIN), Text);
+               else if (strchr (Text, '>') != NULL)
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEQUOTE), Text);
                else
-                  Embedded->BufferedPrintf (Language->MessageText, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGETEXT), Text);
 
                MaxLine = Line;
                if ((Line = Embedded->MoreQuestion (Line)) == 1) {
@@ -259,11 +321,13 @@ VOID TMessageList::Select (VOID)
 
       Embedded->UnbufferBytes ();
 
-      if (Line > 6) {
-         Embedded->Printf ("\n\026\001\013");
-         if (Embedded->MoreQuestion (Line) != 1)
-            Embedded->PressEnter ();
+      if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+         Msg->Received = TRUE;
+         Msg->WriteHeader (Msg->Current);
       }
+
+      if (Line > 6)
+         Embedded->MoreQuestion (99);
 
       Redraw = Titles = TRUE;
    }
@@ -299,73 +363,66 @@ TMessage::~TMessage (void)
 
 VOID TMessage::BriefList (VOID)
 {
-   USHORT NewMessages, Forward, Continue;
-   SHORT Line;
-   ULONG Number, First, Last, LastRead;
+   CHAR Temp[16];
+   SHORT Line, Continue;
+   ULONG Number;
    class TMessageList *List;
 
    if (Msg != NULL) {
-      First = Msg->Lowest ();
-      Last = Msg->Highest ();
-
       Number = 0L;
-      LastRead = 0L;
-      NewMessages = TRUE;
-
       if (User != NULL) {
-         if (User->MsgTag->Read (Current->Key) == TRUE) {
-            LastRead = Number = User->MsgTag->LastRead;
-            if (Number >= Last)
-               NewMessages = FALSE;
-         }
+         if (User->MsgTag->Read (Current->Key) == TRUE)
+            Number = User->MsgTag->LastRead;
       }
 
       if (Msg->Number () != 0L) {
-         StartMessageQuestion (First, Last, NewMessages, Number, Forward);
+         Embedded->Printf ("\n\026\001\017Start displaying at which msg# (\"=\" for current): ");
+         Embedded->Input (Temp, (USHORT)(sizeof (Temp) - 1), 0);
 
-         if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE) {
-            if ((List = new TMessageList) != NULL) {
-               List->Cfg = Cfg;
-               List->Embedded = Embedded;
-               List->Log = Log;
-               List->User = User;
-               List->Language = Language;
-               List->Current = Current;
-               List->Msg = Msg;
-               List->Forward = Forward;
-               List->Number = Number;
-               List->ShowKludges = ShowKludges;
-               sprintf (List->LastRead, "%lu", LastRead);
-               List->Run ();
-               delete List;
-            }
-         }
-         else {
-            Line = 2;
-            Embedded->Printf ("\x0C\026\001\012    #  From                    To                     Subject\n");
-            Embedded->Printf ("-----  ----------------------  ---------------------  -----------------------\n");
+         if (Temp[0] != '\0') {
+            if (Temp[0] != '=')
+               Number = Msg->MsgnToUid (atol (Temp));
 
-            if (Forward == TRUE)
-               Continue = Msg->Next (Number);
-            else
-               Continue = Msg->Previous (Number);
-
-            while (Embedded->AbortSession () == FALSE && Line != 0 && Continue == TRUE) {
-               if (Msg->ReadHeader (Number) == TRUE) {
-                  if ((Line = Embedded->MoreQuestion (Line)) == 1) {
-                     Embedded->Printf ("\x0C    #  From                    To                     Subject\n");
-                     Embedded->Printf ("-----  ----------------------  ---------------------  -----------------------\n");
-                     Line = 2;
-                  }
-                  Embedded->Printf ("\026\001\016%5d  \026\001\012%-22.22s  %-21.21s  %-.23s\n", Msg->Current, Msg->From, Msg->To, Msg->Subject);
+            if ((Embedded->Ansi == TRUE || Embedded->Avatar == TRUE) && User->FullScreen == TRUE) {
+               if ((List = new TMessageList) != NULL) {
+                  List->Cfg = Cfg;
+                  List->Embedded = Embedded;
+                  List->Log = Log;
+                  List->User = User;
+                  List->Language = Language;
+                  List->Current = Current;
+                  List->Msg = Msg;
+                  List->Number = Number;
+                  List->ShowKludges = ShowKludges;
+                  List->Parent = this;
+                  sprintf (List->LastRead, "%5lu", atol (Temp));
+                  List->Run ();
+                  delete List;
                }
-               if (Forward == TRUE)
-                  Continue = Msg->Next (Number);
-               else
-                  Continue = Msg->Previous (Number);
             }
+            else {
+               Line = 2;
+               Embedded->Printf ("\x0C");
+               Embedded->Printf ("\026\001\017    #  From                    To                     Subject\n\031Ä\005  \031Ä\026  \031Ä\025  \031Ä\027\n");
 
-            Embedded->Printf ("\n\026\001\016End of list! \001\001");
+               Continue = Msg->Next (Number);
+               while (Embedded->AbortSession () == FALSE && Line != 0 && Continue == TRUE) {
+                  if (Msg->ReadHeader (Number) == TRUE) {
+                     if (Msg->Private == FALSE || !stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+                        if ((Line = Embedded->MoreQuestion (Line)) == 1) {
+                           Embedded->Printf ("\x0C");
+                           Embedded->Printf ("\026\001\017    #  From                    To                     Subject\n\031Ä\005  \031Ä\026  \031Ä\025  \031Ä\027\n");
+                           Line = 2;
+                        }
+                        Embedded->Printf ("\026\001\007%5lu  \026\001\016%-22.22s  \026\001\012%-21.21s  \026\001\013%-.23s\n", Msg->UidToMsgn (Msg->Current), Msg->From, Msg->To, Msg->Subject);
+                     }
+                  }
+                  Continue = Msg->Next (Number);
+               }
+
+               if (Line > 2)
+                  Embedded->PressEnter ();
+            }
          }
       }
    }
@@ -406,14 +463,104 @@ VOID TMessage::Delete (VOID)
    }
 }
 
+VOID TMessage::BuildDate (PSZ format, PSZ dest, MDATE *date)
+{
+   CHAR Temp[16];
+
+   while (*format != '\0') {
+      if (*format == '%') {
+         format++;
+         switch (*format) {
+            case 'A':
+               if (date->Hour >= 12)
+                  strcpy (dest, "pm");
+               else
+                  strcpy (dest, "am");
+               dest += 2;
+               format++;
+               break;
+            case 'B':
+               sprintf (Temp, "%2d", date->Month);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'C':
+               sprintf (Temp, "%-3.3s", Language->Months[date->Month - 1]);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'D':
+               sprintf (Temp, "%2d", date->Day);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'E':
+               if (date->Hour > 12)
+                  sprintf (Temp, "%2d", date->Hour - 12);
+               else
+                  sprintf (Temp, "%2d", date->Hour);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'H':
+               sprintf (Temp, "%2d", date->Hour);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'M':
+               sprintf (Temp, "%02d", date->Minute);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'S':
+               sprintf (Temp, "%02d", date->Second);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'Y':
+               sprintf (Temp, "%2d", date->Year % 100);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'Z':
+               sprintf (Temp, "%4d", date->Year);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            default:
+               *dest++ = *format++;
+               break;
+         }
+      }
+      else
+         *dest++ = *format++;
+   }
+   *dest = '\0';
+}
+
 VOID TMessage::DisplayCurrent (VOID)
 {
+   USHORT InitialLine;
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
-   CHAR *Text, Temp[96], *p, *a;
+   CHAR *Text, Temp[96], *p, Flags[96];
    ULONG Msgn;
 
    if (Msg != NULL) {
-      Msgn = Msg->Current;
+      if (Msg->Current == 0L)
+         Msg->Read (Msg->MsgnToUid (Current->LastReaded));
+      Msgn = Msg->UidToMsgn (Msg->Current);
+      Current->LastReaded = Msgn;
+      if (Log != NULL && Pause == FALSE)
+         Log->Write (":Display Msg. #%lu, area %s (%lu)", Msgn, Current->Key, Msg->Current);
 
       if ((p = (CHAR *)Msg->Text.First ()) != NULL)
          do {
@@ -456,42 +603,229 @@ VOID TMessage::DisplayCurrent (VOID)
                break;
          } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
 
-      strcpy (Temp, "===============================================================================");
-      Temp[79 - strlen (Current->Display) - 3] = '\0';
-      Embedded->BufferedPrintf ("\x0C\x16\x01\x09= \x16\x01\x0E%s \x16\x01\x09%s\n", Current->Display, Temp);
+      Flags[0] = '\0';
+      if (Msg->Received == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_RCV));
+      if (Msg->Sent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_SNT));
+      if (Msg->Private == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_PVT));
+      if (Msg->Crash == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_CRA));
+      if (Msg->KillSent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_KS));
+      if (Msg->Local == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_LOC));
+      if (Msg->Hold == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_HLD));
+      if (Msg->FileAttach == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_ATT));
+      if (Msg->FileRequest == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_FRQ));
+      if (Msg->Intransit == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_TRS));
 
-      Embedded->BufferedPrintf ("\x16\x01\x0A    Msg: \x16\x01\x0E%lu of %lu (%lu left)\n", Msgn, Current->LastMessage, Current->LastMessage - Msgn);
-      sprintf (Temp, "%02d %3.3s %d %2d:%02d", Msg->Written.Day, Language->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute);
-      Embedded->BufferedPrintf ("\x16\x01\x0A   From: \x16\x01\x0E%-35.35s \x16\x01\x0F%-16.16s \x16\x01\x07%s\n", Msg->From, Msg->FromAddress, Temp);
-      sprintf (Temp, "%02d %3.3s %d %2d:%02d", Msg->Arrived.Day, Language->Months[Msg->Arrived.Month - 1], Msg->Arrived.Year, Msg->Arrived.Hour, Msg->Arrived.Minute);
-      Embedded->BufferedPrintf ("\x16\x01\x0A     To: \x16\x01\x0E%-35.35s \x16\x01\x0F%-16.16s \x16\x01\x07%s\n", Msg->To, Msg->ToAddress, Temp);
-      Embedded->BufferedPrintf ("\x16\x01\x0ASubject: \x16\x01\x0E%s\n", Msg->Subject);
-      Embedded->BufferedPrintf ("\x16\x01\x09===============================================================================\n");
-      Line = 6;
+      if (User->FullReader == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEHDR), Current->Display, (CHAR)(80 - strlen (Current->Display) - 3));
+         if (Msg->Original != 0L && Msg->Reply == 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER1), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Original));
+         else if (Msg->Original == 0L && Msg->Reply != 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER2), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Reply));
+         else if (Msg->Original != 0L && Msg->Reply != 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER3), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Original), Msg->UidToMsgn (Msg->Reply));
+         else
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER), Msgn, Msg->Number ());
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFLAGS), Temp, Flags);
+
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFROM), Msg->From, Msg->FromAddress, Temp);
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Arrived);
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGETO), Msg->To, Msg->ToAddress, Temp);
+         if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+            Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFILE), Msg->Subject);
+         else
+            Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Msg->Subject);
+         Embedded->BufferedPrintf ("\x16\x01\x13\031Ä\120");
+
+         InitialLine = Line = 6;
+      }
+      else {
+         Embedded->BufferedPrintf ("\x0C");
+         Embedded->BufferedPrintf ("\026\001\003From:    \026\001\016%-36.36s \026\001\017%-.33s\n", Msg->From, Flags);
+
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+         Embedded->BufferedPrintf ("\026\001\003To:      \026\001\016%-36.36s \026\001\012Msg #%lu, %-.23s\n", Msg->To, Msgn, Temp);
+
+         if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+            Embedded->BufferedPrintf ("\026\001\003File(s): \026\001\016%-.70s\n", Msg->Subject);
+         else
+            Embedded->BufferedPrintf ("\026\001\003Subject: \026\001\016%-.70s\n\n", Msg->Subject);
+
+         InitialLine = Line = 4;
+      }
 
       if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
          do {
             if (ShowKludges == TRUE || (strncmp (Text, "SEEN-BY: ", 9) && Text[0] != 1)) {
-               if (strchr (Text, '>') != NULL)
-                  Embedded->BufferedPrintf (Language->MessageQuote, Text);
-               else if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1)
-                  Embedded->BufferedPrintf (Language->MessageKludge, Text);
+               if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1) {
+                  if (Text[0] == 1)
+                     Text++;
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEKLUDGE), Text);
+               }
                else if (!strncmp (Text, " * Origin", 9) || !strncmp (Text, "---", 3))
-                  Embedded->BufferedPrintf (Language->MessageOrigin, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEORIGIN), Text);
+               else if (strchr (Text, '>') != NULL)
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEQUOTE), Text);
                else
-                  Embedded->BufferedPrintf (Language->MessageText, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGETEXT), Text);
 
                MaxLine = Line;
                if ((Line = Embedded->MoreQuestion (Line)) == 1) {
                   MaxLine++;
-                  while (MaxLine > 6)
+                  while (MaxLine > InitialLine)
                      Embedded->BufferedPrintfAt (MaxLine--, 1, "\026\007");
-                  Line = 6;
+                  Line = InitialLine;
                }
             }
          } while ((Text = (CHAR *)Msg->Text.Next ()) != NULL && Embedded->AbortSession () == FALSE && Line != 0);
 
+      if (User->FullReader == FALSE || (Embedded->Ansi == FALSE && Embedded->Avatar == FALSE)) {
+         if (Msg->Original != 0L && Msg->Reply == 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** This is a reply to #%lu.\n", Msg->UidToMsgn (Msg->Original));
+         else if (Msg->Original == 0L && Msg->Reply != 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** See also #%lu.\n", Msg->UidToMsgn (Msg->Reply));
+         else if (Msg->Original != 0L && Msg->Reply != 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** This is a reply to #%lu.  *** See also #%lu.\n", Msg->UidToMsgn (Msg->Original), Msg->UidToMsgn (Msg->Reply));
+         Line += 2;
+      }
+
       Embedded->UnbufferBytes ();
+
+      if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+         Msg->Received = TRUE;
+         Msg->WriteHeader (Msg->Current);
+      }
+
+      if (Line > InitialLine) {
+         MaxLine = Line;
+         Embedded->MoreQuestion (99);
+         MaxLine++;
+         while (MaxLine > InitialLine)
+            Embedded->BufferedPrintfAt (MaxLine--, 1, "\026\007");
+      }
+   }
+}
+
+VOID TMessage::DisplayText (VOID)
+{
+   USHORT gotFrom = FALSE, gotTo = FALSE;
+   CHAR *Text, Temp[96], Flags[96];
+   ULONG Msgn;
+
+   if (Msg != NULL) {
+      Msgn = Msg->UidToMsgn (Msg->Current);
+      Current->LastReaded = Msgn;
+
+      Flags[0] = '\0';
+      if (Msg->Received == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_RCV));
+      if (Msg->Sent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_SNT));
+      if (Msg->Private == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_PVT));
+      if (Msg->Crash == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_CRA));
+      if (Msg->KillSent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_KS));
+      if (Msg->Local == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_LOC));
+      if (Msg->Hold == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_HLD));
+      if (Msg->FileAttach == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_ATT));
+      if (Msg->FileRequest == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_FRQ));
+      if (Msg->Intransit == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_TRS));
+      Embedded->BufferedPrintf ("\n");
+      Embedded->BufferedPrintf ("\026\001\003From:    \026\001\016%-36.36s \026\001\017%-.33s\n", Msg->From, Flags);
+
+      BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+      Embedded->BufferedPrintf ("\026\001\003To:      \026\001\016%-36.36s \026\001\012Msg #%lu, %-.23s\n", Msg->To, Msgn, Temp);
+
+      if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+         Embedded->BufferedPrintf ("\026\001\003File(s): \026\001\016%-.70s\n", Msg->Subject);
+      else
+         Embedded->BufferedPrintf ("\026\001\003Subject: \026\001\016%-.70s\n\n", Msg->Subject);
+
+      if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
+         do {
+            if (ShowKludges == TRUE || (strncmp (Text, "SEEN-BY: ", 9) && Text[0] != 1)) {
+               if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1) {
+                  if (Text[0] == 1)
+                     Text++;
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEKLUDGE), Text);
+               }
+               else if (!strncmp (Text, " * Origin", 9) || !strncmp (Text, "---", 3))
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEORIGIN), Text);
+               else if (strchr (Text, '>') != NULL)
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEQUOTE), Text);
+               else
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGETEXT), Text);
+            }
+         } while ((Text = (CHAR *)Msg->Text.Next ()) != NULL && Embedded->AbortSession () == FALSE);
+
+      Embedded->UnbufferBytes ();
+   }
+}
+
+VOID TMessage::GetOrigin (class TMsgData *Data, PSZ Origin)
+{
+   FILE *fp;
+   int i, max;
+   CHAR Temp[128];
+
+   strcpy (Origin, Cfg->SystemName);
+   if (Data->Origin[0] != '\0')
+      strcpy (Origin, Data->Origin);
+   else if (Data->OriginIndex == OIDX_DEFAULT)
+      strcpy (Origin, Cfg->SystemName);
+   else if (Data->OriginIndex == OIDX_RANDOM) {
+      srand ((unsigned int)time (NULL));
+      sprintf (Temp, "%sorigin.txt", Cfg->SystemPath);
+      if ((fp = fopen (Temp, "rt")) != NULL) {
+         max = 0;
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL)
+            max++;
+         while ((i = rand ()) > max)
+            ;
+         fseek (fp, 0L, SEEK_SET);
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+            if (i == 0) {
+               if (Temp[strlen (Temp) - 1] == '\n')
+                  Temp[strlen (Temp) - 1] = '\0';
+               strcpy (Origin, Temp);
+               break;
+            }
+            i--;
+         }
+         fclose (fp);
+      }
+   }
+   else {
+      i = 1;
+      sprintf (Temp, "%sorigin.txt", Cfg->SystemPath);
+      if ((fp = fopen (Temp, "rt")) != NULL) {
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+            if (i == Data->OriginIndex) {
+               if (Temp[strlen (Temp) - 1] == '\n')
+                  Temp[strlen (Temp) - 1] = '\0';
+               strcpy (Origin, Temp);
+               break;
+            }
+         }
+         fclose (fp);
+      }
    }
 }
 
@@ -499,64 +833,111 @@ VOID TMessage::Reply (VOID)
 {
    ULONG Number;
    class TMsgEditor *Editor;
-   class TFullEditor *FullEditor;
 
    Number = Msg->Current;
 
    if (User->Level >= Current->WriteLevel) {
       if ((User->AccessFlags & Current->WriteFlags) == Current->WriteFlags) {
-         if (User->Ansi == TRUE || User->Avatar == TRUE) {
-            if ((FullEditor = new TFullEditor) != NULL) {
-               FullEditor->Embedded = Embedded;
-               FullEditor->Msg = Msg;
-               FullEditor->Lang = Language;
-               FullEditor->Log = Log;
-               FullEditor->Width = User->ScreenWidth;
-               FullEditor->Height = User->ScreenHeight;
-               strcpy (FullEditor->From, User->Name);
-               strcpy (FullEditor->AreaTitle, Current->Display);
-               if (Current->EchoMail == TRUE) {
-                  FullEditor->EchoMail = TRUE;
-                  strcpy (FullEditor->Origin, Cfg->SystemName);
-                  if (Cfg->MailAddress.First () == TRUE)
-                     strcpy (FullEditor->FromAddress, Cfg->MailAddress.String);
-               }
-               FullEditor->Reply ();
-               delete FullEditor;
+         if (Log != NULL)
+            Log->Write (":Reply to Msg. #%lu, area %s", Msg->UidToMsgn (Number), Current->Key);
+
+         if ((Editor = new TMsgEditor) != NULL) {
+            Editor->Cfg = Cfg;
+            Editor->Embedded = Embedded;
+            Editor->Log = Log;
+            Editor->Msg = Msg;
+            Editor->Language = Language;
+            Editor->Width = User->ScreenWidth;
+            Editor->Height = User->ScreenHeight;
+            strcpy (Editor->UserName, User->Name);
+            strcpy (Editor->AreaKey, Current->Key);
+            strcpy (Editor->AreaTitle, Current->Display);
+            if (Current->EchoMail == TRUE) {
+               Editor->EchoMail = TRUE;
+               GetOrigin (Current, Editor->Origin);
+               if (Cfg->MailAddress.First () == TRUE)
+                  strcpy (Editor->Address, Cfg->MailAddress.String);
+               if (Current->Address[0] != '\0')
+                  strcpy (Editor->Address, Current->Address);
             }
+            if (User->FullEd == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE))
+               Editor->UseFullScreen = TRUE;
+            if (Editor->Reply () == TRUE)
+               Editor->Menu ();
+            delete Editor;
          }
-         else {
-            if ((Editor = new TMsgEditor) != NULL) {
-               Editor->Cfg = Cfg;
-               Editor->Embedded = Embedded;
-               Editor->Log = Log;
-               Editor->Msg = Msg;
-               Editor->Lang = Language;
-               Editor->ScreenWidth = User->ScreenWidth;
-               strcpy (Editor->UserName, User->Name);
-               if (Current->EchoMail == TRUE) {
-                  Editor->EchoMail = TRUE;
-                  strcpy (Editor->Origin, Cfg->SystemName);
-                  if (Cfg->MailAddress.First () == TRUE)
-                     strcpy (Editor->Address, Cfg->MailAddress.String);
-               }
-               if (Editor->Reply () == TRUE)
-                  Editor->Menu ();
-               delete Editor;
+
+         Msg->Read (Number);
+         Current->ActiveMsgs = Msg->Number ();
+         Current->FirstMessage = Msg->Lowest ();
+         Current->LastMessage = Msg->Highest ();
+         Current->LastReaded = Msg->UidToMsgn (Number);
+         Current->Update ();
+      }
+      else {
+         Embedded->Printf ("\026\001\015Sorry, you can't write messages in this Conference.\n\006\007\006\007");
+         if (Log != NULL)
+            Log->Write ("!User can't write messages (flags)");
+      }
+   }
+   else {
+      Embedded->Printf ("\026\001\015Sorry, you can't write messages in this Conference.\n\006\007\006\007");
+      if (Log != NULL)
+         Log->Write ("!User can't write messages (level)");
+   }
+}
+
+VOID TMessage::Write (VOID)
+{
+   class TMsgEditor *Editor;
+
+   if (User->Level >= Current->WriteLevel) {
+      if ((User->AccessFlags & Current->WriteFlags) == Current->WriteFlags) {
+         if (Log != NULL)
+            Log->Write (":Writing Msg. in area %s", Current->Key);
+
+         if ((Editor = new TMsgEditor) != NULL) {
+            Editor->Cfg = Cfg;
+            Editor->Embedded = Embedded;
+            Editor->Log = Log;
+            Editor->Msg = Msg;
+            Editor->Language = Language;
+            Editor->Width = User->ScreenWidth;
+            Editor->Height = User->ScreenHeight;
+            strcpy (Editor->UserName, User->Name);
+            strcpy (Editor->AreaKey, Current->Key);
+            strcpy (Editor->AreaTitle, Current->Display);
+            if (Current->EchoMail == TRUE) {
+               Editor->EchoMail = TRUE;
+               GetOrigin (Current, Editor->Origin);
+               if (Cfg->MailAddress.First () == TRUE)
+                  strcpy (Editor->Address, Cfg->MailAddress.String);
+               if (Current->Address[0] != '\0')
+                  strcpy (Editor->Address, Current->Address);
             }
+            if (User->FullEd == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE))
+               Editor->UseFullScreen = TRUE;
+            if (Editor->Write () == TRUE)
+               Editor->Menu ();
+            delete Editor;
          }
 
          Current->ActiveMsgs = Msg->Number ();
          Current->FirstMessage = Msg->Lowest ();
          Current->LastMessage = Msg->Highest ();
          Current->Update ();
-         Msg->Read (Number);
       }
-      else
+      else {
          Embedded->Printf ("\026\001\015Sorry, you can't write messages in this Conference.\n\006\007\006\007");
+         if (Log != NULL)
+            Log->Write ("!User can't write messages (flags)");
+      }
    }
-   else
+   else {
       Embedded->Printf ("\026\001\015Sorry, you can't write messages in this Conference.\n\006\007\006\007");
+      if (Log != NULL)
+         Log->Write ("!User can't write messages (level)");
+   }
 }
 
 VOID TMessage::Read (ULONG Number)
@@ -589,10 +970,29 @@ VOID TMessage::Read (ULONG Number)
             strcpy (User->MsgTag->Area, Current->Key);
             User->MsgTag->Tagged = FALSE;
             User->MsgTag->LastRead = Msg->Current;
-            User->MsgTag->LastPacked = 0L;
             User->MsgTag->Add ();
          }
       }
+   }
+}
+
+VOID TMessage::ReadReply (VOID)
+{
+   if (Msg != NULL) {
+      if (Msg->Current == 0L || Msg->Reply == 0L)
+         Embedded->Printf ("\n\026\001\017That message isn't available.\n");
+      else
+         Read (Msg->Reply);
+   }
+}
+
+VOID TMessage::ReadOriginal (VOID)
+{
+   if (Msg != NULL) {
+      if (Msg->Current == 0L || Msg->Original == 0L)
+         Embedded->Printf ("\n\026\001\017That message isn't available.\n");
+      else
+         Read (Msg->Original);
    }
 }
 
@@ -600,9 +1000,7 @@ VOID TMessage::ReadMessages (VOID)
 {
    USHORT Forward;
    CHAR Cmd, NewMessages, End, DoRead, Temp[40];
-   ULONG First, Last, Number;
-   class TMsgEditor *Editor;
-   class TFullEditor *FullEditor;
+   ULONG First, Last, Number, LastReaded;
    class TMailEditor *MailEditor;
 
    if (Msg != NULL) {
@@ -623,6 +1021,7 @@ VOID TMessage::ReadMessages (VOID)
 
       if (Msg->Number () != 0L) {
          StartMessageQuestion (First, Last, NewMessages, Number, Forward);
+         LastReaded = Number;
 
          if (Embedded->AbortSession () == FALSE) {
             DoRead = FALSE;
@@ -631,6 +1030,7 @@ VOID TMessage::ReadMessages (VOID)
                if (Forward == TRUE) {
                   if (Msg->Next (Number) == TRUE) {
                      End = FALSE;
+                     Msg->ReadHeader (Number);
                      if (Msg->Private == TRUE && stricmp (User->Name, Msg->To) && stricmp (User->RealName, Msg->To) && stricmp (User->Name, Msg->From) && stricmp (User->RealName, Msg->From))
                         continue;
                      DoRead = TRUE;
@@ -639,6 +1039,7 @@ VOID TMessage::ReadMessages (VOID)
                else {
                   if (Msg->Previous (Number) == TRUE) {
                      End = FALSE;
+                     Msg->ReadHeader (Number);
                      if (Msg->Private == TRUE && stricmp (User->Name, Msg->To) && stricmp (User->RealName, Msg->To) && stricmp (User->Name, Msg->From) && stricmp (User->RealName, Msg->From))
                         continue;
                      DoRead = TRUE;
@@ -647,25 +1048,26 @@ VOID TMessage::ReadMessages (VOID)
             } while (End == FALSE && DoRead == FALSE);
 
             if (End == TRUE) {
-               Embedded->Printf (Language->EndOfMessages);
-               Cmd = Language->ExitReadMessage;
+               Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
+               Cmd = Language->Text(LNG_EXITREADMESSAGE)[0];
             }
          }
 
-         while (Embedded->AbortSession () == FALSE && Cmd != Language->ExitReadMessage) {
+         while (Embedded->AbortSession () == FALSE && Cmd != Language->Text(LNG_EXITREADMESSAGE)[0]) {
             if (End == FALSE && DoRead == TRUE) {
+               LastReaded = Number;
                if (Msg->Read (Number) == TRUE)
                   DisplayCurrent ();
                DoRead = FALSE;
             }
 
             if (End == FALSE)
-               Embedded->Printf (Language->ReadMenu);
+               Embedded->Printf (Language->Text(LNG_READMENU));
             else
-               Embedded->Printf (Language->EndReadMenu);
+               Embedded->Printf (Language->Text(LNG_ENDREADMENU));
             Embedded->GetString (Temp, 10, INP_HOTKEY|INP_NUMERIC);
             if ((Cmd = (CHAR)toupper (Temp[0])) == '\0')
-               Cmd = Language->NextMessage;
+               Cmd = Language->Text(LNG_NEXTMESSAGE)[0];
 
             if (isdigit (Cmd)) {
                if (Msg->ReadHeader (atol (Temp)) == TRUE) {
@@ -674,42 +1076,45 @@ VOID TMessage::ReadMessages (VOID)
                   End = FALSE;
                }
             }
-            else if (Cmd == Language->NextMessage) {
-               if (End == FALSE) {
-                  do {
-                     End = TRUE;
-                     if (Forward == TRUE) {
-                        if (Msg->Next (Number) == TRUE) {
-                           End = FALSE;
-                           if (Msg->Private == TRUE && stricmp (User->Name, Msg->To) && stricmp (User->RealName, Msg->To) && stricmp (User->Name, Msg->From) && stricmp (User->RealName, Msg->From))
-                              continue;
-                           DoRead = TRUE;
-                        }
+            else if (Cmd == Language->Text(LNG_NEXTMESSAGE)[0]) {
+               do {
+                  End = TRUE;
+                  if (Forward == TRUE) {
+                     if (Msg->Next (Number) == TRUE) {
+                        End = FALSE;
+                        Msg->ReadHeader (Number);
+                        if (Msg->Private == TRUE && stricmp (User->Name, Msg->To) && stricmp (User->RealName, Msg->To) && stricmp (User->Name, Msg->From) && stricmp (User->RealName, Msg->From))
+                           continue;
+                        DoRead = TRUE;
                      }
-                     else {
-                        if (Msg->Previous (Number) == TRUE) {
-                           End = FALSE;
-                           if (Msg->Private == TRUE && stricmp (User->Name, Msg->To) && stricmp (User->RealName, Msg->To) && stricmp (User->Name, Msg->From) && stricmp (User->RealName, Msg->From))
-                              continue;
-                           DoRead = TRUE;
-                        }
+                  }
+                  else {
+                     if (Msg->Previous (Number) == TRUE) {
+                        End = FALSE;
+                        Msg->ReadHeader (Number);
+                        if (Msg->Private == TRUE && stricmp (User->Name, Msg->To) && stricmp (User->RealName, Msg->To) && stricmp (User->Name, Msg->From) && stricmp (User->RealName, Msg->From))
+                           continue;
+                        DoRead = TRUE;
                      }
-                  } while (End == FALSE && DoRead == FALSE);
-               }
+                  }
+               } while (End == FALSE && DoRead == FALSE);
 
-               if (End == TRUE)
-                  Embedded->Printf (Language->EndOfMessages);
+               if (End == TRUE) {
+                  Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
+                  Number = LastReaded;
+               }
             }
-            else if (Cmd == Language->RereadMessage && End == TRUE) {
+            else if (Cmd == Language->Text(LNG_REREADMESSAGE)[0] && End == TRUE) {
                DoRead = TRUE;
                End = FALSE;
             }
-            else if (Cmd == Language->PreviousMessage) {
+            else if (Cmd == Language->Text(LNG_PREVIOUSMESSAGE)[0]) {
                do {
                   End = TRUE;
                   if (Forward == TRUE) {
                      if (Msg->Previous (Number) == TRUE) {
                         End = FALSE;
+                        Msg->ReadHeader (Number);
                         if (Msg->Private == TRUE && stricmp (User->Name, Msg->To) && stricmp (User->RealName, Msg->To) && stricmp (User->Name, Msg->From) && stricmp (User->RealName, Msg->From))
                            continue;
                         DoRead = TRUE;
@@ -718,6 +1123,7 @@ VOID TMessage::ReadMessages (VOID)
                   else {
                      if (Msg->Next (Number) == TRUE) {
                         End = FALSE;
+                        Msg->ReadHeader (Number);
                         if (Msg->Private == TRUE && stricmp (User->Name, Msg->To) && stricmp (User->RealName, Msg->To) && stricmp (User->Name, Msg->From) && stricmp (User->RealName, Msg->From))
                            continue;
                         DoRead = TRUE;
@@ -725,58 +1131,21 @@ VOID TMessage::ReadMessages (VOID)
                   }
                } while (End == FALSE && DoRead == FALSE);
 
-               if (End == TRUE)
-                  Embedded->Printf (Language->EndOfMessages);
+               if (End == TRUE) {
+                  Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
+                  Number = LastReaded;
+               }
             }
-            else if (Cmd == Language->ReplyMessage) {
+            else if (Cmd == Language->Text(LNG_REPLYMESSAGE)[0]) {
                if (User->Level >= Current->WriteLevel) {
                   if ((User->AccessFlags & Current->WriteFlags) == Current->WriteFlags) {
-                     if (User->Ansi == TRUE || User->Avatar == TRUE) {
-                        if ((FullEditor = new TFullEditor) != NULL) {
-                           FullEditor->Embedded = Embedded;
-                           FullEditor->Msg = Msg;
-                           FullEditor->Lang = Language;
-                           FullEditor->Log = Log;
-                           FullEditor->Width = User->ScreenWidth;
-                           FullEditor->Height = User->ScreenHeight;
-                           strcpy (FullEditor->From, User->Name);
-                           strcpy (FullEditor->AreaTitle, Current->Display);
-                           if (Current->EchoMail == TRUE) {
-                              FullEditor->EchoMail = TRUE;
-                              strcpy (FullEditor->Origin, Cfg->SystemName);
-                              if (Cfg->MailAddress.First () == TRUE)
-                                 strcpy (FullEditor->FromAddress, Cfg->MailAddress.String);
-                           }
-                           FullEditor->Reply ();
-                           delete FullEditor;
-                        }
-                     }
-                     else {
-                        if ((Editor = new TMsgEditor) != NULL) {
-                           Editor->Cfg = Cfg;
-                           Editor->Embedded = Embedded;
-                           Editor->Log = Log;
-                           Editor->Msg = Msg;
-                           Editor->Lang = Language;
-                           Editor->ScreenWidth = User->ScreenWidth;
-                           strcpy (Editor->UserName, User->Name);
-                           if (Current->EchoMail == TRUE) {
-                              Editor->EchoMail = TRUE;
-                              strcpy (Editor->Origin, Cfg->SystemName);
-                              if (Cfg->MailAddress.First () == TRUE)
-                                 strcpy (Editor->Address, Cfg->MailAddress.String);
-                           }
-                           if (Editor->Reply () == TRUE)
-                              Editor->Menu ();
-                           delete Editor;
-                        }
-                     }
-
+                     Reply ();
+                     Msg->Read (Number);
                      Current->ActiveMsgs = Msg->Number ();
                      Current->FirstMessage = Msg->Lowest ();
                      Current->LastMessage = Msg->Highest ();
+                     Current->LastReaded = Msg->UidToMsgn (Number);
                      Current->Update ();
-                     Msg->Read (Number);
                      Last = Msg->Highest ();
                   }
                   else
@@ -785,14 +1154,14 @@ VOID TMessage::ReadMessages (VOID)
                else
                   Embedded->Printf ("\026\001\015Sorry, you can't write messages in this Conference.\n\006\007\006\007");
             }
-            else if (Cmd == Language->EMailReplyMessage && End == FALSE) {
+            else if (Cmd == Language->Text(LNG_EMAILREPLYMESSAGE)[0] && End == FALSE) {
                if ((MailEditor = new TMailEditor) != NULL) {
-                  Editor->Cfg = Cfg;
+                  MailEditor->Cfg = Cfg;
                   MailEditor->Embedded = Embedded;
                   MailEditor->Log = Log;
                   MailEditor->Msg = Msg;
-                  MailEditor->Lang = Language;
-                  MailEditor->ScreenWidth = User->ScreenWidth;
+                  MailEditor->Language = Language;
+                  MailEditor->Width = User->ScreenWidth;
                   strcpy (MailEditor->UserName, User->Name);
                   if (Cfg->MailAddress.First () == TRUE)
                      strcpy (MailEditor->Address, Cfg->MailAddress.String);
@@ -815,7 +1184,6 @@ VOID TMessage::ReadMessages (VOID)
             strcpy (User->MsgTag->Area, Current->Key);
             User->MsgTag->Tagged = FALSE;
             User->MsgTag->LastRead = Number;
-            User->MsgTag->LastPacked = 0L;
             User->MsgTag->Add ();
          }
       }
@@ -824,6 +1192,7 @@ VOID TMessage::ReadMessages (VOID)
 
 VOID TMessage::ReadNext (VOID)
 {
+   USHORT DoRead = FALSE;
    ULONG Number = 0L;
 
    if (User != NULL) {
@@ -832,32 +1201,41 @@ VOID TMessage::ReadNext (VOID)
    }
 
    if (Msg != NULL) {
-      if (Msg->Next (Number) == TRUE) {
+      if (Msg->Next (Number) == TRUE)
+         do {
+            Msg->ReadHeader (Number);
+            if (Msg->Private == FALSE || !stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+               DoRead = TRUE;
+               break;
+            }
+         } while (Msg->Next (Number) == TRUE);
+
+      if (DoRead == TRUE) {
          Msg->Read (Number);
          DisplayCurrent ();
+
+         if (User != NULL) {
+            if (User->MsgTag->Read (Current->Key) == TRUE) {
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Update ();
+            }
+            else {
+               User->MsgTag->New ();
+               strcpy (User->MsgTag->Area, Current->Key);
+               User->MsgTag->Tagged = FALSE;
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Add ();
+            }
+         }
       }
       else
-         Embedded->Printf (Language->EndOfMessages);
-
-      if (User != NULL && Msg->Current != 0L) {
-         if (User->MsgTag->Read (Current->Key) == TRUE) {
-            User->MsgTag->LastRead = Msg->Current;
-            User->MsgTag->Update ();
-         }
-         else {
-            User->MsgTag->New ();
-            strcpy (User->MsgTag->Area, Current->Key);
-            User->MsgTag->Tagged = FALSE;
-            User->MsgTag->LastRead = Msg->Current;
-            User->MsgTag->LastPacked = 0L;
-            User->MsgTag->Add ();
-         }
-      }
+         Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
    }
 }
 
 VOID TMessage::ReadPrevious (VOID)
 {
+   USHORT DoRead = FALSE;
    ULONG Number = 0L;
 
    if (User != NULL) {
@@ -866,26 +1244,90 @@ VOID TMessage::ReadPrevious (VOID)
    }
 
    if (Msg != NULL) {
-      if (Msg->Previous (Number) == TRUE) {
+      if (Msg->Previous (Number) == TRUE)
+         do {
+            Msg->ReadHeader (Number);
+            if (Msg->Private == FALSE || !stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+               DoRead = TRUE;
+               break;
+            }
+         } while (Msg->Previous (Number) == TRUE);
+
+      if (DoRead == TRUE) {
          Msg->Read (Number);
          DisplayCurrent ();
+
+         if (User != NULL) {
+            if (User->MsgTag->Read (Current->Key) == TRUE) {
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Update ();
+            }
+            else {
+               User->MsgTag->New ();
+               strcpy (User->MsgTag->Area, Current->Key);
+               User->MsgTag->Tagged = FALSE;
+               User->MsgTag->LastRead = Msg->Current;
+               User->MsgTag->Add ();
+            }
+         }
       }
       else
-         Embedded->Printf (Language->EndOfMessages);
+         Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
+   }
+}
 
-      if (User != NULL && Msg->Current != 0L) {
-         if (User->MsgTag->Read (Current->Key) == TRUE) {
-            User->MsgTag->LastRead = Msg->Current;
-            User->MsgTag->Update ();
-         }
-         else {
-            User->MsgTag->New ();
-            strcpy (User->MsgTag->Area, Current->Key);
-            User->MsgTag->Tagged = FALSE;
-            User->MsgTag->LastRead = Msg->Current;
-            User->MsgTag->LastPacked = 0L;
-            User->MsgTag->Add ();
-         }
+VOID TMessage::OpenArea (PSZ area)
+{
+   USHORT DoOpen = TRUE;
+
+   if (Current->Read (area) == FALSE) {
+      DoOpen = FALSE;
+      if (Current->First () == TRUE)
+         do {
+            if (User->Level >= Current->Level) {
+               if ((Current->AccessFlags & User->AccessFlags) == Current->AccessFlags) {
+                  DoOpen = TRUE;
+                  break;
+               }
+            }
+         } while (Current->Next () == TRUE);
+   }
+
+   if (DoOpen == TRUE) {
+      if (Msg != NULL) {
+         Msg->Close ();
+         delete Msg;
+      }
+
+      Msg = NULL;
+      if (Current->Storage == ST_JAM)
+         Msg = new JAM (Current->Path);
+      else if (Current->Storage == ST_SQUISH)
+         Msg = new SQUISH (Current->Path);
+      else if (Current->Storage == ST_USENET)
+         Msg = new USENET (Cfg->NewsServer, Current->NewsGroup);
+      else if (Current->Storage == ST_FIDO)
+         Msg = new FIDOSDM (Current->Path);
+      else if (Current->Storage == ST_ADEPT)
+         Msg = new ADEPT (Current->Path);
+      else if (Current->Storage == ST_HUDSON)
+         Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
+
+      if (Log != NULL)
+         Log->Write (":Message Area: %s - %s", Current->Key, Current->Display);
+      if (Msg != NULL) {
+         Current->LastReaded = 0L;
+         if (User->MsgTag->Read (Current->Key) == TRUE)
+            Current->LastReaded = Msg->UidToMsgn (User->MsgTag->LastRead);
+         Current->ActiveMsgs = Msg->Number ();
+         Current->FirstMessage = Msg->Lowest ();
+         Current->LastMessage = Msg->Highest ();
+      }
+      Current->Update ();
+
+      if (User != NULL) {
+         strcpy (User->LastMsgArea, Current->Key);
+         User->Update ();
       }
    }
 }
@@ -907,14 +1349,14 @@ USHORT TMessage::SelectArea (PSZ pszArea)
    if ((Data = new TMsgData (DataPath)) != NULL) {
       do {
          if (DoList == FALSE) {
-            Embedded->Printf (Language->SelectConference);
+            Embedded->Printf (Language->Text(LNG_MESSAGEAREAREQUEST));
             Embedded->Input (Command, (USHORT)(sizeof (Command) - 1), INP_FIELD);
          }
          else
             DoList = FALSE;
 
          if (toupper (Command[0]) == Language->Help) {
-            if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE) {
+            if (User->FullScreen == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
                if ((List = new TMsgAreaListing) != NULL) {
                   List->Cfg = Cfg;
                   List->Embedded = Embedded;
@@ -922,92 +1364,69 @@ USHORT TMessage::SelectArea (PSZ pszArea)
                   List->Current = Current;
                   List->User = User;
                   List->Language = Language;
-                  if ((RetVal = List->Run ()) == TRUE) {
-                     if (Msg != NULL) {
-                        Msg->Close ();
-                        delete Msg;
-                     }
-
-                     Msg = NULL;
-                     if (Current->Storage == ST_JAM)
-                        Msg = new JAM (Current->Path);
-                     else if (Current->Storage == ST_SQUISH)
-                        Msg = new SQUISH (Current->Path);
-                     else if (Current->Storage == ST_USENET)
-                        Msg = new USENET (Cfg->NewsServer, Current->NewsGroup);
-                     else if (Current->Storage == ST_FIDO)
-                        Msg = new FIDOSDM (Current->Path);
-                     else if (Current->Storage == ST_ADEPT)
-                        Msg = new ADEPT (Current->Path);
-
-                     if (Msg != NULL) {
-                        Current->ActiveMsgs = Msg->Number ();
-                        Current->FirstMessage = Msg->Lowest ();
-                        Current->LastMessage = Msg->Highest ();
-                     }
-                     Current->Update ();
-                  }
+                  if ((RetVal = List->Run ()) == TRUE)
+                     OpenArea (List->Area);
                   delete List;
                }
             }
             else {
                if (Data->First () == TRUE) {
-                  Embedded->Printf (Language->ConferenceListHdr);
+                  Embedded->Printf ("\x0C");
+                  Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
                   Line = 3;
                   do {
                      if (User->Level >= Data->Level) {
                         if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
-                           Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
-                           Line = Embedded->MoreQuestion (Line);
+                           Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
+                           if ((Line = Embedded->MoreQuestion (Line)) == 1) {
+                              Embedded->Printf ("\x0C");
+                              Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                              Line = 3;
+                           }
                         }
                      }
                   } while (Line != 0 && Embedded->AbortSession () == FALSE && Data->Next () == TRUE);
                }
             }
          }
+         else if (!stricmp (Command, "[")) {
+            Data->Read (Current->Key, FALSE);
+            if (Data->Previous () == TRUE)
+               do {
+                  if (User->Level >= Data->Level) {
+                     if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
+                        OpenArea (Data->Key);
+                        RetVal = TRUE;
+                        break;
+                     }
+                  }
+               } while (Data->Previous () == TRUE);
+         }
+         else if (!stricmp (Command, "]")) {
+            Data->Read (Current->Key, FALSE);
+            if (Data->Next () == TRUE)
+               do {
+                  if (User->Level >= Data->Level) {
+                     if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
+                        OpenArea (Data->Key);
+                        RetVal = TRUE;
+                        break;
+                     }
+                  }
+               } while (Data->Next () == TRUE);
+         }
          else if (Command[0] != '\0') {
             if (Data->Read (Command) == TRUE) {
                if (User->Level >= Data->Level) {
                   if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
-                     delete Data;
-                     Data = NULL;
-                     if (Msg != NULL) {
-                        Msg->Close ();
-                        delete Msg;
-                     }
-
-                     Current->Read (Command);
-                     if (User != NULL) {
-                        strcpy (User->LastMsgArea, Current->Key);
-                        User->Update ();
-                     }
-
-                     Msg = NULL;
-                     if (Current->Storage == ST_JAM)
-                        Msg = new JAM (Current->Path);
-                     else if (Current->Storage == ST_SQUISH)
-                        Msg = new SQUISH (Current->Path);
-                     else if (Current->Storage == ST_USENET)
-                        Msg = new USENET (Cfg->NewsServer, Current->NewsGroup);
-                     else if (Current->Storage == ST_FIDO)
-                        Msg = new FIDOSDM (Current->Path);
-                     else if (Current->Storage == ST_ADEPT)
-                        Msg = new ADEPT (Current->Path);
-
-                     Log->Write (":Message Area: %s - %s", Current->Key, Current->Display);
-                     if (Msg != NULL) {
-                        Current->ActiveMsgs = Msg->Number ();
-                        Current->FirstMessage = Msg->Lowest ();
-                        Current->LastMessage = Msg->Highest ();
-                     }
-                     Current->Update ();
+                     OpenArea (Data->Key);
                      RetVal = TRUE;
                   }
                }
             }
 
             if (RetVal == FALSE) {
-               if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE) {
+               if (User->FullScreen == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
                   if ((List = new TMsgAreaListing) != NULL) {
                      List->Cfg = Cfg;
                      List->Embedded = Embedded;
@@ -1016,31 +1435,8 @@ USHORT TMessage::SelectArea (PSZ pszArea)
                      List->User = User;
                      List->Language = Language;
                      strcpy (List->Command, Command);
-                     if ((RetVal = List->Run ()) == TRUE) {
-                        if (Msg != NULL) {
-                           Msg->Close ();
-                           delete Msg;
-                        }
-
-                        Msg = NULL;
-                        if (Current->Storage == ST_JAM)
-                           Msg = new JAM (Current->Path);
-                        else if (Current->Storage == ST_SQUISH)
-                           Msg = new SQUISH (Current->Path);
-                        else if (Current->Storage == ST_USENET)
-                           Msg = new USENET (Cfg->NewsServer, Current->NewsGroup);
-                        else if (Current->Storage == ST_FIDO)
-                           Msg = new FIDOSDM (Current->Path);
-                        else if (Current->Storage == ST_ADEPT)
-                           Msg = new ADEPT (Current->Path);
-
-                        if (Msg != NULL) {
-                           Current->ActiveMsgs = Msg->Number ();
-                           Current->FirstMessage = Msg->Lowest ();
-                           Current->LastMessage = Msg->Highest ();
-                        }
-                        Current->Update ();
-                     }
+                     if ((RetVal = List->Run ()) == TRUE)
+                        OpenArea (Current->Key);
                      delete List;
                   }
                }
@@ -1056,8 +1452,8 @@ USHORT TMessage::SelectArea (PSZ pszArea)
                               strcpy (Temp, Data->Key);
                               if (strstr (strupr (Temp), Command) != NULL) {
                                  if (FirstHit == TRUE)
-                                    Embedded->Printf (Language->ConferenceListHdr);
-                                 Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                    Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                                 Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                  Line = Embedded->MoreQuestion (Line);
                                  FirstHit = FALSE;
                               }
@@ -1065,8 +1461,8 @@ USHORT TMessage::SelectArea (PSZ pszArea)
                                  strcpy (Temp, Data->Display);
                                  if (strstr (strupr (Temp), Command) != NULL) {
                                     if (FirstHit == TRUE)
-                                       Embedded->Printf (Language->ConferenceListHdr);
-                                    Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                       Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                                    Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                     Line = Embedded->MoreQuestion (Line);
                                     FirstHit = FALSE;
                                  }
@@ -1074,8 +1470,8 @@ USHORT TMessage::SelectArea (PSZ pszArea)
                                     strcpy (Temp, Data->EchoTag);
                                     if (strstr (strupr (Temp), Command) != NULL) {
                                        if (FirstHit == TRUE)
-                                          Embedded->Printf (Language->ConferenceListHdr);
-                                       Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                          Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                                       Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                        Line = Embedded->MoreQuestion (Line);
                                        FirstHit = FALSE;
                                     }
@@ -1083,8 +1479,8 @@ USHORT TMessage::SelectArea (PSZ pszArea)
                                        strcpy (Temp, Data->NewsGroup);
                                        if (strstr (strupr (Temp), Command) != NULL) {
                                           if (FirstHit == TRUE)
-                                             Embedded->Printf (Language->ConferenceListHdr);
-                                          Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                             Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                                          Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                           Line = Embedded->MoreQuestion (Line);
                                           FirstHit = FALSE;
                                        }
@@ -1097,7 +1493,7 @@ USHORT TMessage::SelectArea (PSZ pszArea)
                   }
 
                   if (FirstHit == TRUE)
-                     Embedded->Printf (Language->ConferenceNotAvailable);
+                     Embedded->Printf (Language->Text(LNG_CONFERENCENOTAVAILABLE));
                }
                if (pszArea != NULL && *pszArea != '\0')
                   Command[0] = '\0';
@@ -1129,7 +1525,7 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
    if ((Data = new TMsgData (DataPath)) != NULL) {
       do {
          if (DoList == FALSE) {
-            Embedded->Printf (Language->SelectConference);
+            Embedded->Printf (Language->Text(LNG_MESSAGEAREAREQUEST));
             Embedded->Input (Command, (USHORT)(sizeof (Command) - 1), INP_FIELD);
          }
          else
@@ -1161,6 +1557,8 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
                         Msg = new FIDOSDM (Current->Path);
                      else if (Current->Storage == ST_ADEPT)
                         Msg = new ADEPT (Current->Path);
+                     else if (Current->Storage == ST_HUDSON)
+                        Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
                      if (Msg != NULL) {
                         Current->ActiveMsgs = Msg->Number ();
@@ -1174,14 +1572,14 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
             }
             else {
                if (Data->First () == TRUE) {
-                  Embedded->Printf (Language->ConferenceListHdr);
+                  Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
                   Line = 3;
                   do {
                      if (User->Level >= Data->Level) {
                         if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
                            if (User->MsgTag->Read (Data->Key) == TRUE) {
                               if (User->MsgTag->LastRead < Data->LastMessage) {
-                                 Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                 Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                  Line = Embedded->MoreQuestion (Line);
                               }
                            }
@@ -1219,6 +1617,8 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
                         Msg = new FIDOSDM (Current->Path);
                      else if (Current->Storage == ST_ADEPT)
                         Msg = new ADEPT (Current->Path);
+                     else if (Current->Storage == ST_HUDSON)
+                        Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
                      Log->Write (":Message Area: %s - %s", Current->Key, Current->Display);
                      if (Msg != NULL) {
@@ -1246,8 +1646,8 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
                                  strcpy (Temp, Data->Key);
                                  if (strstr (strupr (Temp), Command) != NULL) {
                                     if (FirstHit == TRUE)
-                                       Embedded->Printf (Language->ConferenceListHdr);
-                                    Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                       Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                                    Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                     Line = Embedded->MoreQuestion (Line);
                                     FirstHit = FALSE;
                                  }
@@ -1255,8 +1655,8 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
                                     strcpy (Temp, Data->Display);
                                     if (strstr (strupr (Temp), Command) != NULL) {
                                        if (FirstHit == TRUE)
-                                          Embedded->Printf (Language->ConferenceListHdr);
-                                       Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                          Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                                       Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                        Line = Embedded->MoreQuestion (Line);
                                        FirstHit = FALSE;
                                     }
@@ -1264,8 +1664,8 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
                                        strcpy (Temp, Data->EchoTag);
                                        if (strstr (strupr (Temp), Command) != NULL) {
                                           if (FirstHit == TRUE)
-                                             Embedded->Printf (Language->ConferenceListHdr);
-                                          Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                             Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                                          Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                           Line = Embedded->MoreQuestion (Line);
                                           FirstHit = FALSE;
                                        }
@@ -1273,8 +1673,8 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
                                           strcpy (Temp, Data->NewsGroup);
                                           if (strstr (strupr (Temp), Command) != NULL) {
                                              if (FirstHit == TRUE)
-                                                Embedded->Printf (Language->ConferenceListHdr);
-                                             Embedded->Printf (Language->ConferenceList, Data->Key, Data->ActiveMsgs, Data->Display);
+                                                Embedded->Printf (Language->Text(LNG_MESSAGEAREAHEADER));
+                                             Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), Data->Key, Data->ActiveMsgs, Data->Display);
                                              Line = Embedded->MoreQuestion (Line);
                                              FirstHit = FALSE;
                                           }
@@ -1289,7 +1689,7 @@ USHORT TMessage::SelectNewArea (PSZ pszArea)
                }
 
                if (FirstHit == TRUE)
-                  Embedded->Printf (Language->ConferenceNotAvailable);
+                  Embedded->Printf (Language->Text(LNG_CONFERENCENOTAVAILABLE));
             }
          }
       } while (Command[0] != '\0' && RetVal == FALSE && Embedded->AbortSession () == FALSE);
@@ -1306,9 +1706,9 @@ VOID TMessage::StartMessageQuestion (ULONG ulFirst, ULONG ulLast, USHORT fNewMes
    CHAR Cmd, Temp[20];
 
    do {
-      Embedded->Printf (Language->StartWithMessage);
+      Embedded->Printf (Language->Text(LNG_STARTWITHMESSAGE));
       if (fNewMessages == TRUE)
-         Embedded->Printf (Language->NewMessages);
+         Embedded->Printf (Language->Text(LNG_NEWMESSAGES));
       Embedded->Printf (": ");
       Embedded->Input (Temp, (USHORT)(sizeof (Temp) - 1), INP_HOTKEY|INP_NUMERIC);
       Cmd = (CHAR)toupper (Temp[0]);
@@ -1331,97 +1731,51 @@ VOID TMessage::StartMessageQuestion (ULONG ulFirst, ULONG ulLast, USHORT fNewMes
    }
 }
 
-VOID TMessage::TextList (VOID)
+VOID TMessage::ReadNonStop (VOID)
 {
-   USHORT NewMessages, Forward, Continue;
-   SHORT Line;
-   CHAR *Text, Temp[64];
-   ULONG Number, First, Last;
+   USHORT Forward, Continue;
+   ULONG Number;
 
    if (Msg != NULL) {
-      First = Msg->Lowest ();
-      Last = Msg->Highest ();
-
       Number = 0L;
-      NewMessages = TRUE;
       if (User != NULL) {
-         if (User->MsgTag->Read (Current->Key) == TRUE) {
+         if (User->MsgTag->Read (Current->Key) == TRUE)
             Number = User->MsgTag->LastRead;
-            if (Number >= Last)
-               NewMessages = FALSE;
-         }
       }
 
-      if (Msg->Number () > 0L) {
-         StartMessageQuestion (First, Last, NewMessages, Number, Forward);
+      Forward = TRUE;
+      Embedded->BufferedPrintf ("\x0C");
 
-         Line = 4;
-         Embedded->Printf ("\026\001\012FORUM: %s\n", Current->Key);
-         if (Current->Moderator[0] != '\0') {
-            Embedded->Printf ("\026\001\012Forum-Op: %s\n", Current->Moderator);
-            Line++;
-         }
-         Embedded->Printf ("\026\001\012Forum Topic: %s\n\n", Current->Display);
-
+      if (Msg->Number () > 0L && Number < Msg->Highest ()) {
          if (Forward == TRUE)
             Continue = Msg->Next (Number);
          else
             Continue = Msg->Previous (Number);
 
-         while (Embedded->AbortSession () == FALSE && Line != 0 && Continue == TRUE) {
+         while (Embedded->AbortSession () == FALSE && Continue == TRUE) {
             if (Msg->Read (Number) == TRUE) {
-               sprintf (Temp, "%d %s %d %2d:%02d", Msg->Written.Day, Language->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute);
-               Embedded->Printf ("\026\001\012   Date: %-30.30s %30s\n", Temp, Current->Display);
-
-               if ((Line = Embedded->MoreQuestion (Line)) != 0) {
-                  sprintf (Temp, "Msg#: %lu", Msg->Current);
-                  Embedded->Printf ("   From: %-40.40s %20s\n", Msg->From, Temp);
-
-                  if ((Line = Embedded->MoreQuestion (Line)) != 0) {
-                     Embedded->Printf ("     To: %.70s\n", Msg->To);
-                     if ((Line = Embedded->MoreQuestion (Line)) != 0) {
-                        Embedded->Printf ("Subject: %.70s\n\n", Msg->Subject);
-                        Line = Embedded->MoreQuestion (Line);
+               if (Msg->Private == FALSE || !stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To) || !stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From)) {
+                  DisplayText ();
+                  if (User != NULL) {
+                     if (User->MsgTag->Read (Current->Key) == TRUE) {
+                        User->MsgTag->LastRead = Msg->Current;
+                        User->MsgTag->Update ();
+                     }
+                     else {
+                        User->MsgTag->New ();
+                        strcpy (User->MsgTag->Area, Current->Key);
+                        User->MsgTag->Tagged = FALSE;
+                        User->MsgTag->LastRead = Msg->Current;
+                        User->MsgTag->Add ();
                      }
                   }
                }
-
-               if (Line != 0) {
-                  Embedded->Printf ("\n");
-                  if ((Line = Embedded->MoreQuestion (Line)) != 0) {
-                     if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
-                        do {
-                           if (ShowKludges == TRUE || (strncmp (Text, "SEEN-BY: ", 9) && Text[0] != 1)) {
-                              if (strchr (Text, '>') != NULL)
-                                 Embedded->Printf ("\026\001\012%s\n", Text);
-                              else if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1)
-                                 Embedded->Printf ("\026\001\012%s\n", Text);
-                              else if (!strncmp (Text, " * Origin", 9) || !strncmp (Text, "---", 3))
-                                 Embedded->Printf ("\026\001\012%s\n", Text);
-                              else
-                                 Embedded->Printf ("\026\001\012%s\n", Text);
-                              Line = Embedded->MoreQuestion (Line);
-                           }
-                        } while ((Text = (PSZ)Msg->Text.Next ()) != NULL && Embedded->AbortSession () == FALSE && Line != 0);
-                  }
-                  if (Line != 0) {
-                     Embedded->Printf ("\n");
-                     Line = Embedded->MoreQuestion (Line);
-                  }
-               }
             }
-
-            if (Line != 0) {
-               if (Forward == TRUE)
-                  Continue = Msg->Next (Number);
-               else
-                  Continue = Msg->Previous (Number);
-            }
+            if (Forward == TRUE)
+               Continue = Msg->Next (Number);
+            else
+               Continue = Msg->Previous (Number);
          }
-
-         Embedded->Printf ("\n\026\001\016End of list!\n");
-         if (Line > 1)
-            Embedded->PressEnter ();
       }
    }
 }
@@ -1493,6 +1847,18 @@ VOID TMessage::TitleList (VOID)
          Embedded->Printf ("\n\026\001\016End of list!\n");
          if (Line > 1)
             Embedded->PressEnter ();
+      }
+   }
+}
+
+VOID TMessage::Unreceive (VOID)
+{
+   if (Msg != NULL) {
+      if (Msg->Current == 0L)
+         Msg->Read (Msg->MsgnToUid (Current->LastReaded));
+      if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+         Msg->Received = FALSE;
+         Msg->WriteHeader (Msg->Current);
       }
    }
 }
@@ -1572,6 +1938,18 @@ VOID TMsgAreaListing::Begin (VOID)
          }
       } while ((pld = (LISTDATA *)Data.Next ()) != NULL);
    }
+
+   if (Found == FALSE) {
+      List.Clear ();
+      if ((pld = (LISTDATA *)Data.First ()) != NULL) {
+         do {
+            List.Add (pld->Key, (USHORT)(strlen (pld->Key) + 1));
+            i++;
+            if (i >= (User->ScreenHeight - 6))
+               break;
+         } while ((pld = (LISTDATA *)Data.Next ()) != NULL);
+      }
+   }
 }
 
 USHORT TMsgAreaListing::DrawScreen (VOID)
@@ -1580,6 +1958,7 @@ USHORT TMsgAreaListing::DrawScreen (VOID)
 
    i = 0;
    do {
+      List.Next ();
       pld = (LISTDATA *)Data.Value ();
       if (Found == TRUE && !strcmp (pld->Key, Current->Key)) {
          y = (USHORT)(i + 4);
@@ -1594,42 +1973,35 @@ USHORT TMsgAreaListing::DrawScreen (VOID)
 
 VOID TMsgAreaListing::PrintTitles (VOID)
 {
-   Embedded->Printf ("\x0C\n");
-   Embedded->Printf ("\026\001\012Conference       Msgs   Description\n\026\001\017\031=\017  \031=\005  \031=\067\n");
+   Embedded->Printf ("\x0C");
+   Embedded->Printf (Language->Text (LNG_MESSAGEAREAHEADER));
 
-   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "\026\001\017\031=\017  \031=\005  \031=\067\n");
+   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, Language->Text (LNG_MESSAGEAREASEPARATOR));
 
-   Embedded->Printf ("\026\001\012Hit \026\001\013CTRL-V \026\001\012for next page, \026\001\013CTRL-Y \026\001\012for previous page, \026\001\013? \026\001\012for help, or \026\001\013X \026\001\012to exit.\n");
-   Embedded->Printf ("\026\001\012To highlight an area, use your \026\001\013arrow keys\026\001\012, \026\001\013RETURN \026\001\012selects it.");
+   Embedded->Printf (Language->Text (LNG_MESSAGEAREADESCRIPTION1));
+   Embedded->Printf (Language->Text (LNG_MESSAGEAREADESCRIPTION2));
 
    Embedded->PrintfAt (4, 1, "");
 }
 
 VOID TMsgAreaListing::PrintLine (VOID)
 {
-   Embedded->Printf (Language->ConferenceList, pld->Key, pld->ActiveMsgs, pld->Display);
+   Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), pld->Key, pld->ActiveMsgs, pld->Display);
 }
 
 VOID TMsgAreaListing::PrintCursor (USHORT y)
 {
-   Embedded->PrintfAt (y, 1, "\x16\x01\x70%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
+   Embedded->PrintfAt (y, 1, Language->Text (LNG_MESSAGEAREACURSOR), (PSZ)List.Value ());
 }
 
 VOID TMsgAreaListing::RemoveCursor (USHORT y)
 {
-   Embedded->PrintfAt (y, 1, "\x16\x01\x0B%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
+   Embedded->PrintfAt (y, 1, Language->Text (LNG_MESSAGEAREAKEY), (PSZ)List.Value ());
 }
 
 VOID TMsgAreaListing::Select (VOID)
 {
-   Current->Read ((PSZ)List.Value ());
-   if (User != NULL) {
-      strcpy (User->LastMsgArea, Current->Key);
-      User->Update ();
-   }
-   if (Log != NULL)
-      Log->Write (":Message Area: %s - %s", Current->Key, Current->Display);
-
+   strcpy (Area, (PSZ)List.Value ());
    RetVal = End = TRUE;
 }
 
@@ -1716,7 +2088,7 @@ VOID TMsgNewAreaListing::PrintTitles (VOID)
 
 VOID TMsgNewAreaListing::PrintLine (VOID)
 {
-   Embedded->Printf (Language->ConferenceList, pld->Key, pld->ActiveMsgs, pld->Display);
+   Embedded->Printf (Language->Text(LNG_MESSAGEAREALIST), pld->Key, pld->ActiveMsgs, pld->Display);
 }
 
 VOID TMsgNewAreaListing::PrintCursor (USHORT y)
@@ -1731,13 +2103,7 @@ VOID TMsgNewAreaListing::RemoveCursor (USHORT y)
 
 VOID TMsgNewAreaListing::Select (VOID)
 {
-   Current->Read ((PSZ)List.Value ());
-   if (User != NULL) {
-      strcpy (User->LastMsgArea, Current->Key);
-      User->Update ();
-   }
-   Log->Write (":Message Area: %s - %s", Current->Key, Current->Display);
-
+   strcpy (Area, (PSZ)List.Value ());
    RetVal = End = TRUE;
 }
 
@@ -1779,12 +2145,18 @@ VOID TInquire::DeleteCurrent (VOID)
 
 VOID TInquire::DisplayCurrent (VOID)
 {
+   USHORT InitialLine;
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
-   CHAR *Text, Temp[96], *p, *a;
+   CHAR *Text, Temp[96], *p, Flags[96];
    ULONG Msgn;
 
    if (Msg != NULL) {
-      Msgn = Msg->Current;
+      if (Msg->Current == 0L)
+         Msg->Read (Msg->MsgnToUid (Current->LastReaded));
+      Msgn = Msg->UidToMsgn (Msg->Current);
+      Current->LastReaded = Msgn;
+      if (Log != NULL && Pause == FALSE)
+         Log->Write (":Display Msg. #%lu, area %s (%lu)", Msgn, Current->Key, Msg->Current);
 
       if ((p = (CHAR *)Msg->Text.First ()) != NULL)
          do {
@@ -1827,62 +2199,138 @@ VOID TInquire::DisplayCurrent (VOID)
                break;
          } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
 
-      strcpy (Temp, "===============================================================================");
-      Temp[79 - strlen (Current->Display) - 3] = '\0';
-      Embedded->BufferedPrintf ("\x0C\x16\x01\x09= \x16\x01\x0E%s \x16\x01\x09%s\n", Current->Display, Temp);
+      Flags[0] = '\0';
+      if (Msg->Received == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_RCV));
+      if (Msg->Sent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_SNT));
+      if (Msg->Private == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_PVT));
+      if (Msg->Crash == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_CRA));
+      if (Msg->KillSent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_KS));
+      if (Msg->Local == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_LOC));
+      if (Msg->Hold == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_HLD));
+      if (Msg->FileAttach == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_ATT));
+      if (Msg->FileRequest == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_FRQ));
+      if (Msg->Intransit == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_TRS));
 
-      Embedded->BufferedPrintf ("\x16\x01\x0A    Msg: \x16\x01\x0E%lu of %lu (%lu left)\n", Msgn, Current->LastMessage, Current->LastMessage - Msgn);
-      sprintf (Temp, "%02d %3.3s %d %2d:%02d", Msg->Written.Day, Language->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute);
-      Embedded->BufferedPrintf ("\x16\x01\x0A   From: \x16\x01\x0E%-35.35s \x16\x01\x0F%-16.16s \x16\x01\x07%s\n", Msg->From, Msg->FromAddress, Temp);
-      sprintf (Temp, "%02d %3.3s %d %2d:%02d", Msg->Arrived.Day, Language->Months[Msg->Arrived.Month - 1], Msg->Arrived.Year, Msg->Arrived.Hour, Msg->Arrived.Minute);
-      Embedded->BufferedPrintf ("\x16\x01\x0A     To: \x16\x01\x0E%-35.35s \x16\x01\x0F%-16.16s \x16\x01\x07%s\n", Msg->To, Msg->ToAddress, Temp);
-      Embedded->BufferedPrintf ("\x16\x01\x0ASubject: \x16\x01\x0E%s\n", Msg->Subject);
-      Embedded->BufferedPrintf ("\x16\x01\x09===============================================================================\n");
-      Line = 6;
+      if (User->FullReader == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEHDR), Current->Display, (CHAR)(80 - strlen (Current->Display) - 3));
+         if (Msg->Original != 0L && Msg->Reply == 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER1), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Original));
+         else if (Msg->Original == 0L && Msg->Reply != 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER2), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Reply));
+         else if (Msg->Original != 0L && Msg->Reply != 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER3), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Original), Msg->UidToMsgn (Msg->Reply));
+         else
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER), Msgn, Msg->Number ());
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFLAGS), Temp, Flags);
+
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFROM), Msg->From, Msg->FromAddress, Temp);
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Arrived);
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGETO), Msg->To, Msg->ToAddress, Temp);
+         if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+            Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFILE), Msg->Subject);
+         else
+            Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Msg->Subject);
+         Embedded->BufferedPrintf ("\x16\x01\x13\031Ä\120");
+
+         InitialLine = Line = 6;
+      }
+      else {
+         Embedded->BufferedPrintf ("\x0C");
+         Embedded->BufferedPrintf (Language->Text (LNG_READERFROM), Msg->From, Flags);
+
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+         Embedded->BufferedPrintf (Language->Text (LNG_READERTO), Msg->To, Msgn, Temp);
+
+         if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+            Embedded->BufferedPrintf (Language->Text (LNG_READERFILE), Msg->Subject);
+         else
+            Embedded->BufferedPrintf (Language->Text (LNG_READERSUBJECT), Msg->Subject);
+
+         InitialLine = Line = 4;
+      }
 
       if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
          do {
             if (ShowKludges == TRUE || (strncmp (Text, "SEEN-BY: ", 9) && Text[0] != 1)) {
-               if (strchr (Text, '>') != NULL)
-                  Embedded->BufferedPrintf (Language->MessageQuote, Text);
-               else if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1)
-                  Embedded->BufferedPrintf (Language->MessageKludge, Text);
+               if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1) {
+                  if (Text[0] == 1)
+                     Text++;
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEKLUDGE), Text);
+               }
                else if (!strncmp (Text, " * Origin", 9) || !strncmp (Text, "---", 3))
-                  Embedded->BufferedPrintf (Language->MessageOrigin, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEORIGIN), Text);
+               else if (strchr (Text, '>') != NULL)
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEQUOTE), Text);
                else
-                  Embedded->BufferedPrintf (Language->MessageText, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGETEXT), Text);
 
                MaxLine = Line;
                if ((Line = Embedded->MoreQuestion (Line)) == 1) {
                   MaxLine++;
-                  while (MaxLine > 6)
+                  while (MaxLine > InitialLine)
                      Embedded->BufferedPrintfAt (MaxLine--, 1, "\026\007");
-                  Line = 6;
+                  Line = InitialLine;
                }
             }
          } while ((Text = (CHAR *)Msg->Text.Next ()) != NULL && Embedded->AbortSession () == FALSE && Line != 0);
 
+      if (User->FullReader == FALSE || (Embedded->Ansi == FALSE && Embedded->Avatar == FALSE)) {
+         if (Msg->Original != 0L && Msg->Reply == 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** This is a reply to #%lu.\n", Msg->UidToMsgn (Msg->Original));
+         else if (Msg->Original == 0L && Msg->Reply != 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** See also #%lu.\n", Msg->UidToMsgn (Msg->Reply));
+         else if (Msg->Original != 0L && Msg->Reply != 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** This is a reply to #%lu.  *** See also #%lu.\n", Msg->UidToMsgn (Msg->Original), Msg->UidToMsgn (Msg->Reply));
+         Line += 2;
+      }
+
       Embedded->UnbufferBytes ();
+
+      if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+         Msg->Received = TRUE;
+         Msg->WriteHeader (Msg->Current);
+      }
+
+      if (Line > InitialLine) {
+         MaxLine = Line;
+         Embedded->MoreQuestion (99);
+         MaxLine++;
+         while (MaxLine > InitialLine)
+            Embedded->BufferedPrintfAt (MaxLine--, 1, "\026\007");
+      }
    }
 }
 
 USHORT TInquire::FirstMessage (VOID)
 {
-   USHORT RetVal = FALSE;
+   USHORT RetVal = FALSE, Total = 0;
    CHAR Temp[128], *p;
 
    if (Msg != NULL) {
       Msg->Lock (0L);
       do {
-         if (Embedded->KBHit () == TRUE) {
-            switch (Embedded->Getch ()) {
-               case 0x03:
-               case 'c':
-               case 'C':
-               case 's':
-               case 'S':
-                  Stop = TRUE;
-                  break;
+         if ((++Total % 16) == 0) {
+            if (Embedded->KBHit () == TRUE) {
+               switch (Embedded->Getch ()) {
+                  case 0x03:
+                  case 'c':
+                  case 'C':
+                  case 's':
+                  case 'S':
+                     Stop = TRUE;
+                     break;
+               }
             }
          }
          if (Type == TYPE_KEYWORD) {
@@ -1939,21 +2387,23 @@ USHORT TInquire::FirstMessage (VOID)
 
 USHORT TInquire::NextMessage (VOID)
 {
-   USHORT RetVal = FALSE;
+   USHORT RetVal = FALSE, Total = 0;
    CHAR Temp[128], *p;
 
    if (Msg != NULL) {
       Msg->Lock (0L);
       while (Stop == FALSE && Msg->Next (Number) == TRUE && Embedded->AbortSession () == FALSE) {
-         if (Embedded->KBHit () == TRUE) {
-            switch (Embedded->Getch ()) {
-               case 0x03:
-               case 'c':
-               case 'C':
-               case 's':
-               case 'S':
-                  Stop = TRUE;
-                  break;
+         if ((++Total % 16) == 0) {
+            if (Embedded->KBHit () == TRUE) {
+               switch (Embedded->Getch ()) {
+                  case 0x03:
+                  case 'c':
+                  case 'C':
+                  case 's':
+                  case 'S':
+                     Stop = TRUE;
+                     break;
+               }
             }
          }
          if (Type == TYPE_KEYWORD) {
@@ -2010,21 +2460,23 @@ USHORT TInquire::NextMessage (VOID)
 
 USHORT TInquire::PreviousMessage (VOID)
 {
-   USHORT RetVal = FALSE;
+   USHORT RetVal = FALSE, Total = 0;
    CHAR Temp[128], *p;
 
    if (Msg != NULL) {
       Msg->Lock (0L);
       while (Stop == FALSE && Msg->Previous (Number) == TRUE && Embedded->AbortSession () == FALSE) {
-         if (Embedded->KBHit () == TRUE) {
-            switch (Embedded->Getch ()) {
-               case 0x03:
-               case 'c':
-               case 'C':
-               case 's':
-               case 'S':
-                  Stop = TRUE;
-                  break;
+         if ((++Total % 16) == 0) {
+            if (Embedded->KBHit () == TRUE) {
+               switch (Embedded->Getch ()) {
+                  case 0x03:
+                  case 'c':
+                  case 'C':
+                  case 's':
+                  case 'S':
+                     Stop = TRUE;
+                     break;
+               }
             }
          }
          if (Type == TYPE_KEYWORD) {
@@ -2091,11 +2543,11 @@ USHORT TInquire::First (VOID)
             if (User->Level >= Data->Level) {
                if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
                   if (NewLine == TRUE) {
-                     Embedded->Printf ("\n\026\001\012Searching area %s ... ", Data->Key);
+                     Embedded->Printf ("\n\026\001\012Searching area %s ...                ", Data->Key);
                      NewLine = FALSE;
                   }
                   else
-                     Embedded->Printf ("\r\026\001\012Searching area %s ... ", Data->Key);
+                     Embedded->Printf ("\r\026\001\012Searching area %s ...                ", Data->Key);
                   Current = Data;
                   if (Msg != NULL) {
                      Msg->Close ();
@@ -2112,6 +2564,8 @@ USHORT TInquire::First (VOID)
                      Msg = new FIDOSDM (Current->Path);
                   else if (Current->Storage == ST_ADEPT)
                      Msg = new ADEPT (Current->Path);
+                  else if (Current->Storage == ST_HUDSON)
+                     Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
                   if (Msg != NULL) {
                      Number = Msg->Lowest ();
@@ -2136,11 +2590,11 @@ USHORT TInquire::First (VOID)
                if (User->Level >= Data->Level) {
                   if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
                      if (NewLine == TRUE) {
-                        Embedded->Printf ("\n\026\001\012Searching area %s ... ", Data->Key);
+                        Embedded->Printf ("\n\026\001\012Searching area %s ...                ", Data->Key);
                         NewLine = FALSE;
                      }
                      else
-                        Embedded->Printf ("\r\026\001\012Searching area %s ... ", Data->Key);
+                        Embedded->Printf ("\r\026\001\012Searching area %s ...                ", Data->Key);
                      Current = Data;
                      if (Msg != NULL) {
                         Msg->Close ();
@@ -2157,6 +2611,8 @@ USHORT TInquire::First (VOID)
                         Msg = new FIDOSDM (Current->Path);
                      else if (Current->Storage == ST_ADEPT)
                         Msg = new ADEPT (Current->Path);
+                     else if (Current->Storage == ST_HUDSON)
+                        Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
                      if (Msg != NULL) {
                         Number = Msg->Lowest ();
@@ -2191,6 +2647,8 @@ USHORT TInquire::First (VOID)
          Msg = new FIDOSDM (Current->Path);
       else if (Current->Storage == ST_ADEPT)
          Msg = new ADEPT (Current->Path);
+      else if (Current->Storage == ST_HUDSON)
+         Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
       if (Msg != NULL) {
          Number = Msg->Lowest ();
@@ -2213,9 +2671,9 @@ USHORT TInquire::Next (VOID)
    USHORT RetVal = FALSE;
 
    if (Action == ACTION_LIST)
-      Embedded->Printf ("\r\026\001\012Searching area %s ... ", Data->Key);
+      Embedded->Printf ("\r\026\001\012Searching area %s ...                ", Data->Key);
    else
-      Embedded->Printf ("\n\026\001\012Searching area %s ... ", Data->Key);
+      Embedded->Printf ("\n\026\001\012Searching area %s ...                ", Data->Key);
    if (Msg != NULL && NextMessage () == TRUE)
       RetVal = TRUE;
 
@@ -2225,7 +2683,7 @@ USHORT TInquire::Next (VOID)
             do {
                if (User->Level >= Data->Level) {
                   if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
-                     Embedded->Printf ("\r\026\001\012Searching area %s ... ", Data->Key);
+                     Embedded->Printf ("\r\026\001\012Searching area %s ...                ", Data->Key);
                      Current = Data;
                      if (Msg != NULL) {
                         Msg->Close ();
@@ -2242,6 +2700,8 @@ USHORT TInquire::Next (VOID)
                         Msg = new FIDOSDM (Current->Path);
                      else if (Current->Storage == ST_ADEPT)
                         Msg = new ADEPT (Current->Path);
+                     else if (Current->Storage == ST_HUDSON)
+                        Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
                      if (Msg != NULL) {
                         Number = Msg->Lowest ();
@@ -2265,7 +2725,7 @@ USHORT TInquire::Next (VOID)
                if (User->MsgTag->Tagged == TRUE && Data->Read (User->MsgTag->Area) == TRUE) {
                   if (User->Level >= Data->Level) {
                      if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
-                        Embedded->Printf ("\r\026\001\012Searching area %s ... ", Data->Key);
+                        Embedded->Printf ("\r\026\001\012Searching area %s ...                ", Data->Key);
                         Current = Data;
                         if (Msg != NULL) {
                            Msg->Close ();
@@ -2282,6 +2742,8 @@ USHORT TInquire::Next (VOID)
                            Msg = new FIDOSDM (Current->Path);
                         else if (Current->Storage == ST_ADEPT)
                            Msg = new ADEPT (Current->Path);
+                        else if (Current->Storage == ST_HUDSON)
+                           Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
                         if (Msg != NULL) {
                            Number = Msg->Lowest ();
@@ -2309,7 +2771,7 @@ USHORT TInquire::Previous (VOID)
 {
    USHORT RetVal = FALSE;
 
-   Embedded->Printf ("\n\026\001\012Searching area %s ...\r", Data->Key);
+   Embedded->Printf ("\r\026\001\012Searching area %s ...                \r", Data->Key);
    if (Msg != NULL && PreviousMessage () == TRUE)
       RetVal = TRUE;
 
@@ -2319,7 +2781,7 @@ USHORT TInquire::Previous (VOID)
             do {
                if (User->Level >= Data->Level) {
                   if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
-                     Embedded->Printf ("\r\026\001\012Searching area %s ... ", Data->Key);
+                     Embedded->Printf ("\r\026\001\012Searching area %s ...                ", Data->Key);
                      Current = Data;
                      if (Msg != NULL) {
                         Msg->Close ();
@@ -2336,6 +2798,8 @@ USHORT TInquire::Previous (VOID)
                         Msg = new FIDOSDM (Current->Path);
                      else if (Current->Storage == ST_ADEPT)
                         Msg = new ADEPT (Current->Path);
+                     else if (Current->Storage == ST_HUDSON)
+                        Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
                      if (Msg != NULL) {
                         Number = Msg->Highest () + 1L;
@@ -2359,7 +2823,7 @@ USHORT TInquire::Previous (VOID)
                if (User->MsgTag->Tagged == TRUE && Data->Read (User->MsgTag->Area) == TRUE) {
                   if (User->Level >= Data->Level) {
                      if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
-                        Embedded->Printf ("\r\026\001\012Searching area %s ... ", Data->Key);
+                        Embedded->Printf ("\r\026\001\012Searching area %s ...                ", Data->Key);
                         Current = Data;
                         if (Msg != NULL) {
                            Msg->Close ();
@@ -2376,6 +2840,8 @@ USHORT TInquire::Previous (VOID)
                            Msg = new FIDOSDM (Current->Path);
                         else if (Current->Storage == ST_ADEPT)
                            Msg = new ADEPT (Current->Path);
+                        else if (Current->Storage == ST_HUDSON)
+                           Msg = new HUDSON (Current->Path, (UCHAR)Current->Board);
 
                         if (Msg != NULL) {
                            Number = Msg->Highest ();
@@ -2436,7 +2902,7 @@ VOID TInquire::Query (VOID)
 
       if (Action == ACTION_READ) {
          Cmd = '\0';
-         while (Embedded->AbortSession () == FALSE && Cmd != Language->ExitReadMessage) {
+         while (Embedded->AbortSession () == FALSE && Cmd != Language->Text(LNG_EXITREADMESSAGE)[0]) {
             if (End == FALSE && DoRead == TRUE) {
                if (Msg->Read (Number) == TRUE) {
                   DisplayCurrent ();
@@ -2449,30 +2915,32 @@ VOID TInquire::Query (VOID)
             }
 
             if (End == FALSE)
-               Embedded->Printf (Language->ReadMenu);
+               Embedded->Printf (Language->Text(LNG_READMENU));
             else
-               Embedded->Printf (Language->EndReadMenu);
+               Embedded->Printf (Language->Text(LNG_ENDREADMENU));
             Embedded->GetString (Temp, 10, INP_HOTKEY|INP_NUMERIC);
             if ((Cmd = (CHAR)toupper (Temp[0])) == '\0')
-               Cmd = Language->NextMessage;
+               Cmd = Language->Text(LNG_NEXTMESSAGE)[0];
 
-            if (Cmd == Language->NextMessage) {
+            if (Cmd == Language->Text(LNG_NEXTMESSAGE)[0]) {
+               End = FALSE;
                if (Next () == FALSE) {
-                  Embedded->Printf (Language->EndOfMessages);
+                  Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
                   End = TRUE;
                }
                else
                   DoRead = TRUE;
             }
-            else if (Cmd == Language->PreviousMessage) {
+            else if (Cmd == Language->Text(LNG_PREVIOUSMESSAGE)[0]) {
+               End = FALSE;
                if (Previous () == FALSE) {
-                  Embedded->Printf (Language->EndOfMessages);
+                  Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
                   End = TRUE;
                }
                else
                   DoRead = TRUE;
             }
-            else if (Cmd == Language->ReplyMessage) {
+            else if (Cmd == Language->Text(LNG_REPLYMESSAGE)[0]) {
                if (User->Level >= Current->WriteLevel) {
                   if ((User->AccessFlags & Current->WriteFlags) == Current->WriteFlags) {
                      if ((Editor = new TMsgEditor) != NULL) {
@@ -2480,8 +2948,8 @@ VOID TInquire::Query (VOID)
                         Editor->Embedded = Embedded;
                         Editor->Log = Log;
                         Editor->Msg = Msg;
-                        Editor->Lang = Language;
-                        Editor->ScreenWidth = User->ScreenWidth;
+                        Editor->Language = Language;
+                        Editor->Width = User->ScreenWidth;
                         strcpy (Editor->UserName, User->Name);
                         if (Current->EchoMail == TRUE) {
                            Editor->EchoMail = TRUE;
@@ -2506,14 +2974,14 @@ VOID TInquire::Query (VOID)
                else
                   Embedded->Printf ("\026\001\015Sorry, you can't write messages in this Conference.\n\006\007\006\007");
             }
-            else if (Cmd == Language->EMailReplyMessage && End == FALSE) {
+            else if (Cmd == Language->Text(LNG_EMAILREPLYMESSAGE)[0] && End == FALSE) {
                if ((MailEditor = new TMailEditor) != NULL) {
                   Editor->Cfg = Cfg;
                   MailEditor->Embedded = Embedded;
                   MailEditor->Log = Log;
                   MailEditor->Msg = Msg;
-                  MailEditor->Lang = Language;
-                  MailEditor->ScreenWidth = User->ScreenWidth;
+                  MailEditor->Language = Language;
+                  MailEditor->Width = User->ScreenWidth;
                   strcpy (MailEditor->UserName, User->Name);
                   if (Cfg->MailAddress.First () == TRUE)
                      strcpy (MailEditor->Address, Cfg->MailAddress.String);
@@ -2542,7 +3010,7 @@ VOID TInquire::Query (VOID)
                   strcpy (LastKey, Current->Key);
                   Line++;
                }
-               Embedded->Printf ("\026\001\016%5d  \026\001\012%-22.22s  %-21.21s  %-.23s\n", Msg->Current, Msg->From, Msg->To, Msg->Subject);
+               Embedded->Printf ("\026\001\016%5ld  \026\001\012%-22.22s  %-21.21s  %-.23s\n", Msg->UidToMsgn (Msg->Current), Msg->From, Msg->To, Msg->Subject);
             }
             if (Line != 0)
                Continue = Next ();
@@ -2555,7 +3023,7 @@ VOID TInquire::Query (VOID)
       }
    }
    else
-      Embedded->Printf (Language->EndOfMessages);
+      Embedded->Printf (Language->Text(LNG_ENDOFMESSAGES));
 
    if (Msg != NULL) {
       Msg->Close ();
@@ -2632,4 +3100,87 @@ USHORT TInquire::SearchAction (VOID)
    return (RetVal);
 }
 
+VOID TInquire::BuildDate (PSZ format, PSZ dest, MDATE *date)
+{
+   CHAR Temp[16];
+
+   while (*format != '\0') {
+      if (*format == '%') {
+         format++;
+         switch (*format) {
+            case 'A':
+               if (date->Hour >= 12)
+                  strcpy (dest, "pm");
+               else
+                  strcpy (dest, "am");
+               dest += 2;
+               format++;
+               break;
+            case 'B':
+               sprintf (Temp, "%2d", date->Month);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'C':
+               sprintf (Temp, "%-3.3s", Language->Months[date->Month - 1]);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'D':
+               sprintf (Temp, "%2d", date->Day);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'E':
+               if (date->Hour > 12)
+                  sprintf (Temp, "%2d", date->Hour - 12);
+               else
+                  sprintf (Temp, "%2d", date->Hour);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'H':
+               sprintf (Temp, "%2d", date->Hour);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'M':
+               sprintf (Temp, "%02d", date->Minute);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'S':
+               sprintf (Temp, "%02d", date->Second);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'Y':
+               sprintf (Temp, "%2d", date->Year % 100);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'Z':
+               sprintf (Temp, "%4d", date->Year);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            default:
+               *dest++ = *format++;
+               break;
+         }
+      }
+      else
+         *dest++ = *format++;
+   }
+   *dest = '\0';
+}
 

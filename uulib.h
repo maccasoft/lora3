@@ -23,6 +23,7 @@ public:
    BYTE   Buffer[128];
 
    USHORT Decode (PSZ pszBuffer);
+   USHORT Decode64 (PSZ pszBuffer);
    USHORT Decode (class TCollection *Text);
    USHORT Decode (class TCollection &Text);
    USHORT DecodeFile (PSZ pszSource, PSZ pszDestination = NULL);

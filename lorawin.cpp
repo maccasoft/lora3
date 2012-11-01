@@ -18,6 +18,7 @@
 #define MAIL_NEWSGROUP           0x0020L
 #define MAIL_TIC                 0x0040L
 #define MAIL_EMAIL               0x0080L
+#define MAIL_IMPORTBAD           0x0100L
 #define MAIL_NOEXTERNAL          0x2000L
 #define MAIL_STARTTIMER          0x4000L
 #define MAIL_POSTQUIT            0x8000L
@@ -33,27 +34,64 @@
 #define ANSWERING          4
 #define HANGUP             5
 #define WAITFORCONNECT     6
+#define BBSEXIT            7
+#define UNDEFINED          99
+
+PSZ statusText[] = {
+   "Startup",
+   "Initialize",
+   "WaitForOK",
+   "WaitForCall",
+   "Answering",
+   "Hangup",
+   "WaitForConnect",
+   "BBSExit"
+};
 
 #define MODEM_DELAY        200
-#define EVENTS_DELAY       10000
+#define EVENTS_DELAY       1000
+#define REINIT_DELAY       60000L
 
 #if defined(__OS2__)
 HAB  hab;
 HWND hwndMainFrame, hwndMainClient;
+HWND help_hWnd;
 FILEDLG fild;
 #elif defined(__NT__)
 HINSTANCE hinst;
 HWND hwndMainClient, hwndMainList, hwndModemList, hwndStatusList, hwndOutboundList;
 #endif
 
-USHORT Status, Current;
+USHORT Status, Current, gotPort, gotSpeed, timeLimit = 0;
 CHAR   PollNode[64], ExternalProgram[128];
-LONG   TimeOut, CallDelay;
+LONG   TimeOut, CallTimer = 0L;
+ULONG  comHandle = 0L, connectSpeed = 0L;
+UCHAR  ErrorLevel = 1;
 class  TConfig *Cfg;
 class  TModem *Modem;
 class  TPMLog *Log;
 class  TEvents *Events;
 class  TOutbound *Outbound;
+
+#define WMU_STARTTIMER              10
+
+VOID StartTimer (HWND hwnd, int id, ULONG msec)
+{
+#if defined(__OS2__)
+   WinStartTimer (hab, hwnd, id, msec);
+#elif defined(__NT__)
+   SetTimer (hwnd, id, msec, NULL);
+#endif
+}
+
+VOID StopTimer (HWND hwnd, int id)
+{
+#if defined(__OS2__)
+   WinStopTimer (hab, hwnd, id);
+#elif defined(__NT__)
+   KillTimer (hwnd, id);
+#endif
+}
 
 // ----------------------------------------------------------------------
 // Product informations dialog
@@ -89,6 +127,417 @@ USHORT CProductDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
+// ----------------------------------------------------------------------
+// Outbound details dialog
+// ----------------------------------------------------------------------
+
+class CDetailsDlg : public CDialog
+{
+public:
+   CDetailsDlg (HWND p_hWnd);
+   ~CDetailsDlg (void);
+
+   USHORT DoRebuild;
+   CHAR   Address[64];
+
+   VOID   OnHelp (VOID);
+   USHORT OnInitDialog (VOID);
+
+private:
+   CHAR   Temp[1024];
+   class  TOutbound *Out;
+   DECLARE_MESSAGE_MAP ()
+
+   VOID   Add (VOID);
+   VOID   ChangeToNormal (VOID);
+   VOID   ChangeToDirect (VOID);
+   VOID   ChangeToCrash (VOID);
+   VOID   ChangeToHold (VOID);
+   VOID   Delete (VOID);
+   VOID   DeleteEntry (VOID);
+   VOID   Refresh (VOID);
+   VOID   ToggleImmediate (VOID);
+};
+
+BEGIN_MESSAGE_MAP (CDetailsDlg, CDialog)
+   ON_COMMAND (48, ChangeToNormal)
+   ON_COMMAND (49, ChangeToDirect)
+   ON_COMMAND (50, ChangeToCrash)
+   ON_COMMAND (51, ChangeToHold)
+   ON_COMMAND (52, ToggleImmediate)
+   ON_COMMAND (115, Add)
+   ON_COMMAND (116, Delete)
+   ON_COMMAND (117, DeleteEntry)
+END_MESSAGE_MAP ()
+
+CDetailsDlg::CDetailsDlg (HWND p_hWnd) : CDialog ("47", p_hWnd)
+{
+   DoRebuild = FALSE;
+   if ((Out = new TOutbound (Cfg->Outbound)) != NULL) {
+      Cfg->MailAddress.First ();
+      Out->DefaultZone = Cfg->MailAddress.Zone;
+   }
+}
+
+CDetailsDlg::~CDetailsDlg (void)
+{
+   if (Out != NULL)
+      delete Out;
+}
+
+VOID CDetailsDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 47);
+}
+
+USHORT CDetailsDlg::OnInitDialog (VOID)
+{
+   class TNodes *Nodes;
+
+   Center ();
+
+   LVM_AllocateColumns (101, 4);
+   LVM_InsertColumn (101, "Name", LVC_LEFT);
+   LVM_InsertColumn (101, "Size", LVC_RIGHT);
+   LVM_InsertColumn (101, "Flag", LVC_CENTER);
+   LVM_InsertColumn (101, "Location", LVC_LEFT);
+
+   if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+      if (Nodes->Read (Address) == TRUE) {
+         SetDlgItemText (102, Nodes->SystemName);
+         SetDlgItemText (103, Nodes->Address);
+         SetDlgItemText (109, Nodes->Location);
+         SetDlgItemText (102, Nodes->SysopName);
+      }
+      delete Nodes;
+   }
+
+   Refresh ();
+
+   return (TRUE);
+}
+
+VOID CDetailsDlg::Delete (VOID)
+{
+   int item;
+
+   if ((item = LVM_QuerySelectedItem (101)) >= 0 && Out != NULL) {
+      if (MessageBox ("Do you really want to delete the selected file ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
+         if (Out->First () == TRUE)
+            do {
+               if (item == 0) {
+                  Out->Remove ();
+                  Out->Update ();
+                  LVM_DeleteItem (101, LVM_QuerySelectedItem (101));
+                  DoRebuild = TRUE;
+                  break;
+               }
+               item--;
+            } while (Out->Next () == TRUE);
+      }
+   }
+}
+
+VOID CDetailsDlg::DeleteEntry (VOID)
+{
+   if (Out != NULL) {
+      if (MessageBox ("Do you really want to delete this node's entry ?", "Delete", MB_YESNO|MB_ICONQUESTION) == IDYES) {
+         while (Out->First () == TRUE)
+            Out->Remove ();
+         Out->Update ();
+         LVM_DeleteAll (101);
+         DoRebuild = TRUE;
+         EndDialog (FALSE);
+      }
+   }
+}
+
+VOID CDetailsDlg::Add (VOID)
+{
+   class TAddress Addr;
+   struct stat statbuf;
+#if defined(__OS2__)
+   ULONG i;
+   FILEDLG fild;
+
+   Addr.Parse (Address);
+
+   memset (&fild, 0, sizeof (FILEDLG));
+   fild.cbSize = sizeof (FILEDLG);
+   fild.fl = FDS_CENTER|FDS_OPEN_DIALOG|FDS_MULTIPLESEL;
+   fild.pszTitle = "Add File";
+   sprintf (fild.szFullFile, "*.*");
+
+   WinFileDlg (HWND_DESKTOP, m_hWnd, &fild);
+   if (fild.lReturn == DID_OK) {
+      if (fild.papszFQFilename != NULL) {
+         for (i = 0; i < fild.ulFQFCount; i++) {
+            Out->New ();
+            Out->Zone = Addr.Zone;
+            Out->Net = Addr.Net;
+            Out->Node = Addr.Node;
+            Out->Point = Addr.Point;
+            strcpy (Out->Complete, fild.papszFQFilename[i][0]);
+            if (stat (Out->Complete, &statbuf) == 0)
+               Out->Size = statbuf.st_size;
+            Out->Status = 'h';
+            Out->Add ();
+         }
+      }
+      else {
+         Out->New ();
+         Out->Zone = Addr.Zone;
+         Out->Net = Addr.Net;
+         Out->Node = Addr.Node;
+         Out->Point = Addr.Point;
+         strcpy (Out->Complete, fild.szFullFile);
+         if (stat (Out->Complete, &statbuf) == 0)
+            Out->Size = statbuf.st_size;
+         Out->Status = 'h';
+         Out->Add ();
+      }
+      Out->Update ();
+      DoRebuild = TRUE;
+      Refresh ();
+   }
+   if (fild.papszFQFilename != NULL)
+      WinFreeFileDlgList (fild.papszFQFilename);
+#elif defined(__NT__)
+   CHAR Path[256], *p;
+   OPENFILENAME OpenFileName;
+
+   Addr.Parse (Address);
+
+   Temp[0] = '\0';
+   OpenFileName.lStructSize = sizeof (OPENFILENAME);
+   OpenFileName.hwndOwner = m_hWnd;
+   OpenFileName.hInstance = NULL;
+   OpenFileName.lpstrFilter = "All files (*.*)\0*.*";
+   OpenFileName.lpstrCustomFilter = (LPTSTR) NULL;
+   OpenFileName.nMaxCustFilter = 0L;
+   OpenFileName.nFilterIndex = 1L;
+   OpenFileName.lpstrFile = Temp;
+   OpenFileName.nMaxFile = sizeof (Temp) - 1;
+   OpenFileName.lpstrFileTitle = NULL;
+   OpenFileName.nMaxFileTitle = 0;
+   OpenFileName.lpstrInitialDir = NULL;
+   OpenFileName.lpstrTitle = "Add File";
+   OpenFileName.nFileOffset = 0;
+   OpenFileName.nFileExtension = 0;
+   OpenFileName.lpstrDefExt = "";
+   OpenFileName.lCustData = 0;
+   OpenFileName.Flags = OFN_HIDEREADONLY|OFN_LONGNAMES|OFN_CREATEPROMPT|OFN_NOCHANGEDIR|OFN_ALLOWMULTISELECT;
+
+   if (GetOpenFileName (&OpenFileName) == TRUE) {
+      if ((p = strtok (Temp, " ")) != NULL) {
+         strcpy (Path, p);
+         if (Path[strlen (Path) - 1] != '\\')
+            strcat (Path, "\\");
+         do {
+            Out->New ();
+            Out->Zone = Addr.Zone;
+            Out->Net = Addr.Net;
+            Out->Node = Addr.Node;
+            Out->Point = Addr.Point;
+            sprintf (Out->Complete, "%s%s", Path, p);
+            if (stat (Out->Complete, &statbuf) == 0)
+               Out->Size = statbuf.st_size;
+            Out->Status = 'h';
+            Out->Add ();
+         } while ((p = strtok (NULL, " ")) != NULL);
+
+         Out->Update ();
+         DoRebuild = TRUE;
+         Refresh ();
+      }
+   }
+#endif
+}
+
+VOID CDetailsDlg::ToggleImmediate (VOID)
+{
+   USHORT Found = FALSE;
+
+   if (Out->First () == TRUE)
+      do {
+         if (Out->Poll == TRUE && toupper (Out->Status) == 'I') {
+            Out->Remove ();
+            Out->Update ();
+            Found = TRUE;
+            break;
+         }
+      } while (Out->Next () == TRUE);
+
+   if (Found == FALSE)
+      Out->PollNode (Address, 'i');
+
+   Refresh ();
+   DoRebuild = TRUE;
+}
+
+VOID CDetailsDlg::Refresh (VOID)
+{
+   class TAddress Addr;
+
+   LVM_DeleteAll (101);
+
+   if (Out != NULL) {
+      Out->Clear ();
+      Addr.Parse (Address);
+      Out->Add (Addr.Zone, Addr.Net, Addr.Node, Addr.Point);
+      if (Out->First () == TRUE)
+         do {
+            LVM_InsertItem (101);
+
+            if (Out->Poll == FALSE) {
+               LVM_SetItemText (101, 0, Out->Name);
+               sprintf (Temp, "%lu", Out->Size);
+               LVM_SetItemText (101, 1, Temp);
+               sprintf (Temp, "%c", toupper (Out->Status));
+               LVM_SetItemText (101, 2, Temp);
+               LVM_SetItemText (101, 3, Out->Complete);
+            }
+            else {
+               LVM_SetItemText (101, 0, "<POLL>");
+               LVM_SetItemText (101, 1, "0");
+               sprintf (Temp, "%c", toupper (Out->Status));
+               LVM_SetItemText (101, 2, Temp);
+               LVM_SetItemText (101, 3, "");
+            }
+         } while (Out->Next () == TRUE);
+   }
+
+   LVM_InvalidateView (101);
+}
+
+VOID CDetailsDlg::ChangeToHold (VOID)
+{
+   class TMailProcessor *Processor;
+
+   if ((Processor = new TMailProcessor) != NULL) {
+      Processor->Cfg = Cfg;
+      Processor->Log = NULL;
+      Processor->Output = NULL;
+      Processor->Status = NULL;
+      strcpy (Processor->Outbound, Cfg->Outbound);
+      if (Processor->Outbound[strlen (Processor->Outbound) - 1] == '\\' || Processor->Outbound[strlen (Processor->Outbound) - 1] == '/')
+         Processor->Outbound[strlen (Processor->Outbound) - 1] = '\0';
+
+      sprintf (Temp, "Change Normal Hold %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      sprintf (Temp, "Change Crash Hold %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      sprintf (Temp, "Change Direct Hold %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      delete Processor;
+   }
+
+   Refresh ();
+   DoRebuild = TRUE;
+}
+
+VOID CDetailsDlg::ChangeToCrash (VOID)
+{
+   class TMailProcessor *Processor;
+
+   if ((Processor = new TMailProcessor) != NULL) {
+      Processor->Cfg = Cfg;
+      Processor->Log = NULL;
+      Processor->Output = NULL;
+      Processor->Status = NULL;
+      strcpy (Processor->Outbound, Cfg->Outbound);
+      if (Processor->Outbound[strlen (Processor->Outbound) - 1] == '\\' || Processor->Outbound[strlen (Processor->Outbound) - 1] == '/')
+         Processor->Outbound[strlen (Processor->Outbound) - 1] = '\0';
+
+      sprintf (Temp, "Change Normal Crash %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      sprintf (Temp, "Change Hold Crash %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      sprintf (Temp, "Change Direct Crash %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      delete Processor;
+   }
+
+   Refresh ();
+   DoRebuild = TRUE;
+}
+
+VOID CDetailsDlg::ChangeToDirect (VOID)
+{
+   class TMailProcessor *Processor;
+
+   if ((Processor = new TMailProcessor) != NULL) {
+      Processor->Cfg = Cfg;
+      Processor->Log = NULL;
+      Processor->Output = NULL;
+      Processor->Status = NULL;
+      strcpy (Processor->Outbound, Cfg->Outbound);
+      if (Processor->Outbound[strlen (Processor->Outbound) - 1] == '\\' || Processor->Outbound[strlen (Processor->Outbound) - 1] == '/')
+         Processor->Outbound[strlen (Processor->Outbound) - 1] = '\0';
+
+      sprintf (Temp, "Change Normal Direct %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      sprintf (Temp, "Change Crash Direct %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      sprintf (Temp, "Change Hold Direct %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      delete Processor;
+   }
+
+   Refresh ();
+   DoRebuild = TRUE;
+}
+
+VOID CDetailsDlg::ChangeToNormal (VOID)
+{
+   class TMailProcessor *Processor;
+
+   if ((Processor = new TMailProcessor) != NULL) {
+      Processor->Cfg = Cfg;
+      Processor->Log = NULL;
+      Processor->Output = NULL;
+      Processor->Status = NULL;
+      strcpy (Processor->Outbound, Cfg->Outbound);
+      if (Processor->Outbound[strlen (Processor->Outbound) - 1] == '\\' || Processor->Outbound[strlen (Processor->Outbound) - 1] == '/')
+         Processor->Outbound[strlen (Processor->Outbound) - 1] = '\0';
+
+      sprintf (Temp, "Change Hold Normal %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      sprintf (Temp, "Change Crash Normal %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      sprintf (Temp, "Change Direct Normal %s", Address);
+      strtok (Temp, " ");
+      Processor->Change ();
+
+      delete Processor;
+   }
+
+   Refresh ();
+   DoRebuild = TRUE;
+}
+
 #endif
 
 // ---------------------------------------------------------------------------
@@ -113,25 +562,27 @@ VOID TPMLog::Write (PSZ pszFormat, ...)
    struct stat statbuf;
 
    if (First == TRUE && fp != NULL) {
-      fstat (fileno (fp), &statbuf);
-      if (statbuf.st_size >= 10240L) {
-         fseek (fp, statbuf.st_size - 10240L, SEEK_SET);
-         fgets (Temp, sizeof (Temp) - 1, fp);
-      }
-      else
-         fseek (fp, 0L, SEEK_SET);
+      if (Cfg->ReloadLog == TRUE) {
+         fstat (fileno (fp), &statbuf);
+         if (statbuf.st_size >= 5192L) {
+            fseek (fp, statbuf.st_size - 5192L, SEEK_SET);
+            fgets (Temp, sizeof (Temp) - 1, fp);
+         }
+         else
+            fseek (fp, 0L, SEEK_SET);
 
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Temp[strlen (Temp) - 1] = '\0';
-         if (Temp[0] != '\0') {
-            strcpy (&Temp[14], &Temp[17]);
-            strcpy (&Temp[2], &Temp[9]);
-            strcpy (&Temp[8], &Temp[13]);
+         while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+            Temp[strlen (Temp) - 1] = '\0';
+            if (Temp[0] != '\0') {
+               strcpy (&Temp[14], &Temp[17]);
+               strcpy (&Temp[2], &Temp[9]);
+               strcpy (&Temp[8], &Temp[13]);
 #if defined(__OS2__)
-            WinSendMsg (hwndList, WM_USER, MPFROMSHORT (WMU_ADDLOGITEM), MPFROMP (Temp));
+               WinSendMsg (hwndList, WM_USER, MPFROMSHORT (WMU_ADDLOGITEM), MPFROMP (Temp));
 #elif defined(__NT__)
-            SendMessage (hwndList, WM_USER, WMU_ADDLOGITEM, (LPARAM)Temp);
+               SendMessage (hwndList, WM_USER, WMU_ADDLOGITEM, (LPARAM)Temp);
 #endif
+            }
          }
       }
       First = FALSE;
@@ -295,7 +746,7 @@ private:
 #if defined(__OS2__) || defined(__NT__)
    HWND   hwndList;
 #endif
-   CHAR   Temp[128];
+   CHAR   Temp[256];
 };
 
 #if defined(__OS2__) || defined(__NT__)
@@ -739,6 +1190,419 @@ VOID CRequestDlg::OnOK (VOID)
    EndDialog (TRUE);
 }
 
+// ----------------------------------------------------------------------
+// New ECHOmaill Link
+// ----------------------------------------------------------------------
+
+class CNewEchoLinkDlg : public CDialog
+{
+public:
+   CNewEchoLinkDlg (HWND p_hWnd);
+
+   CHAR   Address[128];
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   CHAR   Command[512];
+};
+
+CNewEchoLinkDlg::CNewEchoLinkDlg (HWND p_hWnd) : CDialog ("52", p_hWnd)
+{
+}
+
+USHORT CNewEchoLinkDlg::OnInitDialog (VOID)
+{
+   CHAR Temp[128];
+   class CAskAddressDlg *Dlg;
+   class TNodes *Nodes;
+   class TAddress Addr;
+
+   Center ();
+
+   EM_SetTextLimit (112, sizeof (Command) - 1);
+
+   if ((Dlg = new CAskAddressDlg (m_hWnd)) != NULL) {
+      strcpy (Dlg->Title, "New Echomail Link");
+      if (Dlg->DoModal () == FALSE)
+         EndDialog (FALSE);
+      else {
+         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+            Addr.Parse (Dlg->String);
+            if (Cfg->MailAddress.First () == TRUE) {
+               if (Addr.Zone == 0)
+                  Addr.Zone = Cfg->MailAddress.Zone;
+               if (Addr.Net == 0)
+                  Addr.Net = Cfg->MailAddress.Net;
+               Addr.Add ();
+               Addr.First ();
+            }
+            strcpy (Address, Addr.String);
+            if (Nodes->Read (Addr) == TRUE) {
+               SetDlgItemText (102, Nodes->SystemName);
+               SetDlgItemText (103, Nodes->Address);
+               SetDlgItemText (109, Nodes->Location);
+               SetDlgItemText (104, Nodes->SysopName);
+               strcpy (Address, Nodes->Address);
+            }
+            else {
+               sprintf (Temp, "Node %s not found !", Address);
+               MessageBox (Temp, "New Echomail Link", MB_OK);
+               EndDialog (FALSE);
+            }
+            delete Nodes;
+         }
+      }
+      delete Dlg;
+   }
+
+   return (TRUE);
+}
+
+VOID CNewEchoLinkDlg::OnOK (VOID)
+{
+   CHAR *p, *t;
+   class TAddress Addr;
+   class TAreaManager *AreaMgr;
+
+   if ((AreaMgr = new TAreaManager) != NULL) {
+      AreaMgr->Cfg = Cfg;
+      AreaMgr->Log = Log;
+
+      GetDlgItemText (112, GetDlgItemTextLength (112), Command);
+      t = Command;
+
+      while ((p = strtok (t, " ")) != NULL) {
+         t = strtok (NULL, "");
+         if (!stricmp (p, "%-ALL"))
+            AreaMgr->RemoveAll (Address);
+         else if (*p == '-')
+            AreaMgr->RemoveArea (Address, ++p);
+         else {
+            if (*p == '+')
+               p++;
+            AreaMgr->AddArea (Address, p);
+         }
+      }
+
+      delete AreaMgr;
+   }
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+// Rescan ECHOmail
+// ----------------------------------------------------------------------
+
+class CRescanDlg : public CDialog
+{
+public:
+   CRescanDlg (HWND p_hWnd);
+
+   CHAR   Address[128];
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   CHAR   Command[512];
+};
+
+CRescanDlg::CRescanDlg (HWND p_hWnd) : CDialog ("52", p_hWnd)
+{
+}
+
+USHORT CRescanDlg::OnInitDialog (VOID)
+{
+   CHAR Temp[128];
+   class CAskAddressDlg *Dlg;
+   class TNodes *Nodes;
+   class TAddress Addr;
+
+   SetWindowTitle ("Rescan Area(s)");
+   Center ();
+
+   EM_SetTextLimit (112, sizeof (Command) - 1);
+
+   if ((Dlg = new CAskAddressDlg (m_hWnd)) != NULL) {
+      strcpy (Dlg->Title, "Rescan EchoMail");
+      if (Dlg->DoModal () == FALSE)
+         EndDialog (FALSE);
+      else {
+         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+            Addr.Parse (Dlg->String);
+            if (Cfg->MailAddress.First () == TRUE) {
+               if (Addr.Zone == 0)
+                  Addr.Zone = Cfg->MailAddress.Zone;
+               if (Addr.Net == 0)
+                  Addr.Net = Cfg->MailAddress.Net;
+               Addr.Add ();
+               Addr.First ();
+            }
+            strcpy (Address, Addr.String);
+            if (Nodes->Read (Addr) == TRUE) {
+               SetDlgItemText (102, Nodes->SystemName);
+               SetDlgItemText (103, Nodes->Address);
+               SetDlgItemText (109, Nodes->Location);
+               SetDlgItemText (104, Nodes->SysopName);
+               strcpy (Address, Nodes->Address);
+            }
+            else {
+               sprintf (Temp, "Node %s not found !", Address);
+               MessageBox (Temp, "File request", MB_OK);
+               EndDialog (FALSE);
+            }
+            delete Nodes;
+         }
+      }
+      delete Dlg;
+   }
+
+   return (TRUE);
+}
+
+VOID CRescanDlg::OnOK (VOID)
+{
+   CHAR *p, *t;
+   class TAddress Addr;
+   class TAreaManager *AreaMgr;
+
+   if ((AreaMgr = new TAreaManager) != NULL) {
+      AreaMgr->Cfg = Cfg;
+      AreaMgr->Log = Log;
+
+      GetDlgItemText (112, GetDlgItemTextLength (112), Command);
+      t = Command;
+
+      while ((p = strtok (t, " ")) != NULL) {
+         t = strtok (NULL, "");
+         AreaMgr->Rescan (p, Address);
+      }
+
+      delete AreaMgr;
+   }
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+// File attach
+// ----------------------------------------------------------------------
+
+class CAttachDlg : public CDialog
+{
+public:
+   CAttachDlg (HWND p_hWnd);
+
+   CHAR   Address[128];
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   CHAR   Temp[4096];
+   DECLARE_MESSAGE_MAP ()
+
+   VOID   Browse (VOID);
+};
+
+BEGIN_MESSAGE_MAP (CAttachDlg, CDialog)
+   ON_COMMAND (113, Browse)
+END_MESSAGE_MAP ()
+
+CAttachDlg::CAttachDlg (HWND p_hWnd) : CDialog ("49", p_hWnd)
+{
+}
+
+USHORT CAttachDlg::OnInitDialog (VOID)
+{
+   class CAskAddressDlg *Dlg;
+   class TNodes *Nodes;
+   class TAddress Addr;
+
+   Center ();
+
+   EM_SetTextLimit (112, sizeof (Temp) - 1);
+
+   if ((Dlg = new CAskAddressDlg (m_hWnd)) != NULL) {
+      strcpy (Dlg->Title, "File attach");
+      if (Dlg->DoModal () == FALSE)
+         EndDialog (FALSE);
+      else {
+         if ((Nodes = new TNodes (Cfg->NodelistPath)) != NULL) {
+            Addr.Parse (Dlg->String);
+            if (Cfg->MailAddress.First () == TRUE) {
+               if (Addr.Zone == 0)
+                  Addr.Zone = Cfg->MailAddress.Zone;
+               if (Addr.Net == 0)
+                  Addr.Net = Cfg->MailAddress.Net;
+               Addr.Add ();
+               Addr.First ();
+            }
+            strcpy (Address, Addr.String);
+            if (Nodes->Read (Addr) == TRUE) {
+               SetDlgItemText (102, Nodes->SystemName);
+               SetDlgItemText (103, Nodes->Address);
+               SetDlgItemText (109, Nodes->Location);
+               SetDlgItemText (104, Nodes->SysopName);
+               BM_SetCheck (105, TRUE);
+            }
+            else {
+               sprintf (Temp, "Node %s not found !", Address);
+               MessageBox (Temp, "File attach", MB_OK);
+               EndDialog (FALSE);
+            }
+            delete Nodes;
+         }
+      }
+      delete Dlg;
+   }
+
+   return (TRUE);
+}
+
+VOID CAttachDlg::Browse (VOID)
+{
+#if defined(__OS2__)
+   ULONG i;
+   FILEDLG fild;
+
+   Temp[0] = '\0';
+
+   memset (&fild, 0, sizeof (FILEDLG));
+   fild.cbSize = sizeof (FILEDLG);
+   fild.fl = FDS_CENTER|FDS_OPEN_DIALOG|FDS_MULTIPLESEL;
+   fild.pszTitle = "Attach files";
+   sprintf (fild.szFullFile, "*.*");
+
+   WinFileDlg (HWND_DESKTOP, m_hWnd, &fild);
+   if (fild.lReturn == DID_OK) {
+      if (fild.papszFQFilename != NULL) {
+         for (i = 0; i < fild.ulFQFCount; i++) {
+            if (i != 0)
+               strcat (Temp, " ");
+            strcat (Temp, fild.papszFQFilename[i][0]);
+         }
+      }
+      else
+         strcpy (Temp, fild.szFullFile);
+   }
+   if (fild.papszFQFilename != NULL)
+      WinFreeFileDlgList (fild.papszFQFilename);
+   SetDlgItemText (112, Temp);
+
+#elif defined(__NT__)
+   CHAR Path[256], File[512], *p;
+   OPENFILENAME OpenFileName;
+
+   File[0] = '\0';
+   OpenFileName.lStructSize = sizeof (OPENFILENAME);
+   OpenFileName.hwndOwner = m_hWnd;
+   OpenFileName.hInstance = NULL;
+   OpenFileName.lpstrFilter = "All files (*.*)\0*.*";
+   OpenFileName.lpstrCustomFilter = (LPTSTR) NULL;
+   OpenFileName.nMaxCustFilter = 0L;
+   OpenFileName.nFilterIndex = 1L;
+   OpenFileName.lpstrFile = File;
+   OpenFileName.nMaxFile = sizeof (File) - 1;
+   OpenFileName.lpstrFileTitle = NULL;
+   OpenFileName.nMaxFileTitle = 0;
+   OpenFileName.lpstrInitialDir = NULL;
+   OpenFileName.lpstrTitle = "Attach Files";
+   OpenFileName.nFileOffset = 0;
+   OpenFileName.nFileExtension = 0;
+   OpenFileName.lpstrDefExt = "";
+   OpenFileName.lCustData = 0;
+   OpenFileName.Flags = OFN_HIDEREADONLY|OFN_LONGNAMES|OFN_CREATEPROMPT|OFN_NOCHANGEDIR|OFN_ALLOWMULTISELECT;
+
+   if (GetOpenFileName (&OpenFileName) == TRUE) {
+      if ((p = strtok (File, " ")) != NULL) {
+         strcpy (Path, p);
+         if (Path[strlen (Path) - 1] != '\\')
+            strcat (Path, "\\");
+         Temp[0] = '\0';
+         while ((p = strtok (NULL, " ")) != NULL) {
+            if (Temp[0] != '\0')
+               strcat (Temp, " ");
+            strcat (Temp, Path);
+            strcat (Temp, p);
+         }
+      }
+      SetDlgItemText (112, Temp);
+   }
+#endif
+}
+
+VOID CAttachDlg::OnOK (VOID)
+{
+   FILE *fp;
+   CHAR File[128], *p, Flag;
+   class TAddress Addr;
+
+   Flag = 'f';
+   if (BM_QueryCheck (105) == TRUE)
+      Flag = 'h';
+   else if (BM_QueryCheck (106) == TRUE)
+      Flag = 'c';
+   else if (BM_QueryCheck (107) == TRUE)
+      Flag = 'd';
+
+   Addr.Parse (Address);
+
+   Cfg->MailAddress.First ();
+   strcpy (Temp, Cfg->Outbound);
+   Temp[strlen (Temp) - 1] = '\0';
+
+   if (Cfg->MailAddress.Zone != Addr.Zone) {
+      sprintf (File, "%s.%03x", Temp, Addr.Zone);
+      mkdir (File);
+      if (Addr.Point != 0) {
+         sprintf (File, "%s.%03x\\%04x%04x.pnt", Temp, Addr.Zone, Addr.Net, Addr.Node);
+         mkdir (File);
+         sprintf (File, "%s.%03x\\%04x%04x.pnt\\%08x.%clo", Temp, Addr.Zone, Addr.Net, Addr.Node, Addr.Point, Flag);
+      }
+      else
+         sprintf (File, "%s.%03x\\%04x%04x.%clo", Temp, Addr.Zone, Addr.Net, Addr.Node, Flag);
+   }
+   else {
+      if (Addr.Point != 0) {
+         sprintf (File, "%s\\%04x%04x.pnt", Temp, Addr.Net, Addr.Node);
+         mkdir (File);
+         sprintf (File, "%s\\%04x%04x.pnt\\%08x.%clo", Temp, Addr.Net, Addr.Node, Addr.Point, Flag);
+      }
+      else
+         sprintf (File, "%s\\%04x%04x.%clo", Temp, Addr.Net, Addr.Node, Flag);
+   }
+
+   if ((fp = fopen (File, "at")) != NULL) {
+      GetDlgItemText (112, GetDlgItemTextLength (112), Temp);
+      if ((p = strtok (Temp, " ")) != NULL)
+         do {
+            fprintf (fp, "%s\n", p);
+         } while ((p = strtok (NULL, " ")) != NULL);
+      fclose (fp);
+   }
+
+   if (Outbound != NULL) {
+      if (Log != NULL)
+         Log->Write ("+Building the outbound queue");
+      Outbound->BuildQueue (Cfg->Outbound);
+      unlink ("rescan.now");
+      if (Log != NULL)
+         Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
+
+#if defined(__OS2__)
+      WinPostMsg (hwndMainClient, WM_USER, MPFROMSHORT (WMU_REFRESHOUTBOUND), 0L);
+#elif defined(__NT__)
+      PostMessage (hwndMainClient, WM_USER, (WPARAM)WMU_REFRESHOUTBOUND, 0L);
+#endif
+   }
+
+   EndDialog (TRUE);
+}
+
 #endif
 
 // ----------------------------------------------------------------------------
@@ -747,6 +1611,8 @@ VOID CRequestDlg::OnOK (VOID)
 
 VOID NodelistThread (PVOID args)
 {
+   USHORT OldStatus;
+
 #if defined(__OS2__)
    HAB hab;
    HMQ hmq;
@@ -755,9 +1621,19 @@ VOID NodelistThread (PVOID args)
 #if defined(__OS2__)
    hab = WinInitialize (0);
    hmq = WinCreateMsgQueue (hab, 0);
+   WinCancelShutdown (hmq, TRUE);
 #endif
 
+#if defined(__OS2__)
+   DosExitCritSec ();
+#endif
+
+   OldStatus = Status;
+   Status = UNDEFINED;
+
    CompileNodelist ((USHORT)args);
+
+   Status = OldStatus;
 
 #if defined(__OS2__)
    if (hmq != NULL)
@@ -765,15 +1641,7 @@ VOID NodelistThread (PVOID args)
    WinTerminate (hab);
 #endif
 
-#if defined(__OS2__)
-   WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
-   if (Events != NULL)
-      WinStartTimer (hab, hwndMainClient, 2, EVENTS_DELAY);
-#elif defined(__NT__)
-   SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-   if (Events != NULL)
-      SetTimer (hwndMainClient, 2, EVENTS_DELAY, NULL);
-#endif
+   StartTimer (hwndMainClient, 1, MODEM_DELAY);
 
 #if defined(__OS2__) || defined(__NT__)
    _endthread ();
@@ -786,6 +1654,7 @@ VOID MailProcessorThread (PVOID Args)
    HAB hab;
    HMQ hmq;
 #endif
+   USHORT OldStatus;
    ULONG Actions = (ULONG)Args;
    CHAR Temp[128];
    class TMailProcessor *Processor;
@@ -795,7 +1664,16 @@ VOID MailProcessorThread (PVOID Args)
 #if defined(__OS2__)
    hab = WinInitialize (0);
    hmq = WinCreateMsgQueue (hab, 0);
+   WinCancelShutdown (hmq, TRUE);
 #endif
+
+#if defined(__OS2__)
+   DosExitCritSec ();
+//   DosSetPriority ((USHORT)1, (USHORT)0, (SHORT)0, (USHORT)0);
+#endif
+
+   OldStatus = Status;
+   Status = UNDEFINED;
 
    if (Actions & MAIL_TIC) {
       if ((Tic = new TTicProcessor) != NULL) {
@@ -828,6 +1706,9 @@ VOID MailProcessorThread (PVOID Args)
       Processor->Log = Log;
       Processor->Output = new TPMList (hwndMainClient);
       Processor->Status = new TPMStatus (hwndMainClient);
+
+      if (Actions & MAIL_IMPORTBAD)
+         Processor->ImportBad ();
 
       if (Actions & (MAIL_IMPORTNORMAL|MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED)) {
          if (Cfg->ImportCmd[0] != '\0' && !(Actions & MAIL_NOEXTERNAL))
@@ -912,12 +1793,6 @@ VOID MailProcessorThread (PVOID Args)
          Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
    }
 
-#if defined(__OS2__)
-   if (hmq != NULL)
-      WinDestroyMsgQueue (hmq);
-   WinTerminate (hab);
-#endif
-
    if (!(Actions & MAIL_POSTQUIT)) {
       if (Log != NULL)
          Log->WriteBlank ();
@@ -928,17 +1803,8 @@ VOID MailProcessorThread (PVOID Args)
       PostMessage (hwndMainClient, WM_USER, (WPARAM)WMU_REFRESHOUTBOUND, 0L);
 #endif
 
-      if (Actions & MAIL_STARTTIMER) {
-#if defined(__OS2__)
-         WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
-         if (Events != NULL)
-            WinStartTimer (hab, hwndMainClient, 2, EVENTS_DELAY);
-#elif defined(__NT__)
-         SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-         if (Events != NULL)
-            SetTimer (hwndMainClient, 2, EVENTS_DELAY, NULL);
-#endif
-      }
+      if (Actions & MAIL_STARTTIMER)
+         StartTimer (hwndMainClient, 1, MODEM_DELAY);
    }
 #if defined(__OS2__)
    else
@@ -947,6 +1813,14 @@ VOID MailProcessorThread (PVOID Args)
    else
       PostMessage (hwndMainClient, WM_CLOSE, 0, 0L);
 #endif
+
+#if defined(__OS2__)
+   if (hmq != NULL)
+      WinDestroyMsgQueue (hmq);
+   WinTerminate (hab);
+#endif
+
+   Status = OldStatus;
 
 #if defined(__OS2__) || defined(__NT__)
    _endthread ();
@@ -958,38 +1832,43 @@ VOID MailProcessorThread (PVOID Args)
 VOID BbsThread (PVOID Args)
 {
    USHORT Remote;
-#if defined(__OS2__) || defined(__NT__)
-   CHAR Temp[64], Title[64];
-#endif
+   CHAR Title[64];
    ULONG Flags;
 #if defined(__OS2__)
-   CHAR ObjBuf[64];
+   CHAR ObjBuf[64], PipeName[64], CtlName[64], Temp[128];
    ULONG id;
    STARTDATA StartData;
    PID Pid;
    HAB hab;
    HMQ hmq;
+   class TPipe *Pipe = NULL;
+#elif defined(__NT__)
+   class TScreen *Screen;
 #endif
    class TBbs *Bbs;
-#if defined(__OS2__) || defined(__NT__)
-   class TPipe *Pipe = NULL;
-#endif
 
    Args = Args;
    Remote = REMOTE_NONE;
 #if defined(__OS2__)
    hab = WinInitialize (0);
    hmq = WinCreateMsgQueue (hab, 0);
+   WinCancelShutdown (hmq, TRUE);
 #endif
 
-   if ((Bbs = new TBbs) != NULL) {
-#if defined(__OS2__) || defined(__NT__)
-      if ((Pipe = new TPipe) != NULL) {
-         sprintf (Title, "Snoop - Line %u", Cfg->TaskNumber);
-         sprintf (Temp, "\\PIPE\\SNOOP%u", Cfg->TaskNumber);
-
 #if defined(__OS2__)
-         if (Pipe->Initialize (Temp, 1) == TRUE) {
+   DosExitCritSec ();
+//   DosSetPriority ((USHORT)1, (USHORT)0, (SHORT)31, (USHORT)0);
+#endif
+
+   sprintf (Title, "Snoop - Line %u", Cfg->TaskNumber);
+
+   if ((Bbs = new TBbs) != NULL) {
+#if defined(__OS2__)
+      if ((Pipe = new TPipe) != NULL) {
+         sprintf (PipeName, "\\PIPE\\SNOOP%u", Cfg->TaskNumber);
+         sprintf (CtlName, "\\PIPE\\CTL%u", Cfg->TaskNumber);
+
+         if (Pipe->Initialize (PipeName, CtlName, 1) == TRUE) {
             Pipe->WaitClient ();
             Bbs->Snoop = Pipe;
          }
@@ -1001,6 +1880,7 @@ VOID BbsThread (PVOID Args)
          StartData.TraceOpt = SSF_TRACEOPT_NONE;
          StartData.PgmTitle = Title;
          StartData.PgmName = "SNOOP.EXE";
+         sprintf (Temp, "%s %s", PipeName, CtlName);
          StartData.PgmInputs = Temp;
          StartData.TermQ = NULL;
          StartData.Environment = 0;
@@ -1020,7 +1900,14 @@ VOID BbsThread (PVOID Args)
 
          while (Pipe->WaitClient () == FALSE)
             DosSleep (1L);
-#endif
+      }
+#elif defined(__NT__)
+      if ((Screen = new TScreen) != NULL) {
+         if (Screen->Initialize () == TRUE) {
+            SetConsoleTitle (Title);
+            SetForegroundWindow (hwndMainClient);
+            Bbs->Snoop = Screen;
+         }
       }
 #endif
 
@@ -1032,8 +1919,11 @@ VOID BbsThread (PVOID Args)
       if (Modem != NULL) {
          Bbs->Com = Modem->Serial;
          Bbs->Speed = Modem->Speed;
+         if (connectSpeed != 0L)
+            Bbs->Speed = connectSpeed;
       }
       Bbs->Task = Cfg->TaskNumber;
+      Bbs->TimeLimit = timeLimit;
       Bbs->Run ();
       Remote = Bbs->Remote;
 
@@ -1046,13 +1936,14 @@ VOID BbsThread (PVOID Args)
       if (Bbs->Progress != NULL)
          delete Bbs->Progress;
 
-#if defined(__OS2__) || defined(__NT__)
-      if (Pipe != NULL) {
 #if defined(__OS2__)
+      if (Pipe != NULL) {
          DosStopSession (STOP_SESSION_SPECIFIED, id);
-#endif
          delete Pipe;
       }
+#elif defined(__NT__)
+      if (Screen != NULL)
+         delete Screen;
 #endif
 
       delete Bbs;
@@ -1106,19 +1997,8 @@ VOID BbsThread (PVOID Args)
          Flags |= (MAIL_EXPORT|MAIL_PACK);
       _beginthread (MailProcessorThread, NULL, 8192, (PVOID)Flags);
    }
-   else {
-#if defined(__OS2__)
-      WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
-      if (Events != NULL)
-         WinStartTimer (hab, hwndMainClient, 2, EVENTS_DELAY);
-#elif defined(__NT__)
-      SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-      if (Events != NULL) {
-         SetTimer (hwndMainClient, 2, EVENTS_DELAY, NULL);
-         CallDelay = TimerSet ((ULONG)Events->CallDelay * 100L);
-      }
-#endif
-   }
+   else
+      StartTimer (hwndMainClient, 1, MODEM_DELAY);
 
 #if defined(__OS2__)
    if (hmq != NULL)
@@ -1133,29 +2013,41 @@ VOID BbsThread (PVOID Args)
 
 VOID LocalThread (PVOID Args)
 {
-#if defined(__OS2__) || defined(__NT__)
-   CHAR Temp[64];
-#endif
+   CHAR Title[64];
 #if defined(__OS2__)
-   CHAR Title[64], ObjBuf[64];
+   CHAR ObjBuf[64], PipeName[64], CtlName[64], Temp[128];
    ULONG id;
    STARTDATA StartData;
    PID Pid;
    HAB hab;
    HMQ hmq;
-   class TBbs *Bbs;
    class TPipe *Pipe = NULL;
+#elif defined(__NT__)
+   class TScreen *Screen;
+#endif
+   class TBbs *Bbs;
 
    Args = Args;
+#if defined(__OS2__)
    hab = WinInitialize (0);
    hmq = WinCreateMsgQueue (hab, 0);
+   WinCancelShutdown (hmq, TRUE);
+#endif
+
+#if defined(__OS2__)
+   DosExitCritSec ();
+//   DosSetPriority ((USHORT)1, (USHORT)0, (SHORT)31, (USHORT)0);
+#endif
+
+   sprintf (Title, "Snoop - Line %u", Cfg->TaskNumber);
 
    if ((Bbs = new TBbs) != NULL) {
+#if defined(__OS2__)
       if ((Pipe = new TPipe) != NULL) {
-         sprintf (Title, "Snoop - Line %u", Cfg->TaskNumber);
-         sprintf (Temp, "\\PIPE\\SNOOP%u", Cfg->TaskNumber);
+         sprintf (PipeName, "\\PIPE\\SNOOP%u", Cfg->TaskNumber);
+         sprintf (CtlName, "\\PIPE\\CTL%u", Cfg->TaskNumber);
 
-         if (Pipe->Initialize (Temp, 1) == TRUE) {
+         if (Pipe->Initialize (PipeName, CtlName, 1) == TRUE) {
             Pipe->WaitClient ();
             Bbs->Com = Pipe;
          }
@@ -1167,6 +2059,7 @@ VOID LocalThread (PVOID Args)
          StartData.TraceOpt = SSF_TRACEOPT_NONE;
          StartData.PgmTitle = Title;
          StartData.PgmName = "SNOOP.EXE";
+         sprintf (Temp, "%s %s", PipeName, CtlName);
          StartData.PgmInputs = Temp;
          StartData.TermQ = NULL;
          StartData.Environment = 0;
@@ -1187,6 +2080,14 @@ VOID LocalThread (PVOID Args)
          while (Pipe->WaitClient () == FALSE)
             DosSleep (1L);
       }
+#elif defined(__NT__)
+      if ((Screen = new TScreen) != NULL) {
+         if (Screen->Initialize () == TRUE) {
+            SetConsoleTitle (Title);
+            Bbs->Com = Screen;
+         }
+      }
+#endif
 
       if (Log != NULL)
          Log->Write ("+Connect Local");
@@ -1196,6 +2097,7 @@ VOID LocalThread (PVOID Args)
       Bbs->Status = new TPMStatus (hwndMainClient);
       Bbs->Speed = 57600L;
       Bbs->Task = Cfg->TaskNumber;
+      Bbs->TimeLimit = timeLimit;
       Bbs->Run ();
       if (Bbs->Status != NULL) {
          Bbs->Status->Clear ();
@@ -1204,10 +2106,15 @@ VOID LocalThread (PVOID Args)
       if (Bbs->Progress != NULL)
          delete Bbs->Progress;
 
+#if defined(__OS2__)
       if (Pipe != NULL) {
          DosStopSession (STOP_SESSION_SPECIFIED, id);
          delete Pipe;
       }
+#elif defined(__NT__)
+      if (Screen != NULL)
+         delete Screen;
+#endif
 
       delete Bbs;
    }
@@ -1217,28 +2124,13 @@ VOID LocalThread (PVOID Args)
       if (Modem->Serial->Carrier () == TRUE)
          Log->Write ("!Unable to drop carrier");
    }
-#elif defined(__NT__)
-   Args = Args;
-   sprintf (Temp, "local /line %u", Cfg->TaskNumber);
-   RunExternal (Temp);
-#endif
 
    if (Log != NULL) {
       Log->Display = TRUE;
       Log->WriteBlank ();
    }
 
-#if defined(__OS2__)
-   WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
-   if (Events != NULL)
-      WinStartTimer (hab, hwndMainClient, 2, EVENTS_DELAY);
-#elif defined(__NT__)
-   SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-   if (Events != NULL) {
-      SetTimer (hwndMainClient, 2, EVENTS_DELAY, NULL);
-      CallDelay = TimerSet ((ULONG)Events->CallDelay * 100L);
-   }
-#endif
+   StartTimer (hwndMainClient, 1, MODEM_DELAY);
 
 #if defined(__OS2__)
    if (hmq != NULL)
@@ -1267,6 +2159,12 @@ VOID MailerThread (PVOID Args)
 #if defined(__OS2__)
    hab = WinInitialize (0);
    hmq = WinCreateMsgQueue (hab, 0);
+   WinCancelShutdown (hmq, TRUE);
+#endif
+
+#if defined(__OS2__)
+   DosExitCritSec ();
+//   DosSetPriority ((USHORT)1, (USHORT)0, (SHORT)31, (USHORT)0);
 #endif
 
    if ((Detect = new TDetect) != NULL) {
@@ -1325,9 +2223,8 @@ VOID MailerThread (PVOID Args)
    if (Log != NULL)
       Log->WriteBlank ();
 
-   Flags = 0L;
+   Flags = MAIL_STARTTIMER;
    if (RetVal == REMOTE_MAILRECEIVED && Events != NULL) {
-      Flags |= MAIL_STARTTIMER;
       if (Events->ImportNormal == TRUE)
          Flags |= MAIL_IMPORTNORMAL;
       if (Events->ImportKnown == TRUE)
@@ -1336,19 +2233,11 @@ VOID MailerThread (PVOID Args)
          Flags |= MAIL_IMPORTPROTECTED;
       if (Events->ExportMail == TRUE)
          Flags |= (MAIL_EXPORT|MAIL_PACK);
+   }
+   if (Flags != MAIL_STARTTIMER)
       _beginthread (MailProcessorThread, NULL, 8192, (PVOID)Flags);
-   }
-   else {
-#if defined(__OS2__)
-      WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
-      if (Events != NULL)
-         WinStartTimer (hab, hwndMainClient, 2, EVENTS_DELAY);
-#elif defined(__NT__)
-      SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-      if (Events != NULL)
-         SetTimer (hwndMainClient, 2, EVENTS_DELAY, NULL);
-#endif
-   }
+   else
+      StartTimer (hwndMainClient, 1, MODEM_DELAY);
 
 #if defined(__OS2__)
    if (hmq != NULL)
@@ -1376,9 +2265,15 @@ VOID FaxReceiveThread (PVOID Args)
 #if defined(__OS2__)
    hab = WinInitialize (0);
    hmq = WinCreateMsgQueue (hab, 0);
+   WinCancelShutdown (hmq, TRUE);
 #endif
 
-   if (Cfg->FaxCommand[0] != '\0') {
+#if defined(__OS2__)
+   DosExitCritSec ();
+//   DosSetPriority ((USHORT)1, (USHORT)0, (SHORT)31, (USHORT)0);
+#endif
+
+   if (Cfg->ExternalFax == TRUE && Cfg->FaxCommand[0] != '\0') {
 #if !defined(__DOS__)
       sprintf (Temp, Cfg->FaxCommand, atoi (&Cfg->Device[3]), Cfg->Speed, Modem->Serial->hFile);
 #else
@@ -1386,14 +2281,19 @@ VOID FaxReceiveThread (PVOID Args)
 #endif
 
       Log->Write ("+Spawning to %s", Temp);
+      Log->Suspend ();
       RunExternal (Temp);
+      Log->Resume ();
       Log->Write (":Returned from %s", Temp);
    }
    else {
       if ((Fax = new TFax) != NULL) {
+         strcpy (Fax->DataPath, Cfg->FaxPath);
+         Fax->Format = Cfg->FaxFormat;
          Fax->Com = Modem->Serial;
          Fax->Log = Log;
-         Fax->faxreceive ();
+         if (Fax->faxreceive () == TRUE && Cfg->AfterFaxCmd[0] != '\0')
+            SpawnExternal (Cfg->AfterFaxCmd);
          delete Fax;
       }
    }
@@ -1404,15 +2304,7 @@ VOID FaxReceiveThread (PVOID Args)
          Log->Write ("!Unable to drop carrier");
    }
 
-#if defined(__OS2__)
-   WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
-   if (Events != NULL)
-      WinStartTimer (hab, hwndMainClient, 2, EVENTS_DELAY);
-#elif defined(__NT__)
-   SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-   if (Events != NULL)
-      SetTimer (hwndMainClient, 2, EVENTS_DELAY, NULL);
-#endif
+   StartTimer (hwndMainClient, 1, MODEM_DELAY);
 
 #if defined(__OS2__)
    if (hmq != NULL)
@@ -1476,13 +2368,27 @@ VOID ModemTimer (HWND hwnd)
                   Modem->LockSpeed = Cfg->LockSpeed;
                   if (Cfg->Ring[0] != '\0')
                      strcpy (Modem->Ring, Cfg->Ring);
-                  Modem->Initialize ();
-                  Status = INITIALIZE;
-                  Current = 0;
-                  Modem->hwndWindow = hwnd;
+                  if (Modem->Initialize (comHandle) == TRUE) {
+                     Current = 0;
+                     Modem->hwndWindow = hwnd;
+
+                     if (Modem->Serial->Carrier () == TRUE && gotPort == TRUE && gotSpeed == TRUE) {
+                        if (Log != NULL)
+                           Log->Write ("+Connect %lu", Modem->Speed);
+                        StopTimer (hwnd, 1);
+                        _beginthread (BbsThread, NULL, 32768U, NULL);
+                        Status = BBSEXIT;
+                     }
+                     else
+                        Status = INITIALIZE;
+                  }
+                  else if (Log != NULL) {
+                     Log->Write ("!Error opening device %s", Modem->Device);
+                     Status = BBSEXIT;
+                  }
                }
             }
-            if (Outbound != NULL) {
+            if (Outbound != NULL && Status != BBSEXIT) {
                if (Log != NULL)
                   Log->Write ("+Building the outbound queue");
                Outbound->BuildQueue (Cfg->Outbound);
@@ -1505,7 +2411,7 @@ VOID ModemTimer (HWND hwnd)
                Current++;
             if (Current >= 3) {
                Status = WAITFORCALL;
-               TimeOut = TimerSet (15L * 6000L);
+               TimeOut = TimerSet (REINIT_DELAY);
                Modem->Terminal = TRUE;
             }
             else {
@@ -1523,7 +2429,7 @@ VOID ModemTimer (HWND hwnd)
                ;
             if (Current >= 3) {
                Status = WAITFORCALL;
-               TimeOut = TimerSet (15L * 6000L);
+               TimeOut = TimerSet (REINIT_DELAY);
             }
             else
                Status = INITIALIZE;
@@ -1541,46 +2447,44 @@ VOID ModemTimer (HWND hwnd)
 
          if ((i = Modem->GetResponse ()) == RING && Cfg != NULL) {
             if (Cfg->ManualAnswer == TRUE) {
-               if (Cfg->LimitedHours == FALSE)
+               if (Cfg->LimitedHours == FALSE) {
                   Modem->SendCommand (Cfg->Answer);
+                  Status = ANSWERING;
+                  TimeOut = TimerSet (4500L);
+               }
                else {
                   _dos_gettime (&dt);
                   t = (USHORT)(dt.hour * 60 + dt.minute);
                   if (Cfg->StartTime < Cfg->EndTime) {
-                     if (t >= Cfg->StartTime && t <= Cfg->EndTime)
+                     if (t >= Cfg->StartTime && t <= Cfg->EndTime) {
                         Modem->SendCommand (Cfg->Answer);
+                        Status = ANSWERING;
+                        TimeOut = TimerSet (4500L);
+                     }
                   }
                   else {
-                     if (t >= Cfg->StartTime)
+                     if (t >= Cfg->StartTime) {
                         Modem->SendCommand (Cfg->Answer);
-                     else if (t <= Cfg->EndTime)
+                        Status = ANSWERING;
+                        TimeOut = TimerSet (4500L);
+                     }
+                     else if (t <= Cfg->EndTime) {
                         Modem->SendCommand (Cfg->Answer);
+                        Status = ANSWERING;
+                        TimeOut = TimerSet (4500L);
+                     }
                   }
                }
             }
-            Status = ANSWERING;
-            TimeOut = TimerSet (4500L);
          }
          else if (i == CONNECT) {
+            StopTimer (hwnd, 1);
             _beginthread (BbsThread, NULL, 32768U, NULL);
-#if defined(__OS2__)
-            WinStopTimer (hab, hwnd, 1);
-            WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-            KillTimer (hwnd, 1);
-            KillTimer (hwnd, 2);
-#endif
             Status = HANGUP;
          }
          else if (i == FAX) {
+            StopTimer (hwnd, 1);
             _beginthread (FaxReceiveThread, NULL, 8192, NULL);
-#if defined(__OS2__)
-            WinStopTimer (hab, hwnd, 1);
-            WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-            KillTimer (hwnd, 1);
-            KillTimer (hwnd, 2);
-#endif
             Status = HANGUP;
          }
          else if (TimeUp (TimeOut) == TRUE) {
@@ -1592,29 +2496,17 @@ VOID ModemTimer (HWND hwnd)
 
       case ANSWERING:
          if ((i = Modem->GetResponse ()) == CONNECT) {
+            StopTimer (hwnd, 1);
             _beginthread (BbsThread, NULL, 32768U, NULL);
-#if defined(__OS2__)
-            WinStopTimer (hab, hwnd, 1);
-            WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-            KillTimer (hwnd, 1);
-            KillTimer (hwnd, 2);
-#endif
             Status = HANGUP;
          }
          else if (i == FAX) {
+            StopTimer (hwnd, 1);
             _beginthread (FaxReceiveThread, NULL, 8192, NULL);
-#if defined(__OS2__)
-            WinStopTimer (hab, hwnd, 1);
-            WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-            KillTimer (hwnd, 1);
-            KillTimer (hwnd, 2);
-#endif
             Status = HANGUP;
          }
          else if (i != NO_RESPONSE && i != RING)
-            Status = INITIALIZE;
+            Status = HANGUP;
          else if (TimeUp (TimeOut) == TRUE) {
             if (Log != NULL)
                Log->Write ("!Answer timer expired");
@@ -1627,28 +2519,21 @@ VOID ModemTimer (HWND hwnd)
          Modem->Initialize ();
          Status = INITIALIZE;
          Current = 0;
-         if (Events != NULL)
-            CallDelay = TimerSet ((ULONG)Events->CallDelay * 100L);
+         CallTimer = 0L;
          break;
 
       case WAITFORCONNECT:
          if ((i = Modem->GetResponse ()) == CONNECT) {
             if (PollNode[0] != '\0' && Outbound != NULL)
                Outbound->AddAttempt (PollNode, TRUE);
+            StopTimer (hwnd, 1);
             _beginthread (MailerThread, NULL, 32768U, NULL);
-#if defined(__OS2__)
-            WinStopTimer (hab, hwnd, 1);
-            WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-            KillTimer (hwnd, 1);
-            KillTimer (hwnd, 2);
-#endif
             Status = HANGUP;
          }
          else if (i != NO_RESPONSE) {
             if (PollNode[0] != '\0' && Outbound != NULL) {
                Outbound->AddAttempt (PollNode, FALSE, Modem->Response);
-               PollNode[0] = '\0';
+//               PollNode[0] = '\0';
 #if defined(__OS2__)
                WinPostMsg (hwndMainClient, WM_USER, MPFROMSHORT (WMU_REFRESHOUTBOUND), 0L);
 #elif defined(__NT__)
@@ -1657,15 +2542,13 @@ VOID ModemTimer (HWND hwnd)
             }
             Status = INITIALIZE;
             Current = 0;
-            if (Events != NULL)
-               CallDelay = TimerSet ((ULONG)Events->CallDelay * 100L);
          }
          else if (TimeUp (TimeOut) == TRUE) {
             if (Log != NULL)
                Log->Write ("!Dialing timer expired");
             if (PollNode[0] != '\0' && Outbound != NULL) {
                Outbound->AddAttempt (PollNode, FALSE, "Timeout");
-               PollNode[0] = '\0';
+//               PollNode[0] = '\0';
 #if defined(__OS2__)
                WinPostMsg (hwndMainClient, WM_USER, MPFROMSHORT (WMU_REFRESHOUTBOUND), 0L);
 #elif defined(__NT__)
@@ -1675,262 +2558,383 @@ VOID ModemTimer (HWND hwnd)
             Status = HANGUP;
          }
          break;
+
+      case BBSEXIT:
+#if defined(__OS2__)
+         WinPostMsg (hwnd, WM_CLOSE, 0L, 0L);
+#elif defined(__NT__)
+         PostMessage (hwnd, WM_CLOSE, 0, 0L);
+#endif
+         break;
    }
 }
 
-VOID EventsTimer (PVOID Args)
+//////////////////////////////////////////////////////////////////
+// Processo in background per controllo eventi e poll           //
+//////////////////////////////////////////////////////////////////
+VOID BackgroundThread (PVOID Args)
 {
-#if !defined(__POINT__)
-   USHORT i, DoCall = FALSE;
-   CHAR *p;
-   struct stat statbuf;
+   DIR *dir;
+   USHORT i, DoCall, Found;
+   USHORT OldStatus = 99;
+   CHAR Temp[32], *p;
+   ULONG EventsTimer;
    class TAddress Address;
+   class TOutbound *Out;
+   struct stat statbuf;
+   struct dirent *ent;
+
 #if defined(__OS2__)
    HAB hab;
    HMQ hmq;
 #endif
 
    Args = Args;
+   EventsTimer = 0L;
+
 #if defined(__OS2__)
    hab = WinInitialize (0);
-   hmq = WinCreateMsgQueue (hab, 0);
+   if ((hmq = WinCreateMsgQueue (hab, 0)) != NULL)
+      WinCancelShutdown (hmq, TRUE);
+   DosExitCritSec ();
+//   DosSetPriority ((USHORT)1, (USHORT)0, (SHORT)31, (USHORT)0);
 #endif
 
-   Events->TimeToNext ();
-   if (Events->NextNumber != 0) {
-      if ((p = (CHAR *)malloc (128)) != NULL) {
-         sprintf (p, "Event %d starts in %d minute(s)", Events->NextNumber, Events->TimeRemain);
-#if defined(__OS2__)
-         WinSendMsg (hwndMainClient, WM_USER, MPFROM2SHORT (WMU_SETSTATUSLINE, 0), MPFROMP (p));
-#elif defined(__NT__)
-         SendMessage (hwndMainClient, WM_USER, (WPARAM)WMU_SETSTATUSLINE0, (LPARAM)p);
-#elif defined(__DOS__)
-         prints (22, 2, WHITE|_BLACK, p);
-#endif
-         free (p);
+   for (;;) {
+      if (Status != OldStatus) {
+         OldStatus = Status;
+//         if (Status != UNDEFINED)
+//            Log->Write ("> DEBUG: Status=%d (%s)", Status, statusText[Status]);
+         EventsTimer = 0L;
+         CallTimer = 0L;
       }
+      if (Status == WAITFORCALL) {
+         //////////////////////////////////////////////////////////////////
+         // Controlla se ci sono eventi da eseguire.                     //
+         //////////////////////////////////////////////////////////////////
+         if (TimeUp (EventsTimer)) {
+            Found = DoCall = FALSE;
+            Address.Clear ();
 
-      Events->First ();
-      for (i = 1; i < Events->NextNumber; i++)
-         Events->Next ();
-
-      if ((p = (CHAR *)malloc (128)) != NULL) {
-         strcpy (p, "Flags for next event:");
-         if (Events->MailOnly == FALSE)
-            strcat (p, " B");
-         if (Events->SendNormal == FALSE && Events->SendCrash == FALSE && Events->SendDirect == FALSE && Events->SendImmediate == FALSE)
-            strcat (p, " R");
-         if (Events->Force == TRUE)
-            strcat (p, " F");
-         if (Events->SendCrash == TRUE)
-            strcat (p, " C");
-         if (Events->SendDirect == TRUE)
-            strcat (p, " D");
-         if (Events->SendImmediate == TRUE)
-            strcat (p, " I");
-         if (Events->AllowRequests == FALSE)
-            strcat (p, " N");
-         if (Events->Dynamic == TRUE)
-            strcat (p, " Y");
-         if (Events->ForceCall == TRUE) {
-            strcat (p, " P=");
-            strcat (p, Events->Address);
-         }
+            Events->TimeToNext ();
+            if (Events->NextNumber != 0) {
+               if ((p = (CHAR *)malloc (128)) != NULL) {
+                  sprintf (p, "Event %d starts in %d minute(s)", Events->NextNumber, Events->TimeRemain);
 #if defined(__OS2__)
-         WinSendMsg (hwndMainClient, WM_USER, MPFROM2SHORT (WMU_SETSTATUSLINE, 1), MPFROMP (p));
+                  WinSendMsg (hwndMainClient, WM_USER, MPFROM2SHORT (WMU_SETSTATUSLINE, 0), MPFROMP (p));
 #elif defined(__NT__)
-         SendMessage (hwndMainClient, WM_USER, (WPARAM)WMU_SETSTATUSLINE1, (LPARAM)p);
+                  SendMessage (hwndMainClient, WM_USER, (WPARAM)WMU_SETSTATUSLINE0, (LPARAM)p);
 #elif defined(__DOS__)
-         prints (23, 2, WHITE|_BLACK, p);
+                  prints (22, 2, WHITE|_BLACK, p);
 #endif
-         free (p);
-      }
-   }
-
-   if (Events->SetCurrent () == TRUE) {
-      if (Events->Started == TRUE) {
-         if (Log != NULL) {
-            if (Events->Label[0] != '\0')
-               Log->Write (":Starting Event %d - %s", Events->Number, Events->Label);
-            else
-               Log->Write (":Starting Event %d", Events->Number);
-         }
-
-         if (Events->Command[0] != '\0') {
-            Log->Write ("#Executing %s", Events->Command);
-            RunExternal (Events->Command);
-         }
-
-         if (Events->StartImport == TRUE && Events->StartExport == TRUE && Cfg->UseSinglePass == TRUE) {
-            RunExternal (Cfg->SinglePassCmd);
-            RunExternal (Cfg->PackCmd);
-         }
-         else {
-            if (Events->StartImport == TRUE) {
-               if (Events->ImportNormal == TRUE || Events->ImportProtected == TRUE || Events->ImportKnown == TRUE)
-                  RunExternal (Cfg->ImportCmd);
-            }
-            if (Events->StartExport == TRUE) {
-               if (Cfg->SeparateNetMail == TRUE)
-                  RunExternal (Cfg->PackCmd);
-               RunExternal (Cfg->ExportCmd);
-               RunExternal (Cfg->PackCmd);
-            }
-         }
-
-         if (Outbound != NULL) {
-            if (Log != NULL)
-               Log->Write ("+Building the outbound queue");
-            Outbound->BuildQueue (Cfg->Outbound);
-            unlink ("rescan.now");
-
-            if (Events->ForceCall == TRUE && Events->Address[0] != '\0') {
-               Outbound->New ();
-               Address.Parse (Events->Address);
-               if (Cfg->MailAddress.First () == TRUE) {
-                  if (Address.Zone == 0)
-                     Address.Zone = Cfg->MailAddress.Zone;
-                  if (Address.Net == 0)
-                     Address.Net = Cfg->MailAddress.Net;
-                  Address.Add ();
-                  Address.First ();
+                  free (p);
                }
-               Outbound->Zone = Address.Zone;
-               Outbound->Net = Address.Net;
-               Outbound->Node = Address.Node;
-               Outbound->Point = Address.Point;
-               Outbound->Poll = TRUE;
-               Outbound->Crash = Events->SendCrash;
-               Outbound->Direct = Events->SendDirect;
-               Outbound->Normal = Events->SendNormal;
-               Outbound->Immediate = Events->SendImmediate;
-               Outbound->Add ();
-            }
-            else
-               Outbound->FirstNode ();
 
-            if (Log != NULL)
-               Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
-#if defined(__OS2__)
-            WinSendMsg (hwndMainClient, WM_USER, MPFROMSHORT (WMU_REFRESHOUTBOUND), 0L);
-#elif defined(__NT__)
-            SendMessage (hwndMainClient, WM_USER, (WPARAM)WMU_REFRESHOUTBOUND, 0L);
-#endif
-         }
+               Events->First ();
+               for (i = 1; i < Events->NextNumber; i++)
+                  Events->Next ();
 
-         CallDelay = TimerSet ((ULONG)Events->CallDelay * 100L);
-         Events->Save ();
-      }
-      else if (TimeUp (CallDelay) && Outbound != NULL && Outbound->TotalNodes > 0 && Status != WAITFORCONNECT) {
-         if (Events->Address[0] != '\0') {
-            Address.Parse (Events->Address);
-            if (Cfg->MailAddress.First () == TRUE) {
-               if (Address.Zone == 0)
-                  Address.Zone = Cfg->MailAddress.Zone;
-               if (Address.Net == 0)
-                  Address.Net = Cfg->MailAddress.Net;
-               Address.Add ();
-               Address.First ();
-            }
-            DoCall = FALSE;
-            if (Outbound->FirstNode () == TRUE)
-               do {
-                  if (Outbound->Zone == Address.Zone && Outbound->Net == Address.Net && Outbound->Node == Address.Node && Outbound->Point == Address.Point) {
-                     DoCall = TRUE;
-                     break;
+               if ((p = (CHAR *)malloc (128)) != NULL) {
+                  strcpy (p, "Flags for next event:");
+                  if (Events->MailOnly == FALSE)
+                     strcat (p, " B");
+                  if (Events->SendNormal == FALSE && Events->SendCrash == FALSE && Events->SendDirect == FALSE && Events->SendImmediate == FALSE)
+                     strcat (p, " R");
+                  if (Events->Force == TRUE)
+                     strcat (p, " F");
+                  if (Events->SendCrash == TRUE)
+                     strcat (p, " C");
+                  if (Events->SendDirect == TRUE)
+                     strcat (p, " D");
+                  if (Events->SendImmediate == TRUE)
+                     strcat (p, " I");
+                  if (Events->AllowRequests == FALSE)
+                     strcat (p, " N");
+                  if (Events->Dynamic == TRUE)
+                     strcat (p, " Y");
+                  if (Events->ForceCall == TRUE) {
+                     strcat (p, " P=");
+                     strcat (p, Events->Address);
                   }
-               } while (Outbound->NextNode () == TRUE);
+#if defined(__OS2__)
+                  WinSendMsg (hwndMainClient, WM_USER, MPFROM2SHORT (WMU_SETSTATUSLINE, 1), MPFROMP (p));
+#elif defined(__NT__)
+                  SendMessage (hwndMainClient, WM_USER, (WPARAM)WMU_SETSTATUSLINE1, (LPARAM)p);
+#elif defined(__DOS__)
+                  prints (23, 2, WHITE|_BLACK, p);
+#endif
+                  free (p);
+               }
+            }
+
+            if (Events->SetCurrent () == TRUE) {
+               if (Events->Started == TRUE) {
+                  if (Log != NULL) {
+                     if (Events->Label[0] != '\0')
+                        Log->Write (":Starting Event %d - %s", Events->Number, Events->Label);
+                     else
+                        Log->Write (":Starting Event %d", Events->Number);
+                  }
+
+                  if (Events->Command[0] != '\0') {
+                     Log->Write ("#Executing %s", Events->Command);
+                     Log->Suspend ();
+                     RunExternal (Events->Command);
+                     Log->Resume ();
+                  }
+
+                  if (Events->StartImport == TRUE && Events->StartExport == TRUE && Cfg->UseSinglePass == TRUE) {
+                     Log->Write ("#Executing %s", Cfg->SinglePassCmd);
+                     Log->Suspend ();
+                     RunExternal (Cfg->SinglePassCmd);
+                     Log->Resume ();
+                     Log->Write ("#Executing %s", Cfg->PackCmd);
+                     Log->Suspend ();
+                     RunExternal (Cfg->PackCmd);
+                     Log->Resume ();
+                  }
+                  else {
+                     if (Events->StartImport == TRUE) {
+                        if (Events->ImportNormal == TRUE || Events->ImportProtected == TRUE || Events->ImportKnown == TRUE) {
+                           Log->Write ("#Executing %s", Cfg->ImportCmd);
+                           Log->Suspend ();
+                           RunExternal (Cfg->ImportCmd);
+                           Log->Resume ();
+                        }
+                     }
+                     if (Events->StartExport == TRUE) {
+                        if (Cfg->SeparateNetMail == TRUE) {
+                           Log->Write ("#Executing %s", Cfg->PackCmd);
+                           Log->Suspend ();
+                           RunExternal (Cfg->PackCmd);
+                           Log->Resume ();
+                        }
+                        Log->Write ("#Executing %s", Cfg->ExportCmd);
+                        Log->Suspend ();
+                        RunExternal (Cfg->ExportCmd);
+                        Log->Resume ();
+                        Log->Write ("#Executing %s", Cfg->PackCmd);
+                        Log->Suspend ();
+                        RunExternal (Cfg->PackCmd);
+                        Log->Resume ();
+                     }
+                  }
+
+                  if (Events->ForceCall == TRUE && Events->Address[0] != '\0') {
+                     if ((Out = new TOutbound (Cfg->Outbound)) != NULL) {
+                        Cfg->MailAddress.First ();
+                        Out->DefaultZone = Cfg->MailAddress.Zone;
+
+                        Address.Parse (Events->Address);
+                        if (Cfg->MailAddress.First () == TRUE) {
+                           if (Address.Zone == 0)
+                              Address.Zone = Cfg->MailAddress.Zone;
+                           if (Address.Net == 0)
+                              Address.Net = Cfg->MailAddress.Net;
+                        }
+                        Out->Add (Address.Zone, Address.Net, Address.Node, Address.Point);
+
+                        Out->New ();
+                        Out->Zone = Address.Zone;
+                        Out->Net = Address.Net;
+                        Out->Node = Address.Node;
+                        Out->Point = Address.Point;
+                        Out->Poll = TRUE;
+                        Out->Crash = Events->SendCrash;
+                        Out->Direct = Events->SendDirect;
+                        Out->Normal = Events->SendNormal;
+                        Out->Immediate = Events->SendImmediate;
+                        Out->Add ();
+                        Out->Update ();
+
+                        delete Out;
+                     }
+                  }
+
+                  if (Log != NULL)
+                     Log->Write ("+Building the outbound queue");
+                  Outbound->BuildQueue (Cfg->Outbound);
+                  unlink ("rescan.now");
+                  if (Log != NULL)
+                     Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
+#if defined(__OS2__)
+                  WinSendMsg (hwndMainClient, WM_USER, MPFROMSHORT (WMU_REFRESHOUTBOUND), 0L);
+#elif defined(__NT__)
+                  SendMessage (hwndMainClient, WM_USER, (WPARAM)WMU_REFRESHOUTBOUND, 0L);
+#endif
+                  CallTimer = 0L;
+
+                  Events->Save ();
+               }
+            }
+
+            if (stat ("rescan.now", &statbuf) == 0) {
+               if (Log != NULL)
+                  Log->Write ("+Building the outbound queue");
+               Outbound->BuildQueue (Cfg->Outbound);
+               unlink ("rescan.now");
+               if (Log != NULL)
+                  Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
+               CallTimer = 0L;
+            }
+
+            if ((dir = opendir (".")) != NULL) {
+               sprintf (Temp, "lexit%d", Cfg->TaskNumber);
+               while ((ent = readdir (dir)) != NULL) {
+                  if ((p = strchr (ent->d_name, '.')) != NULL) {
+                     *p++ = '\0';
+                     if (!stricmp (ent->d_name, Temp)) {
+                        ErrorLevel = (UCHAR)atoi (p);
+                        Status = BBSEXIT;
+                        if (Log != NULL)
+                           Log->Write (":Exit with errorlevel %d", ErrorLevel);
+                        break;
+                     }
+                  }
+               }
+               closedir (dir);
+            }
+
+            EventsTimer = TimerSet (1000L);
          }
 
-         if (Events->Address[0] == '\0' || DoCall == TRUE) {
+         if (CallTimer == 0L)
+            CallTimer = TimerSet ((ULONG)Events->CallDelay * 100L);
+
+         //////////////////////////////////////////////////////////////////
+         // Controlla se c'e' un poll da eseguire.                       //
+         //////////////////////////////////////////////////////////////////
+         if (TimeUp (CallTimer)) {
             DoCall = FALSE;
-            if (Events->SendCrash == TRUE && Outbound->Crash == TRUE)
-               DoCall = TRUE;
-            if (Events->SendDirect == TRUE && Outbound->Direct == TRUE)
-               DoCall = TRUE;
-            if (Events->SendNormal == TRUE && Outbound->Normal == TRUE)
-               DoCall = TRUE;
-            if (Events->SendImmediate == TRUE && Outbound->Immediate == TRUE)
-               DoCall = TRUE;
-         }
+            Address.Clear ();
 
-         if (DoCall == TRUE) {
-            strcpy (PollNode, Outbound->Address);
-            strcpy (Modem->NodelistPath, Cfg->NodelistPath);
-            strcpy (Modem->DialCmd, Cfg->Dial);
-            Modem->Poll (PollNode);
-            Status = WAITFORCONNECT;
-            TimeOut = TimerSet ((ULONG)Cfg->DialTimeout * 100L);
-         }
+            if (Outbound != NULL && Outbound->TotalNodes > 0) {
+               // Verifica se l'evento corrente e' riservato per il poll verso un
+               // certo nodo.
+               if (Events->Address[0] != '\0') {
+                  Address.Parse (Events->Address);
+                  if (Cfg->MailAddress.First () == TRUE) {
+                     if (Address.Zone == 0)
+                        Address.Zone = Cfg->MailAddress.Zone;
+                     if (Address.Net == 0)
+                        Address.Net = Cfg->MailAddress.Net;
+                     Address.Add ();
+                     Address.First ();
+                  }
+                  // Cerca il nodo nel database di outbound e se lo trova lo marca
+                  // immediatamente per il poll.
+                  DoCall = FALSE;
+                  if (Outbound->FirstNode () == TRUE)
+                     do {
+                        if (Outbound->Zone == Address.Zone && Outbound->Net == Address.Net && Outbound->Node == Address.Node && Outbound->Point == Address.Point) {
+                           strcpy (PollNode, Address.String);
+                           DoCall = TRUE;
+                           break;
+                        }
+                     } while (Outbound->NextNode () == TRUE);
+               }
 
-         DoCall = FALSE;
-         if (Events->Address[0] == '\0') {
-            while (Outbound->NextNode () == TRUE) {
-               if (Events->SendCrash == TRUE && Outbound->Crash == TRUE) {
-                  DoCall = TRUE;
-                  break;
+               // L'evento corrente non e' riservato ad un nodo.
+               if (Events->Address[0] == '\0') {
+                  Address.Clear ();
+                  // Verifica se c'e' gia' stata una chiamata, nel qual caso si posiziona
+                  // sull'entry di quel nodo e comincia la ricerca dal nodo sucessivo (se
+                  // esiste oppure dal primo.
+                  if (PollNode[0] != '\0') {
+                     Address.Clear ();
+                     Address.Parse (PollNode);
+                     if (Cfg->MailAddress.First () == TRUE) {
+                        if (Address.Zone == 0)
+                           Address.Zone = Cfg->MailAddress.Zone;
+                        if (Address.Net == 0)
+                           Address.Net = Cfg->MailAddress.Net;
+                        Address.Add ();
+                        Address.First ();
+                     }
+                     Found = FALSE;
+                     if (Outbound->FirstNode () == TRUE)
+                        do {
+                           if (Outbound->Zone == Address.Zone && Outbound->Net == Address.Net && Outbound->Node == Address.Node && Outbound->Point == Address.Point) {
+                              if (Outbound->NextNode () == TRUE)
+                                 Found = TRUE;
+                              break;
+                           }
+                        } while (Outbound->NextNode () == TRUE);
+                     if (Found == FALSE)
+                        Outbound->FirstNode ();
+                  }
+                  else
+                     Outbound->FirstNode ();
+
+                  // Verifica i flag di chiamata
+                  DoCall = FALSE;
+                  if (Events->SendCrash == TRUE && Outbound->Crash == TRUE)
+                     DoCall = TRUE;
+                  if (Events->SendDirect == TRUE && Outbound->Direct == TRUE)
+                     DoCall = TRUE;
+                  if (Events->SendNormal == TRUE && Outbound->Normal == TRUE)
+                     DoCall = TRUE;
+                  if (Events->SendImmediate == TRUE && Outbound->Immediate == TRUE)
+                     DoCall = TRUE;
+                  if (Events->MaxCalls != 0 && Outbound->Attempts >= Events->MaxCalls)
+                     DoCall = FALSE;
+                  else if (Events->MaxConnects != 0 && Outbound->Failed >= Events->MaxConnects)
+                     DoCall = FALSE;
                }
-               if (Events->SendDirect == TRUE && Outbound->Direct == TRUE) {
-                  DoCall = TRUE;
-                  break;
+
+               if (DoCall == FALSE) {
+                  while (Outbound->NextNode () == TRUE) {
+                     if (Events->SendCrash == TRUE && Outbound->Crash == TRUE)
+                        DoCall = TRUE;
+                     if (Events->SendDirect == TRUE && Outbound->Direct == TRUE)
+                        DoCall = TRUE;
+                     if (Events->SendNormal == TRUE && Outbound->Normal == TRUE)
+                        DoCall = TRUE;
+                     if (Events->SendImmediate == TRUE && Outbound->Immediate == TRUE)
+                        DoCall = TRUE;
+                     if (Events->MaxCalls != 0 && Outbound->Attempts >= Events->MaxCalls)
+                        DoCall = FALSE;
+                     else if (Events->MaxConnects != 0 && Outbound->Failed >= Events->MaxConnects)
+                        DoCall = FALSE;
+                     if (DoCall == TRUE)
+                        break;
+                  }
                }
-               if (Events->SendNormal == TRUE && Outbound->Normal == TRUE) {
-                  DoCall = TRUE;
-                  break;
+
+               if (DoCall == TRUE) {
+                  strcpy (PollNode, Outbound->Address);
+                  strcpy (Modem->NodelistPath, Cfg->NodelistPath);
+                  strcpy (Modem->DialCmd, Cfg->Dial);
+                  Modem->Poll (PollNode);
+                  Status = WAITFORCONNECT;
+                  TimeOut = TimerSet ((ULONG)Cfg->DialTimeout * 100L);
                }
-               if (Events->SendImmediate == TRUE && Outbound->Immediate == TRUE) {
-                  DoCall = TRUE;
-                  break;
-               }
+               else
+                  PollNode[0] = '\0';
             }
-            if (DoCall == FALSE) {
-               if (Outbound->FirstNode () == TRUE)
-                  do {
-                     if (Events->SendCrash == TRUE && Outbound->Crash == TRUE) {
-                        DoCall = TRUE;
-                        break;
-                     }
-                     if (Events->SendDirect == TRUE && Outbound->Direct == TRUE) {
-                        DoCall = TRUE;
-                        break;
-                     }
-                     if (Events->SendNormal == TRUE && Outbound->Normal == TRUE) {
-                        DoCall = TRUE;
-                        break;
-                     }
-                     if (Events->SendImmediate == TRUE && Outbound->Immediate == TRUE) {
-                        DoCall = TRUE;
-                        break;
-                     }
-                  } while (Outbound->NextNode () == TRUE);
-            }
+
+            CallTimer = 0L;
          }
       }
-   }
-
-   if (stat ("rescan.now", &statbuf) == 0) {
-      if (Log != NULL)
-         Log->Write ("+Building the outbound queue");
-      Outbound->BuildQueue (Cfg->Outbound);
-      unlink ("rescan.now");
-      if (Log != NULL)
-         Log->Write ("+%u queue record(s) in database", Outbound->TotalNodes);
-   }
 
 #if defined(__OS2__)
-   WinStartTimer (hab, hwndMainClient, 2, EVENTS_DELAY);
+      DosSleep (1L);
 #elif defined(__NT__)
-   SetTimer (hwndMainClient, 2, EVENTS_DELAY, NULL);
+      Sleep (1L);
 #endif
+   }
 
+/*
 #if defined(__OS2__)
    if (hmq != NULL)
       WinDestroyMsgQueue (hmq);
    WinTerminate (hab);
 #endif
-#endif
 
+#if defined(__OS2__) || defined(__NT__)
    _endthread ();
+#endif
+*/
 }
 
 USHORT ProcessSimpleDialog (HWND hwnd, USHORT id)
@@ -1942,6 +2946,18 @@ USHORT ProcessSimpleDialog (HWND hwnd, USHORT id)
    switch (id) {
       case 107:      // System / File request
          Dlg = new CRequestDlg (hwnd);
+         RetVal = TRUE;
+         break;
+      case 108:      // System / File attach
+         Dlg = new CAttachDlg (hwnd);
+         RetVal = TRUE;
+         break;
+      case 112:      // System / New ECHOmail Link
+         Dlg = new CNewEchoLinkDlg (hwnd);
+         RetVal = TRUE;
+         break;
+      case 113:      // System / Rescan ECHOmail
+         Dlg = new CRescanDlg (hwnd);
          RetVal = TRUE;
          break;
       case 402:      // BBS / Message Areas
@@ -1980,6 +2996,10 @@ USHORT ProcessSimpleDialog (HWND hwnd, USHORT id)
          Dlg = new CNodelistDlg (hwnd);
          RetVal = TRUE;
          break;
+      case 607:      // Manager / Origin Lines
+         Dlg = new COriginDlg (hwnd);
+         RetVal = TRUE;
+         break;
    }
 
    if (Dlg != NULL) {
@@ -2008,6 +3028,10 @@ USHORT ProcessSaveDialog (HWND hwnd, USHORT id)
          break;
       case 206:      // Global / Internet Options
          Dlg = new CInternetDlg (hwnd);
+         RetVal = TRUE;
+         break;
+      case 207:      // Global / Fax Options
+         Dlg = new CFaxOptDlg (hwnd);
          RetVal = TRUE;
          break;
       case 208:      // Global / Directories - Paths
@@ -2061,6 +3085,92 @@ USHORT ProcessSaveDialog (HWND hwnd, USHORT id)
    return (RetVal);
 }
 
+VOID WinHelp (PSZ help_file, int topic_id, PSZ title)
+{
+   CHAR helpFile[128];
+
+   getcwd (helpFile, sizeof (helpFile) - 1);
+   if (helpFile[strlen (helpFile) - 1] != '\\')
+      strcat (helpFile, "\\");
+   strcat (helpFile, help_file);
+
+#if defined(__OS2__)
+   CHAR *p;
+   HELPINIT hini;
+
+   if ((p = strchr (helpFile, '>')) != NULL)
+      *p = '\0';
+
+   if (help_hWnd == NULL) {
+      hini.cb = sizeof (HELPINIT);
+      hini.ulReturnCode = 0L;
+      hini.pszTutorialName = NULL;
+      hini.phtHelpTable = (PHELPTABLE)MAKELONG (1, 0xFFFF);
+      hini.hmodHelpTableModule = NULL;
+      hini.hmodAccelActionBarModule = NULL;
+      hini.idAccelTable = 0;
+      hini.idActionBar = 0;
+      hini.pszHelpWindowTitle = title;
+      hini.fShowPanelId = CMIC_HIDE_PANEL_ID;
+      hini.pszHelpLibraryName = helpFile;
+      if ((help_hWnd = WinCreateHelpInstance (hab, &hini)) != NULL)
+         WinAssociateHelpInstance (help_hWnd, hwndMainFrame);
+   }
+   if (help_hWnd != NULL) {
+      if (topic_id == HM_HELP_CONTENTS)
+         WinSendMsg (help_hWnd, HM_HELP_CONTENTS, 0L, 0L);
+      else if (topic_id == HM_GENERAL_HELP)
+         WinSendMsg (help_hWnd, HM_GENERAL_HELP, 0L, 0L);
+      else if (topic_id == HM_DISPLAY_HELP)
+         WinSendMsg (help_hWnd, HM_DISPLAY_HELP, 0L, 0L);
+      else
+         WinSendMsg (help_hWnd, HM_DISPLAY_HELP, MPFROM2SHORT (topic_id, 0), MPFROMSHORT (HM_RESOURCEID));
+   }
+
+#elif defined(__NT__)
+   title = title;
+   ::WinHelp (hwndMainClient, helpFile, HELP_CONTEXT, topic_id);
+#endif
+}
+
+VOID OutboundDetails (HWND hwnd)
+{
+   USHORT i;
+   CHAR Temp[128], *p;
+   class CDetailsDlg *Dlg;
+
+#if defined(__OS2__)
+   i = (USHORT)WinSendDlgItemMsg (hwnd, 1004, LM_QUERYSELECTION, MPFROMSHORT (LIT_FIRST), 0L);
+   WinSendDlgItemMsg (hwnd, 1004, LM_QUERYITEMTEXT, MPFROM2SHORT (i, sizeof (Temp) - 1), MPFROMP (Temp));
+#elif defined(__NT__)
+   i = (USHORT)SendDlgItemMessage (hwnd, 1004, LB_GETCURSEL, 0, 0L);
+   SendDlgItemMessage (hwnd, 1004, LB_GETTEXT, (WPARAM)i, (LPARAM)Temp);
+#endif
+
+   if ((p = strtok (Temp, " ")) != NULL) {
+      if (Outbound->FirstNode () == TRUE)
+         do {
+            if (!strcmp (Outbound->Address, p)) {
+               if ((Dlg = new CDetailsDlg (hwnd)) != NULL) {
+                  strcpy (Dlg->Address, p);
+                  Dlg->DoModal ();
+                  if (Dlg->DoRebuild == TRUE) {
+                     Outbound->BuildQueue (Cfg->Outbound);
+                     unlink ("rescan.now");
+#if defined(__OS2__)
+                     WinPostMsg (hwnd, WM_USER, MPFROMSHORT (WMU_REFRESHOUTBOUND), 0L);
+#elif defined(__NT__)
+                     PostMessage (hwnd, WM_USER, (WPARAM)WMU_REFRESHOUTBOUND, 0L);
+#endif
+                  }
+                  delete Dlg;
+               }
+               break;
+            }
+         } while (Outbound->NextNode () == TRUE);
+   }
+}
+
 #if defined(__OS2__)
 MRESULT EXPENTRY MainWinProc (HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2)
 #elif defined(__NT__)
@@ -2074,25 +3184,25 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
          HWND hwndMainList, hwndMainModem, hwndMainStatus, hwndMainOutbound;
          ULONG Value;
 
-         if ((hwndMainList = WinCreateWindow (hwnd, WC_LISTBOX, NULL, LS_NOADJUSTPOS|LS_HORZSCROLL|WS_GROUP|WS_TABSTOP|WS_VISIBLE, 0, 0, 0, 0, hwnd, HWND_TOP, 101, NULL, NULL)) != NULLHANDLE) {
+         if ((hwndMainList = WinCreateWindow (hwnd, WC_LISTBOX, NULL, LS_NOADJUSTPOS|LS_HORZSCROLL|WS_GROUP|WS_TABSTOP|WS_VISIBLE, 0, 0, 0, 0, hwnd, HWND_TOP, 1001, NULL, NULL)) != NULLHANDLE) {
             WinSetPresParam (hwndMainList, PP_FONTNAMESIZE, 14, "11.System VIO");
             Value = 0x000070L;
             WinSetPresParam (hwndMainList, PP_BACKGROUNDCOLOR, 4, &Value);
             Value = 0xFFFFFFL;
             WinSetPresParam (hwndMainList, PP_FOREGROUNDCOLOR, 4, &Value);
          }
-         if ((hwndMainModem = WinCreateWindow (hwnd, WC_LISTBOX, NULL, LS_NOADJUSTPOS|WS_GROUP|WS_TABSTOP|WS_VISIBLE, 0, 0, 0, 0, hwnd, HWND_TOP, 102, NULL, NULL)) != NULLHANDLE) {
+         if ((hwndMainModem = WinCreateWindow (hwnd, WC_LISTBOX, NULL, LS_NOADJUSTPOS|WS_GROUP|WS_TABSTOP|WS_VISIBLE, 0, 0, 0, 0, hwnd, HWND_TOP, 1002, NULL, NULL)) != NULLHANDLE) {
             WinSetPresParam (hwndMainModem, PP_FONTNAMESIZE, 14, "11.System VIO");
             Value = 0x000000L;
             WinSetPresParam (hwndMainModem, PP_BACKGROUNDCOLOR, 4, &Value);
             Value = 0xFFFFFFL;
             WinSetPresParam (hwndMainModem, PP_FOREGROUNDCOLOR, 4, &Value);
          }
-         if ((hwndMainOutbound = WinCreateWindow (hwnd, WC_LISTBOX, NULL, LS_NOADJUSTPOS|WS_GROUP|WS_TABSTOP|WS_VISIBLE, 0, 0, 0, 0, hwnd, HWND_TOP, 104, NULL, NULL)) != NULLHANDLE) {
+         if ((hwndMainOutbound = WinCreateWindow (hwnd, WC_LISTBOX, NULL, LS_NOADJUSTPOS|WS_GROUP|WS_TABSTOP|WS_VISIBLE, 0, 0, 0, 0, hwnd, HWND_TOP, 1004, NULL, NULL)) != NULLHANDLE) {
             WinSetPresParam (hwndMainOutbound, PP_FONTNAMESIZE, 14, "11.System VIO");
             Value = 0xFFFFFFL;
          }
-         if ((hwndMainStatus = WinCreateWindow (hwnd, WC_LISTBOX, NULL, LS_NOADJUSTPOS|WS_GROUP|WS_TABSTOP|WS_VISIBLE, 0, 0, 0, 0, hwnd, HWND_TOP, 103, NULL, NULL)) != NULLHANDLE) {
+         if ((hwndMainStatus = WinCreateWindow (hwnd, WC_LISTBOX, NULL, LS_NOADJUSTPOS|WS_GROUP|WS_TABSTOP|WS_VISIBLE, 0, 0, 0, 0, hwnd, HWND_TOP, 1003, NULL, NULL)) != NULLHANDLE) {
             WinSetPresParam (hwndMainStatus, PP_FONTNAMESIZE, 14, "11.System VIO");
             Value = 0xFFFFFFL;
             WinSetPresParam (hwndMainStatus, PP_BACKGROUNDCOLOR, 4, &Value);
@@ -2104,58 +3214,42 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #elif defined(__NT__)
          LOGFONT logFont;
          HFONT hFont;
-/*
-            logFont.lfHeight = 12;
-            logFont.lfWidth = 8;
-            logFont.lfEscapement = 0;
-            logFont.lfOrientation = 0;
-            logFont.lfWeight = FW_NORMAL;
-            logFont.lfItalic = FALSE;
-            logFont.lfUnderline = FALSE;
-            logFont.lfStrikeOut = FALSE;
-            logFont.lfCharSet = OEM_CHARSET;
-            logFont.lfOutPrecision = OUT_DEFAULT_PRECIS;
-            logFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-            logFont.lfQuality = DEFAULT_QUALITY;
-            logFont.lfPitchAndFamily = DEFAULT_PITCH|FF_DONTCARE;
-            strcpy (logFont.lfFaceName, "Fixedsys");
-*/
 
          logFont.lfHeight = 12;
-         logFont.lfWidth = 0;
+         logFont.lfWidth = 8;
          logFont.lfEscapement = 0;
          logFont.lfOrientation = 0;
          logFont.lfWeight = FW_NORMAL;
          logFont.lfItalic = FALSE;
          logFont.lfUnderline = FALSE;
          logFont.lfStrikeOut = FALSE;
-         logFont.lfCharSet = 0;
-         logFont.lfOutPrecision = 0;
-         logFont.lfClipPrecision = 0;
-         logFont.lfQuality = 0;
-         logFont.lfPitchAndFamily = VARIABLE_PITCH|FF_SWISS;
+         logFont.lfCharSet = OEM_CHARSET;
+         logFont.lfOutPrecision = OUT_DEFAULT_PRECIS;
+         logFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+         logFont.lfQuality = DEFAULT_QUALITY;
+         logFont.lfPitchAndFamily = DEFAULT_PITCH|FF_DONTCARE;
          strcpy (logFont.lfFaceName, "Fixedsys");
          hFont = CreateFontIndirect (&logFont);
 
-         if ((hwndMainList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_MULTIPLESEL|WS_CHILD|WS_VSCROLL|WS_HSCROLL, 0, 0, 100, 50, hwnd, NULL, hinst, NULL)) != NULL) {
+         if ((hwndMainList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_NOTIFY|WS_CHILD|WS_VSCROLL|WS_HSCROLL, 0, 0, 100, 50, hwnd, (HMENU)1001, hinst, NULL)) != NULL) {
             if (hFont != NULL)
                SendMessage (hwndMainList, WM_SETFONT, (WPARAM)hFont, MAKELPARAM (FALSE, 0));
             ShowWindow (hwndMainList, SW_SHOW);
          }
 
-         if ((hwndModemList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_MULTIPLESEL|WS_CHILD|WS_VSCROLL, 0, 0, 100, 50, hwnd, NULL, hinst, NULL)) != NULL) {
+         if ((hwndModemList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_NOTIFY|WS_CHILD|WS_VSCROLL, 0, 0, 100, 50, hwnd, NULL, (HMENU)1002, NULL)) != NULL) {
             if (hFont != NULL)
                SendMessage (hwndModemList, WM_SETFONT, (WPARAM)hFont, MAKELPARAM (FALSE, 0));
             ShowWindow (hwndModemList, SW_SHOW);
          }
 
-         if ((hwndOutboundList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_MULTIPLESEL|WS_CHILD|WS_VSCROLL, 0, 0, 100, 50, hwnd, (HMENU)114, hinst, NULL)) != NULL) {
+         if ((hwndOutboundList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_NOTIFY|WS_CHILD|WS_VSCROLL, 0, 0, 100, 50, hwnd, (HMENU)1004, hinst, NULL)) != NULL) {
             if (hFont != NULL)
                SendMessage (hwndOutboundList, WM_SETFONT, (WPARAM)hFont, MAKELPARAM (FALSE, 0));
             ShowWindow (hwndOutboundList, SW_SHOW);
          }
 
-         if ((hwndStatusList = CreateWindow ("LISTBOX", "", LBS_NOINTEGRALHEIGHT|LBS_MULTIPLESEL|WS_CHILD, 0, 0, 100, 50, hwnd, NULL, hinst, NULL)) != NULL) {
+         if ((hwndStatusList = CreateWindow ("LISTBOX", "", LBS_NOSEL|LBS_NOINTEGRALHEIGHT|LBS_NOTIFY|WS_CHILD, 0, 0, 100, 50, hwnd, NULL, (HMENU)1003, NULL)) != NULL) {
             if (hFont != NULL)
                SendMessage (hwndStatusList, WM_SETFONT, (WPARAM)hFont, MAKELPARAM (FALSE, 0));
             ShowWindow (hwndStatusList, SW_SHOW);
@@ -2227,18 +3321,16 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #if defined(__OS2__)
                HWND hwndList;
 
-               hwndList = WinWindowFromID (hwnd, 101);
-               if ((USHORT)WinSendMsg (hwndList, LM_QUERYITEMCOUNT, 0L, 0L) > 200)
+               hwndList = WinWindowFromID (hwnd, 1001);
+               if ((USHORT)WinSendMsg (hwndList, LM_QUERYITEMCOUNT, 0L, 0L) > 50)
                   WinSendMsg (hwndList, LM_DELETEITEM, MPFROMSHORT (0), 0L);
                Item = (USHORT)WinSendMsg (hwndList, LM_INSERTITEM, MPFROMSHORT (LIT_END), mp2);
                WinSendMsg (hwndList, LM_SELECTITEM, MPFROMSHORT (Item), MPFROMSHORT (TRUE));
 #elif defined(__NT__)
-               SendMessage (hwndMainList, LB_SETSEL, FALSE, (LPARAM)-1);
-               if (SendMessage (hwndMainList, LB_GETCOUNT, 0, 0L) > 200)
+               if (SendMessage (hwndMainList, LB_GETCOUNT, 0, 0L) > 50)
                   SendMessage (hwndMainList, LB_DELETESTRING, 0, 0L);
                Item = (USHORT)SendMessage (hwndMainList, LB_ADDSTRING, 0, lParam);
-               SendMessage (hwndMainList, LB_SETSEL, TRUE, (LPARAM)Item);
-               SendMessage (hwndMainList, WM_VSCROLL, SB_LINEDOWN, 0L);
+               SendMessage (hwndMainList, LB_SETCURSEL, (WPARAM)Item, 0L);
 #endif
                break;
             }
@@ -2247,18 +3339,16 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #if defined(__OS2__)
                HWND hwndList;
 
-               hwndList = WinWindowFromID (hwnd, 102);
+               hwndList = WinWindowFromID (hwnd, 1002);
                if ((USHORT)WinSendMsg (hwndList, LM_QUERYITEMCOUNT, 0L, 0L) > 50)
                   WinSendMsg (hwndList, LM_DELETEITEM, MPFROMSHORT (0), 0L);
                Item = (USHORT)WinSendMsg (hwndList, LM_INSERTITEM, MPFROMSHORT (LIT_END), mp2);
                WinSendMsg (hwndList, LM_SELECTITEM, MPFROMSHORT (Item), MPFROMSHORT (TRUE));
 #elif defined(__NT__)
-               SendMessage (hwndModemList, LB_SETSEL, FALSE, (LPARAM)-1);
                if (SendMessage (hwndModemList, LB_GETCOUNT, 0, 0L) > 50)
                   SendMessage (hwndModemList, LB_DELETESTRING, 0, 0L);
                Item = (USHORT)SendMessage (hwndModemList, LB_ADDSTRING, 0, lParam);
-               SendMessage (hwndModemList, LB_SETSEL, TRUE, (LPARAM)Item);
-               SendMessage (hwndModemList, WM_VSCROLL, SB_LINEDOWN, 0L);
+               SendMessage (hwndModemList, LB_SETCURSEL, (WPARAM)Item, 0L);
 #endif
                break;
             }
@@ -2267,7 +3357,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                USHORT Item;
                HWND hwndList;
 
-               hwndList = WinWindowFromID (hwnd, 103);
+               hwndList = WinWindowFromID (hwnd, 1003);
                Item = SHORT2FROMMP (mp1);
                WinSendMsg (hwndList, LM_SETITEMTEXT, MPFROMSHORT (Item), mp2);
                break;
@@ -2288,7 +3378,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #if defined(__OS2__)
                HWND hwndList;
 
-               hwndList = WinWindowFromID (hwnd, 104);
+               hwndList = WinWindowFromID (hwnd, 1004);
                WinSendMsg (hwndList, LM_DELETEALL, 0L, 0L);
 #elif defined(__NT__)
                SendMessage (hwndOutboundList, LB_RESETCONTENT, 0, 0L);
@@ -2320,6 +3410,10 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                            strcpy (Status, Outbound->LastCall);
                         else if (Outbound->Immediate == TRUE && Events->SendImmediate == TRUE)
                            strcpy (Status, Outbound->LastCall);
+                        if (Events->MaxCalls != 0 && Outbound->Attempts >= Events->MaxCalls)
+                           strcpy (Status, "Undialable (Try)");
+                        else if (Events->MaxConnects != 0 && Outbound->Failed >= Events->MaxConnects)
+                           strcpy (Status, "Undialable (Con)");
                      }
                      sprintf (String, "%-16.16s  %3d %3d   %s  %8lub    %s", Outbound->Address, Outbound->Attempts, Outbound->Failed, Flags, Outbound->Size, Status);
 #if defined(__OS2__)
@@ -2346,7 +3440,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             }
             case WMU_CLEAROUTBOUND:
 #if defined(__OS2__)
-               WinSendMsg (WinWindowFromID (hwnd, 104), LM_DELETEALL, 0L, 0L);
+               WinSendMsg (WinWindowFromID (hwnd, 1004), LM_DELETEALL, 0L, 0L);
 #elif defined(__NT__)
                SendMessage (hwndOutboundList, LB_RESETCONTENT, 0, 0L);
 #endif
@@ -2356,18 +3450,16 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #if defined(__OS2__)
                HWND hwndList;
 
-               hwndList = WinWindowFromID (hwnd, 104);
+               hwndList = WinWindowFromID (hwnd, 1004);
                if ((USHORT)WinSendMsg (hwndList, LM_QUERYITEMCOUNT, 0L, 0L) > 50)
                   WinSendMsg (hwndList, LM_DELETEITEM, MPFROMSHORT (0), 0L);
                Item = (USHORT)WinSendMsg (hwndList, LM_INSERTITEM, MPFROMSHORT (LIT_END), mp2);
                WinSendMsg (hwndList, LM_SELECTITEM, MPFROMSHORT (Item), MPFROMSHORT (TRUE));
 #elif defined(__NT__)
-               SendMessage (hwndOutboundList, LB_SETSEL, FALSE, (LPARAM)-1);
                if (SendMessage (hwndOutboundList, LB_GETCOUNT, 0, 0L) > 50)
                   SendMessage (hwndOutboundList, LB_DELETESTRING, 0, 0L);
                Item = (USHORT)SendMessage (hwndOutboundList, LB_ADDSTRING, 0, lParam);
-               SendMessage (hwndOutboundList, LB_SETSEL, TRUE, (LPARAM)Item);
-               SendMessage (hwndOutboundList, WM_VSCROLL, SB_LINEDOWN, 0L);
+               SendMessage (hwndOutboundList, LB_SETCURSEL, (WPARAM)Item, 0L);
 #endif
                break;
             }
@@ -2376,15 +3468,14 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #if defined(__OS2__)
                HWND hwndList;
 
-               hwndList = WinWindowFromID (hwnd, 104);
+               hwndList = WinWindowFromID (hwnd, 1004);
                if ((Item = (USHORT)WinSendMsg (hwndList, LM_QUERYITEMCOUNT, 0L, 0L)) >= 0)
                   WinSendMsg (hwndList, LM_SETITEMTEXT, MPFROMSHORT (Item - 1), mp2);
 #elif defined(__NT__)
                if ((Item = (USHORT)SendMessage (hwndOutboundList, LB_GETCOUNT, 0, 0L)) > 0) {
                   SendMessage (hwndOutboundList, LB_DELETESTRING, Item - 1, 0L);
                   Item = (USHORT)SendMessage (hwndOutboundList, LB_ADDSTRING, 0, lParam);
-                  SendMessage (hwndOutboundList, LB_SETSEL, TRUE, (LPARAM)Item);
-                  SendMessage (hwndOutboundList, WM_VSCROLL, SB_LINEDOWN, 0L);
+                  SendMessage (hwndOutboundList, LB_SETCURSEL, (WPARAM)Item, 0L);
                }
 #endif
                break;
@@ -2407,21 +3498,9 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #if defined(__OS2__)
          if (SHORT1FROMMP (mp1) == 1)
             ModemTimer (hwnd);
-         else if (SHORT1FROMMP (mp1) == 2) {
-            if (Events != NULL && Status != WAITFORCONNECT && Status != ANSWERING && Status != HANGUP) {
-               WinStopTimer (hab, hwnd, 2);
-               _beginthread (EventsTimer, NULL, 8192, NULL);
-            }
-         }
 #elif defined(__NT__)
          if (wParam == 1)
             ModemTimer (hwnd);
-         else if (wParam == 2) {
-            if (Events != NULL && Status != WAITFORCONNECT && Status != ANSWERING && Status != HANGUP) {
-               KillTimer (hwnd, 2);
-               _beginthread (EventsTimer, NULL, 8192, NULL);
-            }
-         }
 #endif
          break;
 
@@ -2434,10 +3513,10 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
          dy = (USHORT)(SHORT2FROMMP (mp2) - 36);
          doy = (USHORT)(((float)dy / 100.0) * 45.0);
          dy -= doy;
-         WinSetWindowPos (WinWindowFromID (hwnd, 101), NULLHANDLE, 0, SHORT2FROMMP (mp2) - dy - 1, dx, dy, SWP_SIZE|SWP_MOVE|SWP_SHOW);
-         WinSetWindowPos (WinWindowFromID (hwnd, 102), NULLHANDLE, dx + 1, SHORT2FROMMP (mp2) - dy - 1, SHORT1FROMMP (mp2) - dx - 1, dy, SWP_SIZE|SWP_MOVE|SWP_SHOW);
-         WinSetWindowPos (WinWindowFromID (hwnd, 104), NULLHANDLE, 0, 35, SHORT1FROMMP (mp2), doy, SWP_SIZE|SWP_MOVE|SWP_SHOW);
-         WinSetWindowPos (WinWindowFromID (hwnd, 103), NULLHANDLE, 0, 0, SHORT1FROMMP (mp2), 35, SWP_SIZE|SWP_MOVE|SWP_SHOW);
+         WinSetWindowPos (WinWindowFromID (hwnd, 1001), NULLHANDLE, 0, SHORT2FROMMP (mp2) - dy - 1, dx, dy, SWP_SIZE|SWP_MOVE|SWP_SHOW);
+         WinSetWindowPos (WinWindowFromID (hwnd, 1002), NULLHANDLE, dx + 1, SHORT2FROMMP (mp2) - dy - 1, SHORT1FROMMP (mp2) - dx - 1, dy, SWP_SIZE|SWP_MOVE|SWP_SHOW);
+         WinSetWindowPos (WinWindowFromID (hwnd, 1004), NULLHANDLE, 0, 35, SHORT1FROMMP (mp2), doy, SWP_SIZE|SWP_MOVE|SWP_SHOW);
+         WinSetWindowPos (WinWindowFromID (hwnd, 1003), NULLHANDLE, 0, 0, SHORT1FROMMP (mp2), 35, SWP_SIZE|SWP_MOVE|SWP_SHOW);
 #elif defined(__NT__)
          dx = (USHORT)(((float)LOWORD (lParam) / 100.0) * 65.0);
          dy = (USHORT)(HIWORD (lParam) - 34);
@@ -2465,65 +3544,48 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
          switch (SHORT1FROMMP (mp1)) {
 #elif defined(__NT__)
-         if (ProcessSimpleDialog (hwnd, (USHORT)wParam) == TRUE)
+         if (LOWORD (wParam) == 1004 && HIWORD (wParam) == LBN_DBLCLK) {
+            OutboundDetails (hwnd);
             return (0);
-         if (ProcessSaveDialog (hwnd, (USHORT)wParam) == TRUE)
+         }
+         if (ProcessSimpleDialog (hwnd, (USHORT)LOWORD (wParam)) == TRUE)
+            return (0);
+         if (ProcessSaveDialog (hwnd, (USHORT)LOWORD (wParam)) == TRUE)
             return (0);
 
-         switch (wParam) {
+         switch (LOWORD (wParam)) {
 #endif
             case 101:      // System / Import mail
+               StopTimer (hwnd, 1);
 #if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
+               WinSendMsg (hwndMainClient, WM_USER, MPFROM2SHORT (WMU_SETSTATUSLINE, 0), MPFROMP (""));
+               WinSendMsg (hwndMainClient, WM_USER, MPFROM2SHORT (WMU_SETSTATUSLINE, 1), MPFROMP (""));
 #elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
+               SendMessage (hwndMainClient, WM_USER, (WPARAM)WMU_SETSTATUSLINE0, (LPARAM)"");
+               SendMessage (hwndMainClient, WM_USER, (WPARAM)WMU_SETSTATUSLINE1, (LPARAM)"");
 #endif
+               Status = INITIALIZE;
+               Current = 0;
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL|MAIL_STARTTIMER));
                break;
 
             case 102:      // System / Export mail
-#if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
-#endif
+               StopTimer (hwnd, 1);
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_EXPORT|MAIL_STARTTIMER));
                break;
 
             case 103:      // System / Pack mail
-#if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
-#endif
+               StopTimer (hwnd, 1);
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_PACK|MAIL_STARTTIMER));
                break;
 
             case 104:      // System / Process ECHOmail
-#if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
-#endif
+               StopTimer (hwnd, 1);
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_IMPORTKNOWN|MAIL_IMPORTPROTECTED|MAIL_IMPORTNORMAL|MAIL_EXPORT|MAIL_PACK|MAIL_STARTTIMER));
                break;
 
             case 105:      // System / Process TIC
-#if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
-#endif
+               StopTimer (hwnd, 1);
                _beginthread (MailProcessorThread, NULL, 8192, (PVOID)(MAIL_TIC|MAIL_STARTTIMER));
                break;
 
@@ -2564,25 +3626,13 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             }
 
             case 115:      // Local login
+               StopTimer (hwnd, 1);
                _beginthread (LocalThread, NULL, 32768U, NULL);
-#if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
-#endif
                Status = HANGUP;
                break;
 
             case 116:      // System / Process NEWSgroups
-#if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
-#endif
+               StopTimer (hwnd, 1);
                _beginthread (MailProcessorThread, NULL, 32768U, (PVOID)(MAIL_NEWSGROUP|MAIL_STARTTIMER));
                break;
 
@@ -2598,25 +3648,18 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             }
 
             case 118:      // System / Process E-Mail
-#if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
-#endif
+               StopTimer (hwnd, 1);
                _beginthread (MailProcessorThread, NULL, 32768U, (PVOID)(MAIL_EMAIL));
                break;
 
             case 119:      // System / Build nodelist index
-#if defined(__OS2__)
-               WinStopTimer (hab, hwnd, 1);
-               WinStopTimer (hab, hwnd, 2);
-#elif defined(__NT__)
-               KillTimer (hwnd, 1);
-               KillTimer (hwnd, 2);
-#endif
+               StopTimer (hwnd, 1);
                _beginthread (NodelistThread, NULL, 8192U, (PVOID)(TRUE));
+               break;
+
+            case 120:      // System / Import from bad msgs.
+               StopTimer (hwnd, 1);
+               _beginthread (MailProcessorThread, NULL, 32768U, (PVOID)(MAIL_IMPORTBAD|MAIL_STARTTIMER));
                break;
 
             case 201: {    // Global / General Options
@@ -2682,13 +3725,21 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                break;
             }
 
-            case 506:      // Modem Hangup
+            case 506:      // Modem / Hangup
                if (Modem != NULL) {
                   Modem->SendCommand (Cfg->Hangup);
                   if (Modem->Serial != NULL && Log != NULL) {
                      if (Modem->Serial->Carrier () == TRUE)
                         Log->Write ("!Unable to drop carrier");
                   }
+               }
+               break;
+
+            case 507:      // Modem / Answer Now
+               if (Status == WAITFORCALL) {
+                  Modem->SendCommand (Cfg->Answer);
+                  Status = ANSWERING;
+                  TimeOut = TimerSet (4500L);
                }
                break;
 
@@ -2704,6 +3755,18 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                break;
             }
 
+#if defined(__OS2__)
+            case 901:
+               WinHelp ("lora.hlp>h_ref", HM_HELP_CONTENTS, "LoraBBS Online Manual");
+               break;
+            case 902:
+               WinHelp ("lora.hlp>h_ref", HM_GENERAL_HELP, "LoraBBS Online Manual");
+               break;
+            case 903:
+               WinHelp ("lora.hlp>h_ref", HM_DISPLAY_HELP, "LoraBBS Online Manual");
+               break;
+#endif
+
             case 905: {
                class CProductDlg *Dlg;
 
@@ -2718,6 +3781,8 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 #if defined(__OS2__)
       case WM_CONTROL:
+         if (SHORT1FROMMP (mp1) == 1004 && SHORT2FROMMP (mp1) == LN_ENTER)
+            OutboundDetails (hwnd);
          break;
 #endif
 
@@ -2735,7 +3800,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             delete Stats;
          }
 
-         if (Modem != NULL)
+         if (Modem != NULL && Status != BBSEXIT)
             delete Modem;
          if (Log != NULL) {
             Log->Write (":End");
@@ -2759,7 +3824,7 @@ LRESULT CALLBACK MainWinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #if !defined(__POINT__)
 
 #if defined(__OS2__)
-void main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
    int i, x, y, dx, dy;
    USHORT Task = 1, Interactive;
@@ -2769,6 +3834,7 @@ void main (int argc, char *argv[])
    QMSG qmsg;
    ULONG flFrame, Flags, Speed;
    RECTL rc;
+   HACCEL hAccel = NULLHANDLE;
 
    Log = NULL;
    Modem = NULL;
@@ -2779,6 +3845,7 @@ void main (int argc, char *argv[])
    Config = Channel = Device = NULL;
    Speed = 0L;
    PollNode[0] = '\0';
+   gotPort = gotSpeed = FALSE;
 
    for (i = 1; i < argc; i++) {
       if (!stricmp (argv[i], "/LINE")) {
@@ -2815,10 +3882,24 @@ void main (int argc, char *argv[])
          DoNodelist = TRUE;
          Interactive = TRUE;
       }
-      else if (!strncmp (argv[i], "-p", 2))
+      else if (!strncmp (argv[i], "-p", 2)) {
          Device = &argv[i][2];
-      else if (!strncmp (argv[i], "-b", 2))
+         gotPort = TRUE;
+      }
+      else if (!strncmp (argv[i], "-b", 2)) {
          Speed = atol (&argv[i][2]);
+         gotSpeed = TRUE;
+      }
+      else if (!strncmp (argv[i], "-h", 2)) {
+         comHandle = atol (&argv[i][2]);
+         gotPort = TRUE;
+      }
+      else if (!strncmp (argv[i], "-s", 2)) {
+         connectSpeed = atol (&argv[i][2]);
+         gotSpeed = TRUE;
+      }
+      else if (!strncmp (argv[i], "-t", 2))
+         timeLimit = (USHORT)atoi (&argv[i][2]);
       else if (Config == NULL)
          Config = argv[i];
       else if (Channel == NULL)
@@ -2872,8 +3953,8 @@ void main (int argc, char *argv[])
             if (Interactive == FALSE) {
                Status = 0;
                WinStartTimer (hab, hwndMainClient, 1, MODEM_DELAY);
-               if (Events != NULL)
-                  WinStartTimer (hab, hwndMainClient, 2, EVENTS_DELAY);
+               hAccel = WinLoadAccelTable (hab, NULLHANDLE, 1);
+               _beginthread (BackgroundThread, NULL, 8192, NULL);
             }
             else {
                if (DoNodelist == TRUE)
@@ -2895,14 +3976,18 @@ void main (int argc, char *argv[])
                _beginthread (MailProcessorThread, NULL, 32768U, (PVOID)Flags);
             }
 
-            while (WinGetMsg (hab, &qmsg, NULLHANDLE, 0, 0))
+            while (WinGetMsg (hab, &qmsg, NULLHANDLE, 0, 0)) {
+               if (hAccel != NULLHANDLE)
+                  WinTranslateAccel (hab, hwndMainClient, hAccel, &qmsg);
                WinDispatchMsg (hab, &qmsg);
+            }
 
             if (Interactive == FALSE) {
-               if (Events != NULL)
-                  WinStopTimer (hab, hwndMainClient, 2);
+               if (hAccel != NULLHANDLE)
+                  WinDestroyAccelTable (hAccel);
                WinStopTimer (hab, hwndMainClient, 1);
             }
+
             WinDestroyWindow (hwndMainFrame);
          }
 
@@ -2911,12 +3996,17 @@ void main (int argc, char *argv[])
       WinTerminate (hab);
    }
 
+   sprintf (Title, "lexit%d.%d", Cfg->TaskNumber, ErrorLevel);
+   unlink (Title);
+
    if (Cfg != NULL)
       delete Cfg;
    if (Events != NULL)
       delete Events;
    if (Outbound != NULL)
       delete Outbound;
+
+   return (ErrorLevel);
 }
 #elif defined(__NT__)
 int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszCmdLine, int nCmdShow)
@@ -2929,6 +4019,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
    MSG msg;
    WNDCLASS wc;
    RECT rc;
+   HACCEL hAccel;
 
    Log = NULL;
    Modem = NULL;
@@ -2940,6 +4031,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
    Speed = 0L;
    lpszCmdLine = lpszCmdLine;
    PollNode[0] = '\0';
+   gotPort = gotSpeed = FALSE;
 
    strcpy (Title, lpszCmdLine);
    if ((p = strtok (Title, " ")) != NULL)
@@ -2978,10 +4070,22 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
             DoNodelist = TRUE;
             Interactive = TRUE;
          }
-         else if (!strncmp (p, "-p", 2))
+         else if (!strncmp (p, "-p", 2)) {
             Device = &p[2];
-         else if (!strncmp (p, "-b", 2))
+            gotPort = TRUE;
+         }
+         else if (!strncmp (p, "-b", 2)) {
             Speed = atol (&p[2]);
+            gotSpeed = TRUE;
+         }
+         else if (!strncmp (p, "-h", 2)) {
+            comHandle = atol (&p[2]);
+            gotPort = TRUE;
+         }
+         else if (!strncmp (p, "-s", 2))
+            connectSpeed = atol (&p[2]);
+         else if (!strncmp (p, "-t", 2))
+            timeLimit = (USHORT)atoi (&p[2]);
          else if (Config == NULL)
             Config = p;
          else if (Channel == NULL)
@@ -3011,7 +4115,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
       Cfg->Speed = Speed;
 
    if (hinstPrevious == NULL) {
-      wc.style         = 0;
+      wc.style         = CS_DBLCLKS;
       wc.lpfnWndProc   = MainWinProc;
       wc.cbClsExtra    = 0;
       wc.cbWndExtra    = 0;
@@ -3048,8 +4152,7 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
       if (Interactive == FALSE) {
          Status = 0;
          SetTimer (hwndMainClient, 1, MODEM_DELAY, NULL);
-         if (Events != NULL)
-            SetTimer (hwndMainClient, 2, EVENTS_DELAY, NULL);
+         _beginthread (BackgroundThread, NULL, 8192, NULL);
       }
       else {
          if (DoNodelist == TRUE)
@@ -3071,16 +4174,17 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
          _beginthread (MailProcessorThread, NULL, 8192, (PVOID)Flags);
       }
 
+      hAccel = LoadAccelerators (hinstCurrent, "ACCELERATOR_1");
+
       while (GetMessage (&msg, NULL, 0, 0)) {
-         TranslateMessage (&msg);
-         DispatchMessage (&msg);
+         if (!TranslateAccelerator (hwndMainClient, hAccel, &msg)) {
+            TranslateMessage (&msg);
+            DispatchMessage (&msg);
+         }
       }
 
-      if (Interactive == FALSE) {
-         if (Events != NULL)
-            KillTimer (hwndMainClient, 2);
+      if (Interactive == FALSE)
          KillTimer (hwndMainClient, 1);
-      }
    }
 
    if (Cfg != NULL)
@@ -3095,5 +4199,4 @@ int PASCAL WinMain (HINSTANCE hinstCurrent, HINSTANCE hinstPrevious, LPSTR lpszC
 #endif
 
 #endif
-
 

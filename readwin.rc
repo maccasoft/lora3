@@ -1,0 +1,93 @@
+
+#define WIN32
+#define _WIN32
+#include "windows.h"
+#include "commctrl.h"
+
+MENU_1 MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Import File...\tCtrl-I" 101, GRAYED
+        MENUITEM "&Export File...\tCtrl-X" 102, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "&Decode Attachments\tAlt-D" 104
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit\tAlt-F4" 103
+    END
+
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Undo\tAlt+Backspace" 201, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "Cu&t\tShift+Del" 202, GRAYED
+        MENUITEM "&Copy\tCtrl+Ins" 203, GRAYED
+        MENUITEM "&Paste\tShift+Ins" 204, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "Cl&ear\tDel" 205, GRAYED
+    END
+
+    POPUP "&Message"
+    BEGIN
+        MENUITEM "M&ove Message...\tCtrl-M" 301
+        MENUITEM "Co&py Message...\tCtrl-C" 302
+        MENUITEM "For&ward Message...\tCtrl-F" 303
+        MENUITEM SEPARATOR
+        MENUITEM "&New Message\tIns" 304
+        MENUITEM "&Reply..." 305
+        MENUITEM "&Delete\tDel" 306
+        MENUITEM "&Find...\tCtrl-I" 307, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "First Message..." 308
+        MENUITEM "Last Message..." 309
+    END
+
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "Help &index..." 901, GRAYED
+        MENUITEM "&General help..." 902, GRAYED
+        MENUITEM "&Using help..." 903, GRAYED
+        MENUITEM "&Keys help..." 904, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "&Product information..." 905
+    END
+END
+
+ACCELERATOR_1 ACCELERATORS
+BEGIN
+    "a", 1206, ALT
+    "A", 1206, ALT
+    "d", 1207, ALT
+    "D", 1207, ALT
+    VK_DELETE, 1207, VIRTKEY
+    "e", 1205, ALT
+    "E", 1205, ALT
+    VK_INSERT, 1205, VIRTKEY
+    "l", 1204, ALT
+    "L", 1204, ALT
+    "n", 1202, ALT
+    "N", 1202, ALT
+    VK_RIGHT, 1202, VIRTKEY
+    "p", 1201, ALT
+    "P", 1201, ALT
+    VK_LEFT, 1201, VIRTKEY
+    "q", 1203, ALT
+    "Q", 1203, ALT
+    "r", 1203, ALT
+    "Q", 1203, ALT
+END
+
+ACCELERATOR_2 ACCELERATORS
+BEGIN
+    "a", 1208, ALT
+    "A", 1208, ALT
+    "s", 1209, ALT
+    "S", 1209, ALT
+END
+
+#include "100.dlg"
+#include "201.dlg"
+#include "202.dlg"
+#include "203.dlg"
+#include "204.dlg"
+

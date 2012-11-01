@@ -108,7 +108,6 @@ USHORT TModem::GetResponse (VOID)
                   RetVal = CONNECT;
                }
                else if (!strnicmp (Response, "AT", 2)) {
-//                  Serial->SendBytes ((UCHAR *)Response, (USHORT)strlen (Response));
                   Serial->SendBytes ((UCHAR *)"\r\n", 2);
                   Serial->SendBytes ((UCHAR *)"OK\r\n", 4);
                }
@@ -131,6 +130,7 @@ USHORT TModem::GetResponse (VOID)
             }
 
             if (Log != NULL && RetVal != NO_RESPONSE && RetVal != OK && RetVal != ERROR) {
+//            if (Log != NULL && RetVal != NO_RESPONSE) {
                p = Response;
                IsUpper = TRUE;
                while (*p != '\0') {
@@ -161,7 +161,7 @@ USHORT TModem::GetResponse (VOID)
    return (RetVal);
 }
 
-USHORT TModem::Initialize (VOID)
+USHORT TModem::Initialize (ULONG comHandle)
 {
    USHORT RetVal = FALSE;
 
@@ -179,9 +179,26 @@ USHORT TModem::Initialize (VOID)
       Serial->Com = (USHORT)atoi (&Device[3]);
 #endif
       Serial->Speed = Speed;
-      if (Serial->Initialize () == TRUE) {
-         Serial->SetDTR (FALSE);
-         Serial->SetRTS (TRUE);
+      if (comHandle == 0L) {
+         if (Serial->Initialize () == TRUE) {
+            if (Serial->Carrier () == FALSE) {
+               Serial->SetDTR (FALSE);
+               Serial->SetRTS (TRUE);
+            }
+            RetVal = TRUE;
+         }
+      }
+      else {
+#if defined(__OS2__)
+         Serial->hFile = (HFILE)comHandle;
+#elif defined(__NT__)
+         Serial->hFile = (HANDLE)comHandle;
+#endif
+         Serial->SetParameters (Serial->Speed, Serial->DataBits, Serial->Parity, Serial->StopBits);
+         if (Serial->Carrier () == FALSE) {
+            Serial->SetDTR (FALSE);
+            Serial->SetRTS (TRUE);
+         }
          RetVal = TRUE;
       }
    }
@@ -353,11 +370,6 @@ USHORT TModem::ReadG3Stream (VOID)
                p = secbuf;
             }
          }
-#if defined(__OS2__)
-         DosSleep (1L);
-#elif defined(__NT__)
-         Sleep (1L);
-#endif
       }
 
       if ((faxsize % 1024) != 0)

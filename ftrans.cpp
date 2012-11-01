@@ -291,11 +291,6 @@ SHORT TTransfer::SendPacket (UCHAR *lpBuffer)
    }
 
    Com->UnbufferBytes ();
-#if defined(__OS2__)
-   DosSleep (1L);
-#elif defined(__NT__)
-   Sleep (1L);
-#endif
 
    return (AbortSession ());
 }

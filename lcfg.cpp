@@ -35,6 +35,11 @@ CAddressDlg::CAddressDlg (HWND p_hWnd) : CDialog ("6", p_hWnd)
 {
 }
 
+VOID CAddressDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 6);
+}
+
 USHORT CAddressDlg::OnInitDialog (VOID)
 {
    CHAR Temp[16];
@@ -99,6 +104,11 @@ CDirectoriesDlg::CDirectoriesDlg (HWND p_hWnd) : CDialog ("5", p_hWnd)
 {
 }
 
+VOID CDirectoriesDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 5);
+}
+
 USHORT CDirectoriesDlg::OnInitDialog (VOID)
 {
    Center ();
@@ -109,6 +119,7 @@ USHORT CDirectoriesDlg::OnInitDialog (VOID)
    EM_SetTextLimit (120, sizeof (Cfg->ProtectedInbound) - 1);
    EM_SetTextLimit (114, sizeof (Cfg->Outbound) - 1);
    EM_SetTextLimit (106, sizeof (Cfg->NodelistPath) - 1L);
+   EM_SetTextLimit (122, sizeof (Cfg->HudsonPath) - 1L);
 
    SetDlgItemText (110, Cfg->SystemPath);
    SetDlgItemText (102, Cfg->NormalInbound);
@@ -116,6 +127,7 @@ USHORT CDirectoriesDlg::OnInitDialog (VOID)
    SetDlgItemText (120, Cfg->ProtectedInbound);
    SetDlgItemText (114, Cfg->Outbound);
    SetDlgItemText (106, Cfg->NodelistPath);
+   SetDlgItemText (122, Cfg->HudsonPath);
 
    return (TRUE);
 }
@@ -128,6 +140,7 @@ VOID CDirectoriesDlg::OnOK (VOID)
    GetDlgItemText (120, GetDlgItemTextLength (120), Cfg->ProtectedInbound);
    GetDlgItemText (114, GetDlgItemTextLength (114), Cfg->Outbound);
    GetDlgItemText (106, GetDlgItemTextLength (106), Cfg->NodelistPath);
+   GetDlgItemText (122, GetDlgItemTextLength (122), Cfg->HudsonPath);
 
    EndDialog (TRUE);
 }
@@ -138,6 +151,11 @@ VOID CDirectoriesDlg::OnOK (VOID)
 
 CCommandsDlg::CCommandsDlg (HWND p_hWnd) : CDialog ("2", p_hWnd)
 {
+}
+
+VOID CCommandsDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 2);
 }
 
 USHORT CCommandsDlg::OnInitDialog (VOID)
@@ -182,6 +200,11 @@ CAnswerDlg::CAnswerDlg (HWND p_hWnd) : CDialog ("43", p_hWnd)
 {
 }
 
+VOID CAnswerDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 43);
+}
+
 USHORT CAnswerDlg::OnInitDialog (VOID)
 {
    CHAR Temp[16];
@@ -213,13 +236,13 @@ VOID CAnswerDlg::OnOK (VOID)
    GetDlgItemText (106, GetDlgItemTextLength (106), Temp);
    if ((p = strtok (Temp, ":")) != NULL) {
       Cfg->StartTime = (USHORT)(atoi (p) * 60);
-      if ((p = strtok (Temp, ":")) != NULL)
+      if ((p = strtok (NULL, ":")) != NULL)
          Cfg->StartTime += (USHORT)atoi (p);
    }
    GetDlgItemText (108, GetDlgItemTextLength (108), Temp);
    if ((p = strtok (Temp, ":")) != NULL) {
       Cfg->EndTime = (USHORT)(atoi (p) * 60);
-      if ((p = strtok (Temp, ":")) != NULL)
+      if ((p = strtok (NULL, ":")) != NULL)
          Cfg->EndTime += (USHORT)atoi (p);
    }
 
@@ -238,12 +261,26 @@ public:
    int    Selected;
    class  TEvents *Data;
 
-   VOID   OnChanged (VOID);
+   VOID   OnCancel (VOID);
    USHORT OnInitDialog (VOID);
    VOID   OnOK (VOID);
 
 private:
    DECLARE_MESSAGE_MAP ()
+};
+
+class CAddEventDlg : public CDialog
+{
+public:
+   CAddEventDlg (HWND p_hWnd);
+
+   CHAR   Label[32];
+   UCHAR  Hour, Minute;
+   UCHAR  Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday;
+   USHORT Length, LastDay;
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
 };
 
 BEGIN_MESSAGE_MAP (CEventsDlg, CDialog)
@@ -265,6 +302,11 @@ CEventsDlg::~CEventsDlg (void)
       Data->Save ();
       delete Data;
    }
+}
+
+VOID CEventsDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 11);
 }
 
 USHORT CEventsDlg::OnInitDialog (VOID)
@@ -383,9 +425,32 @@ VOID CEventsDlg::ReadData (VOID)
 
 VOID CEventsDlg::Add (VOID)
 {
+   class CAddEventDlg *Dlg;
+
+   Data->Delete ();
    Data->New ();
    ReadData ();
    Data->Add ();
+
+   if ((Dlg = new CAddEventDlg (m_hWnd)) != NULL) {
+      if (Dlg->DoModal () == TRUE) {
+         Data->New ();
+         strcpy (Data->Label, Dlg->Label);
+         Data->Hour = Dlg->Hour;
+         Data->Minute = Dlg->Minute;
+         Data->Length = Dlg->Length;
+         Data->Sunday = Dlg->Sunday;
+         Data->Monday = Dlg->Monday;
+         Data->Tuesday = Dlg->Tuesday;
+         Data->Wednesday = Dlg->Wednesday;
+         Data->Thursday = Dlg->Thursday;
+         Data->Friday = Dlg->Friday;
+         Data->Saturday = Dlg->Saturday;
+         Data->Add ();
+         DisplayData ();
+      }
+      delete Dlg;
+   }
    SetFocus (102);
 }
 
@@ -428,11 +493,43 @@ VOID CEventsDlg::List (VOID)
 
 // ----------------------------------------------------------------------
 
+CAddEventDlg::CAddEventDlg (HWND p_hWnd) : CDialog ("51", p_hWnd)
+{
+}
+
+USHORT CAddEventDlg::OnInitDialog (VOID)
+{
+   Center ();
+
+   EM_SetTextLimit (102, sizeof (Label) - 1);
+   SPBM_SetLimits (112, 23, 0);
+   SPBM_SetLimits (114, 59, 0);
+   SPBM_SetLimits (116, 1440, 0);
+
+   return (TRUE);
+}
+
+VOID CAddEventDlg::OnOK (VOID)
+{
+   GetDlgItemText (102, GetDlgItemTextLength (102), Label);
+   Hour = (UCHAR)SPBM_QueryValue (112);
+   Minute = (UCHAR)SPBM_QueryValue (114);
+   Length = (USHORT)SPBM_QueryValue (116);
+   Sunday = (UCHAR)BM_QueryCheck (104);
+   Monday = (UCHAR)BM_QueryCheck (105);
+   Tuesday = (UCHAR)BM_QueryCheck (106);
+   Wednesday = (UCHAR)BM_QueryCheck (107);
+   Thursday = (UCHAR)BM_QueryCheck (108);
+   Friday = (UCHAR)BM_QueryCheck (109);
+   Saturday = (UCHAR)BM_QueryCheck (110);
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+
 BEGIN_MESSAGE_MAP (CEventsListDlg, CDialog)
    ON_CONTROL (CN_ENTER, 101, OnOK)
-#if defined(__NT__)
-   ON_NOTIFY (LVN_ITEMCHANGED, 101, OnChanged)
-#endif
 END_MESSAGE_MAP ()
 
 CEventsListDlg::CEventsListDlg (HWND p_hWnd) : CDialog ("25", p_hWnd)
@@ -444,7 +541,6 @@ USHORT CEventsListDlg::OnInitDialog (VOID)
 {
    int i = 1;
    CHAR Temp[64];
-   class TEvents *Events;
 
    SetWindowTitle ("Events list");
 
@@ -456,94 +552,78 @@ USHORT CEventsListDlg::OnInitDialog (VOID)
    LVM_InsertColumn (101, "Length", LVC_RIGHT);
    LVM_InsertColumn (101, "Command", LVC_LEFT);
 
-   if ((Events = new TEvents (Cfg->SchedulerFile)) != NULL) {
-      Events->Load ();
-      if (Events->First () == TRUE)
+   if (Data != NULL) {
+      Selected = Data->Number;
+
+      Data->Load ();
+      if (Data->First () == TRUE)
          do {
             LVM_InsertItem (101);
 
             sprintf (Temp, "%d", i++);
             LVM_SetItemText (101, 0, Temp);
-            LVM_SetItemText (101, 1, Events->Label);
+            LVM_SetItemText (101, 1, Data->Label);
             strcpy (Temp, "-------");
-            if (Events->Sunday == TRUE)
+            if (Data->Sunday == TRUE)
                Temp[0] = 'S';
-            if (Events->Monday == TRUE)
+            if (Data->Monday == TRUE)
                Temp[1] = 'M';
-            if (Events->Tuesday == TRUE)
+            if (Data->Tuesday == TRUE)
                Temp[2] = 'T';
-            if (Events->Wednesday == TRUE)
+            if (Data->Wednesday == TRUE)
                Temp[3] = 'W';
-            if (Events->Thursday == TRUE)
+            if (Data->Thursday == TRUE)
                Temp[4] = 'T';
-            if (Events->Friday == TRUE)
+            if (Data->Friday == TRUE)
                Temp[5] = 'F';
-            if (Events->Saturday == TRUE)
+            if (Data->Saturday == TRUE)
                Temp[6] = 'S';
             LVM_SetItemText (101, 2, Temp);
-            sprintf (Temp, "%d:%02d", Events->Hour, Events->Minute);
+            sprintf (Temp, "%d:%02d", Data->Hour, Data->Minute);
             LVM_SetItemText (101, 3, Temp);
-            sprintf (Temp, "%d", Events->Length);
+            sprintf (Temp, "%d", Data->Length);
             LVM_SetItemText (101, 4, Temp);
-            LVM_SetItemText (101, 5, Events->Command);
-         } while (Events->Next () == TRUE);
-      delete Events;
+            LVM_SetItemText (101, 5, Data->Command);
+         } while (Data->Next () == TRUE);
    }
 
    LVM_InvalidateView (101);
 
+   if (Selected > 0)
+      LVM_SelectItem (101, Selected - 1);
+
    return (TRUE);
 }
 
-VOID CEventsListDlg::OnChanged (VOID)
+VOID CEventsListDlg::OnCancel (VOID)
 {
-#if defined(__NT__)
-   NM_LISTVIEW *pnmv = (NM_LISTVIEW *)m_lParam;
-
-   if (!(pnmv->uNewState & LVIS_SELECTED) && (pnmv->uOldState & LVIS_SELECTED))
-      Selected = -1;
-   if (pnmv->uNewState & LVIS_SELECTED)
-      Selected = pnmv->iItem;
-#endif
+   Data->Read ((USHORT)Selected);
+   EndDialog (FALSE);
 }
 
 VOID CEventsListDlg::OnOK (VOID)
 {
-   int i = 1;
+   int item;
 
-#if defined(__OS2__)
-   LV_PLISTDATA pRecord;
-
-   if ((pRecord = (LV_PLISTDATA)WinSendDlgItemMsg (m_hWnd, 101, CM_QUERYRECORDEMPHASIS, MPFROMSHORT (CMA_FIRST), MPFROMSHORT (CRA_SELECTED))) != NULL) {
-      if (Data->First () == TRUE)
-         do {
-            if (atoi (pRecord->Column[0].Data) == i++)
-               break;
-         } while (Data->Next () == TRUE);
-   }
-#elif defined(__NT__)
-   CHAR Temp[32];
-
-   if (Selected != -1) {
-      ListView_GetItemText (GetDlgItem (m_hWnd, 101), Selected, 0, Temp, sizeof (Temp));
-      if (Data->First () == TRUE)
-         do {
-            if (atoi (Temp) == i++)
-               break;
-         } while (Data->Next () == TRUE);
-   }
-#endif
+   Data->Read ((USHORT)Selected);
+   if ((item = LVM_QuerySelectedItem (101)) != -1)
+      Data->Read ((USHORT)(item + 1));
 
    EndDialog (TRUE);
 }
 #endif
 
 // ----------------------------------------------------------------------
-// Modem hardware
+// General options
 // ----------------------------------------------------------------------
 
 CGeneralDlg::CGeneralDlg (HWND p_hWnd) : CDialog ("7", p_hWnd)
 {
+}
+
+VOID CGeneralDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 7);
 }
 
 USHORT CGeneralDlg::OnInitDialog (VOID)
@@ -564,6 +644,8 @@ USHORT CGeneralDlg::OnInitDialog (VOID)
    SetDlgItemText (106, Cfg->AfterCallerCmd);
    SetDlgItemText (110, Cfg->AfterMailCmd);
    BM_SetCheck (113, Cfg->ZModemTelnet);
+   BM_SetCheck (114, Cfg->ReloadLog);
+   BM_SetCheck (115, Cfg->MakeProcessLog);
 
    return (TRUE);
 }
@@ -571,12 +653,53 @@ USHORT CGeneralDlg::OnInitDialog (VOID)
 VOID CGeneralDlg::OnOK (VOID)
 {
    GetDlgItemText (102, GetDlgItemTextLength (102), Cfg->LogFile);
-   Cfg->TaskNumber = SPBM_QueryValue (104);
+   Cfg->TaskNumber = (USHORT)SPBM_QueryValue (104);
    GetDlgItemText (109, GetDlgItemTextLength (109), Cfg->SchedulerFile);
    GetDlgItemText (112, GetDlgItemTextLength (112), Cfg->FaxCommand);
    GetDlgItemText (106, GetDlgItemTextLength (106), Cfg->AfterCallerCmd);
    GetDlgItemText (110, GetDlgItemTextLength (110), Cfg->AfterMailCmd);
    Cfg->ZModemTelnet = (UCHAR)BM_QueryCheck (113);
+   Cfg->ReloadLog = (UCHAR)BM_QueryCheck (114);
+   Cfg->MakeProcessLog = (UCHAR)BM_QueryCheck (115);
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+// Fax Options
+// ----------------------------------------------------------------------
+
+CFaxOptDlg::CFaxOptDlg (HWND p_hWnd) : CDialog ("48", p_hWnd)
+{
+}
+
+VOID CFaxOptDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 48);
+}
+
+USHORT CFaxOptDlg::OnInitDialog (VOID)
+{
+   Center ();
+
+   EM_SetTextLimit (112, sizeof (Cfg->FaxCommand) - 1);
+   EM_SetTextLimit (103, sizeof (Cfg->FaxPath) - 1);
+   EM_SetTextLimit (105, sizeof (Cfg->AfterFaxCmd) - 1);
+
+   BM_SetCheck (101, Cfg->ExternalFax);
+   SetDlgItemText (112, Cfg->FaxCommand);
+   SetDlgItemText (103, Cfg->FaxPath);
+   SetDlgItemText (105, Cfg->AfterFaxCmd);
+
+   return (TRUE);
+}
+
+VOID CFaxOptDlg::OnOK (VOID)
+{
+   Cfg->ExternalFax = (UCHAR)BM_QueryCheck (101);
+   GetDlgItemText (112, GetDlgItemTextLength (112), Cfg->FaxCommand);
+   GetDlgItemText (103, GetDlgItemTextLength (103), Cfg->FaxPath);
+   GetDlgItemText (105, GetDlgItemTextLength (105), Cfg->AfterFaxCmd);
 
    EndDialog (TRUE);
 }
@@ -650,6 +773,11 @@ USHORT CHardwareDlg::OnInitDialog (VOID)
    return (TRUE);
 }
 
+VOID CHardwareDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 1);
+}
+
 VOID CHardwareDlg::OnOK (VOID)
 {
    CHAR Temp[32];
@@ -659,8 +787,8 @@ VOID CHardwareDlg::OnOK (VOID)
    Cfg->Speed = atol (Temp);
    GetDlgItemText (108, GetDlgItemTextLength (108), Cfg->FaxMessage);
    GetDlgItemText (116, GetDlgItemTextLength (116), Cfg->Ring);
-   Cfg->DialTimeout = SPBM_QueryValue (112);
-   Cfg->CarrierDropTimeout = SPBM_QueryValue (114);
+   Cfg->DialTimeout = (USHORT)SPBM_QueryValue (112);
+   Cfg->CarrierDropTimeout = (USHORT)SPBM_QueryValue (114);
    Cfg->LockSpeed = BM_QueryCheck (105);
    Cfg->StripDashes = BM_QueryCheck (110);
 
@@ -670,6 +798,19 @@ VOID CHardwareDlg::OnOK (VOID)
 // ----------------------------------------------------------------------
 // Nodes editor
 // ----------------------------------------------------------------------
+
+class CAddNodeDlg : public CDialog
+{
+public:
+   CAddNodeDlg (HWND p_hWnd);
+
+   CHAR   Address[64];
+   CHAR   SystemName[64];
+   CHAR   SysopName[48];
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnOK (VOID);
+};
 
 class CNodesListDlg : public CDialog
 {
@@ -728,6 +869,11 @@ CNodesDlg::~CNodesDlg (void)
 {
    if (Data != NULL)
       delete Data;
+}
+
+VOID CNodesDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 12);
 }
 
 USHORT CNodesDlg::OnInitDialog (VOID)
@@ -830,9 +976,19 @@ VOID CNodesDlg::ReadData (VOID)
 
 VOID CNodesDlg::Add (VOID)
 {
-   Data->New ();
-   ReadData ();
-   Data->Add ();
+   class CAddNodeDlg *Dlg;
+
+   if ((Dlg = new CAddNodeDlg (m_hWnd)) != NULL) {
+      if (Dlg->DoModal () == TRUE) {
+         Data->New ();
+         strcpy (Data->Address, Dlg->Address);
+         strcpy (Data->SystemName, Dlg->SystemName);
+         strcpy (Data->SysopName, Dlg->SysopName);
+         Data->Add ();
+         DisplayData ();
+      }
+      delete Dlg;
+   }
 }
 
 VOID CNodesDlg::Delete (VOID)
@@ -887,6 +1043,32 @@ VOID CNodesDlg::Security (VOID)
       Dlg->DoModal ();
       delete Dlg;
    }
+}
+
+// ----------------------------------------------------------------------
+
+CAddNodeDlg::CAddNodeDlg (HWND p_hWnd) : CDialog ("46", p_hWnd)
+{
+}
+
+USHORT CAddNodeDlg::OnInitDialog (VOID)
+{
+   Center ();
+
+   EM_SetTextLimit (102, sizeof (Address) - 1);
+   EM_SetTextLimit (104, sizeof (SystemName) - 1);
+   EM_SetTextLimit (108, sizeof (SysopName) - 1);
+
+   return (TRUE);
+}
+
+VOID CAddNodeDlg::OnOK (VOID)
+{
+   GetDlgItemText (102, GetDlgItemTextLength (102), Address);
+   GetDlgItemText (104, GetDlgItemTextLength (104), SystemName);
+   GetDlgItemText (108, GetDlgItemTextLength (108), SysopName);
+
+   EndDialog (TRUE);
 }
 
 // ----------------------------------------------------------------------
@@ -1111,6 +1293,11 @@ CSiteInfoDlg::CSiteInfoDlg (HWND p_hWnd) : CDialog ("3", p_hWnd)
 {
 }
 
+VOID CSiteInfoDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 3);
+}
+
 USHORT CSiteInfoDlg::OnInitDialog (VOID)
 {
    Center ();
@@ -1149,6 +1336,11 @@ CInternetDlg::CInternetDlg (HWND p_hWnd) : CDialog ("23", p_hWnd)
 {
 }
 
+VOID CInternetDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 23);
+}
+
 USHORT CInternetDlg::OnInitDialog (VOID)
 {
    Center ();
@@ -1158,6 +1350,7 @@ USHORT CInternetDlg::OnInitDialog (VOID)
    EM_SetTextLimit (104, sizeof (Cfg->MailServer) - 1);
    SPBM_SetLimits (107, 1440, 0);
    EM_SetTextLimit (109, sizeof (Cfg->PPPCmd) - 1);
+   SPBM_SetLimits (111, 1000, 0);
 
    SetDlgItemText (102, Cfg->HostName);
    SetDlgItemText (128, Cfg->NewsServer);
@@ -1165,6 +1358,7 @@ USHORT CInternetDlg::OnInitDialog (VOID)
    BM_SetCheck (105, Cfg->EnablePPP);
    SPBM_SetCurrentValue (107, Cfg->PPPTimeLimit);
    SetDlgItemText (109, Cfg->PPPCmd);
+   SPBM_SetCurrentValue (111, Cfg->RetriveMaxMessages);
 
    return (TRUE);
 }
@@ -1175,8 +1369,9 @@ VOID CInternetDlg::OnOK (VOID)
    GetDlgItemText (128, GetDlgItemTextLength (128), Cfg->NewsServer);
    GetDlgItemText (104, GetDlgItemTextLength (104), Cfg->MailServer);
    Cfg->EnablePPP = (UCHAR)BM_QueryCheck (105);
-   Cfg->PPPTimeLimit = SPBM_QueryValue (107);
+   Cfg->PPPTimeLimit = (USHORT)SPBM_QueryValue (107);
    GetDlgItemText (109, GetDlgItemTextLength (109), Cfg->PPPCmd);
+   Cfg->RetriveMaxMessages = (USHORT)SPBM_QueryValue (111);
 
    EndDialog (TRUE);
 }
@@ -1218,6 +1413,11 @@ CPackerDlg::~CPackerDlg (void)
 {
    if (Data != NULL)
       delete Data;
+}
+
+VOID CPackerDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 28);
 }
 
 USHORT CPackerDlg::OnInitDialog (VOID)
@@ -1416,6 +1616,11 @@ CMailprocDlg::CMailprocDlg (HWND p_hWnd) : CDialog ("30", p_hWnd)
 {
 }
 
+VOID CMailprocDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 30);
+}
+
 USHORT CMailprocDlg::OnInitDialog (VOID)
 {
    Center ();
@@ -1424,21 +1629,27 @@ USHORT CMailprocDlg::OnInitDialog (VOID)
    EM_SetTextLimit (104, sizeof (Cfg->DupePath) - 1);
    EM_SetTextLimit (112, sizeof (Cfg->BadPath) - 1);
    EM_SetTextLimit (117, sizeof (Cfg->TearLine) - 1);
+   SPBM_SetLimits (131, 255L, 1L);
+   SPBM_SetLimits (132, 255L, 1L);
+   SPBM_SetLimits (135, 255L, 1L);
 
    CB_AddString (107, "Squish<tm>");
    CB_AddString (107, "JAM");
    CB_AddString (107, "Fido (*.msg)");
    CB_AddString (107, "AdeptXBBS");
+   CB_AddString (107, "Hudson");
 
    CB_AddString (102, "Squish<tm>");
    CB_AddString (102, "JAM");
    CB_AddString (102, "Fido (*.msg)");
    CB_AddString (102, "AdeptXBBS");
+   CB_AddString (102, "Hudson");
 
    CB_AddString (110, "Squish<tm>");
    CB_AddString (110, "JAM");
    CB_AddString (110, "Fido (*.msg)");
    CB_AddString (110, "AdeptXBBS");
+   CB_AddString (110, "Hudson");
 
    SetDlgItemText (106, Cfg->NetMailPath);
    SetDlgItemText (104, Cfg->DupePath);
@@ -1457,6 +1668,9 @@ USHORT CMailprocDlg::OnInitDialog (VOID)
       case ST_ADEPT:
          CB_SelectItem (107, 3);
          break;
+      case ST_HUDSON:
+         CB_SelectItem (107, 4);
+         break;
    }
 
    switch (Cfg->DupeStorage) {
@@ -1471,6 +1685,9 @@ USHORT CMailprocDlg::OnInitDialog (VOID)
          break;
       case ST_ADEPT:
          CB_SelectItem (102, 3);
+         break;
+      case ST_HUDSON:
+         CB_SelectItem (102, 4);
          break;
    }
 
@@ -1487,6 +1704,9 @@ USHORT CMailprocDlg::OnInitDialog (VOID)
       case ST_ADEPT:
          CB_SelectItem (110, 3);
          break;
+      case ST_HUDSON:
+         CB_SelectItem (110, 4);
+         break;
    }
 
    BM_SetCheck (113, Cfg->ImportEmpty);
@@ -1496,6 +1716,10 @@ USHORT CMailprocDlg::OnInitDialog (VOID)
 
    BM_SetCheck (118, Cfg->SeparateNetMail);
    BM_SetCheck (119, Cfg->UseSinglePass);
+
+   SPBM_SetCurrentValue (131, Cfg->NetMailBoard);
+   SPBM_SetCurrentValue (133, Cfg->DupeBoard);
+   SPBM_SetCurrentValue (135, Cfg->BadBoard);
 
    return (TRUE);
 }
@@ -1519,6 +1743,9 @@ VOID CMailprocDlg::OnOK (VOID)
       case 3:
          Cfg->NetMailStorage = ST_ADEPT;
          break;
+      case 4:
+         Cfg->NetMailStorage = ST_HUDSON;
+         break;
    }
 
    switch (CB_QuerySelection (102)) {
@@ -1533,6 +1760,9 @@ VOID CMailprocDlg::OnOK (VOID)
          break;
       case 3:
          Cfg->DupeStorage = ST_ADEPT;
+         break;
+      case 4:
+         Cfg->DupeStorage = ST_HUDSON;
          break;
    }
 
@@ -1549,6 +1779,9 @@ VOID CMailprocDlg::OnOK (VOID)
       case 3:
          Cfg->BadStorage = ST_ADEPT;
          break;
+      case 4:
+         Cfg->BadStorage = ST_HUDSON;
+         break;
    }
 
    Cfg->ImportEmpty = (UCHAR)BM_QueryCheck (113);
@@ -1557,6 +1790,10 @@ VOID CMailprocDlg::OnOK (VOID)
    GetDlgItemText (117, GetDlgItemTextLength (117), Cfg->TearLine);
    Cfg->SeparateNetMail = (UCHAR)BM_QueryCheck (118);
    Cfg->UseSinglePass = (UCHAR)BM_QueryCheck (119);
+
+   Cfg->NetMailBoard = (USHORT)SPBM_QueryValue (131);
+   Cfg->DupeBoard = (USHORT)SPBM_QueryValue (133);
+   Cfg->BadBoard = (USHORT)SPBM_QueryValue (135);
 
    EndDialog (TRUE);
 }
@@ -1567,6 +1804,11 @@ VOID CMailprocDlg::OnOK (VOID)
 
 CMiscDlg::CMiscDlg (HWND p_hWnd) : CDialog ("20", p_hWnd)
 {
+}
+
+VOID CMiscDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 20);
 }
 
 USHORT CMiscDlg::OnInitDialog (VOID)
@@ -1612,6 +1854,11 @@ CExternalDlg::CExternalDlg (HWND p_hWnd) : CDialog ("31", p_hWnd)
 {
 }
 
+VOID CExternalDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 31);
+}
+
 USHORT CExternalDlg::OnInitDialog (VOID)
 {
    Center ();
@@ -1648,6 +1895,11 @@ VOID CExternalDlg::OnOK (VOID)
 
 CAreafixDlg::CAreafixDlg (HWND p_hWnd) : CDialog ("33", p_hWnd)
 {
+}
+
+VOID CAreafixDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 33);
 }
 
 USHORT CAreafixDlg::OnInitDialog (VOID)
@@ -1731,6 +1983,11 @@ END_MESSAGE_MAP ()
 
 CNodelistDlg::CNodelistDlg (HWND p_hWnd) : CDialog ("40", p_hWnd)
 {
+}
+
+VOID CNodelistDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 40);
 }
 
 USHORT CNodelistDlg::OnInitDialog (VOID)
@@ -1871,6 +2128,103 @@ VOID CNodelistDataDlg::OnOK (VOID)
    GetDlgItemText (102, Diff, GetDlgItemTextLength (102));
    GetDlgItemText (106, Temp, GetDlgItemTextLength (106));
    Zone = (USHORT)atoi (Temp);
+
+   EndDialog (TRUE);
+}
+
+// ----------------------------------------------------------------------
+// Origin Lines
+// ----------------------------------------------------------------------
+
+BEGIN_MESSAGE_MAP (COriginDlg, CDialog)
+   ON_COMMAND (103, Add)
+   ON_COMMAND (104, Replace)
+   ON_COMMAND (105, Remove)
+#if defined(__OS2__)
+   ON_CONTROL (LN_SELECT, 107, ItemSelected)
+#endif
+END_MESSAGE_MAP ()
+
+COriginDlg::COriginDlg (HWND p_hWnd) : CDialog ("50", p_hWnd)
+{
+}
+
+VOID COriginDlg::OnHelp (VOID)
+{
+   WinHelp ("lora.hlp>h_ref", 50);
+}
+
+USHORT COriginDlg::OnInitDialog (VOID)
+{
+   FILE *fp;
+   CHAR Temp[128];
+
+   Center ();
+
+   sprintf (Temp, "%sorigin.txt", Cfg->SystemPath);
+   if ((fp = fopen (Temp, "rt")) != NULL) {
+      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+         if (Temp[strlen (Temp) - 1] == '\n')
+            Temp[strlen (Temp) - 1] = '\0';
+         LM_AddString (107, Temp);
+      }
+      fclose (fp);
+   }
+
+   EM_SetTextLimit (102, sizeof (Temp) - 1);
+
+   return (TRUE);
+}
+
+VOID COriginDlg::Add (VOID)
+{
+   CHAR Temp[128];
+
+   GetDlgItemText (102, Temp, GetDlgItemTextLength (102));
+   LM_AddString (107, Temp);
+   SetDlgItemText (102, "");
+}
+
+VOID COriginDlg::Replace (VOID)
+{
+   CHAR Temp[128];
+
+   GetDlgItemText (102, Temp, GetDlgItemTextLength (102));
+   LM_SetItemText (107, LM_QuerySelection (107), Temp);
+}
+
+VOID COriginDlg::Remove (VOID)
+{
+   LM_DeleteItem (107, LM_QuerySelection (107));
+}
+
+VOID COriginDlg::ItemSelected (VOID)
+{
+   USHORT item;
+   CHAR Temp[128];
+
+   item = LM_QuerySelection (107);
+   LM_QueryItemText (107, item, (USHORT)(sizeof (Temp) - 1), Temp);
+   SetDlgItemText (102, Temp);
+}
+
+VOID COriginDlg::OnOK (VOID)
+{
+   FILE *fp;
+   USHORT i, item;
+   CHAR Temp[128];
+
+   Center ();
+
+   sprintf (Temp, "%sorigin.txt", Cfg->SystemPath);
+   if ((fp = fopen (Temp, "wt")) != NULL) {
+      item = LM_QueryItemCount (107);
+      for (i = 0; i < item; i++) {
+         LM_QueryItemText (107, i, (USHORT)(sizeof (Temp) - 1), Temp);
+         fprintf (fp, "%s\n", Temp);
+      }
+      fclose (fp);
+   }
 
    EndDialog (TRUE);
 }

@@ -86,8 +86,11 @@
 
 TFax::TFax (void)
 {
+   Format = 0;
+   DataPath[0] = '\0';
    swaptableinit = FALSE;
    faxsize = 0L;
+   opage = 0;
 }
 
 TFax::~TFax (void)
@@ -106,6 +109,8 @@ int TFax::faxreceive (void)
 
    if (!swaptableinit)
       init_swaptable ();
+
+   Com->SetParameters (19200, 8, 'N', 1);
 
    init_modem_response ();
    gEnd_of_document = FALSE;
@@ -152,26 +157,26 @@ int TFax::get_fax_file (int page)
    char buf[256], j[100];
    int result, TaskNumber = 1;
    FILE *fp = NULL;
-   int opage = page;
    struct stat statbuf;
 
    Log->Write (">FAX [get_fax_file]");
 
-   do {
-      if (TaskNumber)
-         sprintf (buf, "%sPAGE%02x%02x.FAX", "", (TaskNumber & 0xff), opage++);
-      else
-         sprintf (buf, "%sPAGE%04x.FAX", "", opage++);
-   } while (!stat (buf, &statbuf) && (opage < 256));
+   if (page == 0) {
+      do {
+         sprintf (buf, "%sfax%03d%02d.fax", DataPath, opage++, page + 1);
+      } while (!stat (buf, &statbuf) && (opage < 256));
+   }
+   else
+      sprintf (buf, "%sfax%03d%02d.fax", DataPath, opage, page + 1);
 
-   if (opage == 256) {
+   if (opage == 1000) {
       Log->Write ("!FAX Couldn't create output file");
       return (PAGE_ERROR);
    }
 
    if ((result = faxmodem_receive_page ()) == 0) {
       /* filename to create for this page of document */
-      if ((fp = fopen (buf, "wb")) == NULL) {
+      if ((fp = fopen (buf, "ab")) == NULL) {
          Log->Write ("!FAX Couldn't create output file %s", buf);
          return (PAGE_ERROR);
       }
@@ -218,7 +223,8 @@ int TFax::read_g3_stream (FILE * fp)
 
    p = secbuf;
 
-   fax_status (ultoa (faxsize, e_input_buf, 10));
+   sprintf (e_input_buf, "%lu", faxsize);
+   fax_status (e_input_buf);
 
    pseudo_carrier = !(Com->Carrier ());        /* test if modem sets DCD */
    if (pseudo_carrier)
@@ -238,9 +244,6 @@ int TFax::read_g3_stream (FILE * fp)
             else if (TimeUp(ltimer))
                goto fax_error;   /* Houston, we lost the downlink   */
          }
-#if defined(__OS2__)
-         DosSleep (1L);
-#endif
          continue;            /* process timeouts */
       }
       else
@@ -270,13 +273,11 @@ int TFax::read_g3_stream (FILE * fp)
       faxsize++;
 
       if (!(faxsize % 1024)) {
-         fax_status (ultoa (faxsize, e_input_buf, 10));
+         sprintf (e_input_buf, "%lu", faxsize);
+         fax_status (e_input_buf);
          if (fwrite (secbuf, 1, 1024, fp) != 1024)
             goto fax_error;   /* hoppala */
          p = secbuf;
-#if defined(__OS2__)
-         DosSleep (1L);
-#endif
       }
    }
 
@@ -285,7 +286,8 @@ end_page:
    if (faxsize % 1024) {
       if (fwrite (secbuf, 1, (size_t) (faxsize % 1024), fp) != (size_t) (faxsize % 1024))
          goto fax_error;      /* hoppala */
-      fax_status (ultoa (faxsize, e_input_buf, 10));
+      sprintf (e_input_buf, "%lu", faxsize);
+      fax_status (e_input_buf);
    }
 
    free (secbuf);
@@ -333,9 +335,6 @@ void TFax::get_faxline (char *p, int nbytes, unsigned int wtime)
 
    while ((count < nbytes) && (!TimeUp (t))) {
       if (Com->BytesReady () == FALSE) {
-#if defined(__OS2__)
-         DosSleep (1L);
-#endif
          continue;
       }
       c = (short)(Com->ReadByte () & 0xff); /* get a character           */
@@ -420,9 +419,9 @@ void TFax::fax_status (char *str)
 void TFax::parse_text_response (char *str)
 {
    /* Look for +FCON, +FDCS, +FDIS, +FHNG, +FHS, +FPTS, +FK, +FTSI */
-   if (!strnicmp ("+FCO", str, 4)) {
+   if (!strnicmp ("+FCON", str, 5)) {
       response.fcon = TRUE;
-      fax_status ("+FCO      ");
+      fax_status ("+FCON     ");
       return;
    }
 
@@ -550,8 +549,9 @@ int TFax::faxmodem_receive_page (void)
    Log->Write (">FAX Waiting for OK  [faxmodem_receive_page]");
 
    while (!TimeUp (t) && (!response.ok)) {
-      get_faxline (buf, 100, 100);
-      Log->Write ("> Response from peer: %s", buf);
+      get_faxline (buf, 100, 500);
+      if (buf[0] != '\0')
+         Log->Write ("> Response from peer: %s", buf);
       parse_text_response (buf);
 
       if (response.hangup_code != -1)
@@ -577,8 +577,9 @@ int TFax::faxmodem_receive_page (void)
    Log->Write (">FAX Waiting for CONNECT  [faxmodem_receive_page]");
 
    while (!TimeUp (t)) {
-      get_faxline (buf, 100, 100);
-      Log->Write ("> Response from peer: %s", buf);
+      get_faxline (buf, 100, 500);
+      if (buf[0] != '\0')
+         Log->Write ("> Response from peer: %s", buf);
       parse_text_response (buf);
 
       if (response.connect == TRUE)

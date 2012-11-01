@@ -754,6 +754,9 @@ VOID CScanDlg (VOID)
       case ST_ADEPT:
          Msg = new ADEPT (Cfg->NetMailPath);
          break;
+      case ST_HUDSON:
+         Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->NetMailBoard);
+         break;
    }
    if (Msg != NULL) {
       LastRead = 0L;
@@ -787,6 +790,9 @@ VOID CScanDlg (VOID)
          break;
       case ST_ADEPT:
          Msg = new ADEPT (Cfg->MailPath);
+         break;
+      case ST_HUDSON:
+         Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->MailBoard);
          break;
    }
    if (Msg != NULL) {
@@ -822,6 +828,9 @@ VOID CScanDlg (VOID)
       case ST_ADEPT:
          Msg = new ADEPT (Cfg->BadPath);
          break;
+      case ST_HUDSON:
+         Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->BadBoard);
+         break;
    }
    if (Msg != NULL) {
       LastRead = 0L;
@@ -856,6 +865,9 @@ VOID CScanDlg (VOID)
       case ST_ADEPT:
          Msg = new ADEPT (Cfg->DupePath);
          break;
+      case ST_HUDSON:
+         Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->DupeBoard);
+         break;
    }
    if (Msg != NULL) {
       LastRead = 0L;
@@ -876,7 +888,7 @@ VOID CScanDlg (VOID)
       delete Msg;
    }
 
-   wopen (11, 20, 13, 60, 0, LRED|_BLACK, YELLOW|_BLACK);
+   wopen (11, 19, 13, 61, 0, LRED|_BLACK, YELLOW|_BLACK);
    wshadow (DGREY|_BLACK);
 
    if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
@@ -888,8 +900,8 @@ VOID CScanDlg (VOID)
             }
             if (EscPressed == FALSE) {
                wcclear (YELLOW|_BLACK);
-               Data->Display[39] = '\0';
-               wprints (0, (short)((39 - strlen (Data->Display)) / 2), YELLOW|_BLACK, Data->Display);
+               Data->Display[41] = '\0';
+               wprints (0, (short)((41 - strlen (Data->Display)) / 2), YELLOW|_BLACK, Data->Display);
                videoupdate ();
 
                Msg = NULL;
@@ -905,6 +917,9 @@ VOID CScanDlg (VOID)
                     break;
                  case ST_ADEPT:
                     Msg = new ADEPT (Data->Path);
+                    break;
+                 case ST_HUDSON:
+                    Msg = new HUDSON (Data->Path, (UCHAR)Data->Board);
                     break;
                }
 
@@ -1251,7 +1266,7 @@ USHORT ChangeArea (VOID)
       i = 0;
       if (Scan->First () == TRUE)
          do {
-            sprintf (Temp, " %-15.15s %5lu  %5lu  %-42.42s", Scan->Key, Scan->Messages, Scan->New, Scan->Description);
+            sprintf (Temp, " %-15.15s %5lu  %5lu  %-41.41s ", Scan->Key, Scan->Messages, Scan->New, Scan->Description);
             List.Add (Temp);
             if (!stricmp (Scan->Key, AreaKey))
                start = (short)i;
@@ -1284,6 +1299,60 @@ USHORT ChangeArea (VOID)
                Dupes = TRUE;
             else
                Data->Read (Temp, FALSE);
+            RetVal = TRUE;
+         }
+         if (Array != NULL)
+            free (Array);
+      }
+      else
+         getxch ();
+
+      wclose ();
+   }
+
+   return (RetVal);
+}
+
+USHORT CMessageListDlg (VOID)
+{
+   int i;
+   USHORT start, RetVal = FALSE;
+   CHAR Temp[128], **Array, *p;
+   ULONG ListNumber;
+   class TCollection List;
+
+   if (wopen (4, 2, 22, 76, 0, LCYAN|_BLACK, BLUE|_BLACK) != 0) {
+      wtitle (" Message List ", TCENTER, LCYAN|_BLACK);
+      wshadow (DGREY|_BLACK);
+      wprints (0, 0, YELLOW|_BLACK, " Num. From              To                Subject");
+      videoupdate ();
+
+      start = 0;
+      i = 0;
+      ListNumber = Msg->Lowest ();
+      do {
+         if (Msg->ReadHeader (ListNumber) == TRUE) {
+            sprintf (Temp, " %4lu %-16.16s  %-16.16s  %.30s ", Msg->UidToMsgn (ListNumber), Msg->From, Msg->To, Msg->Subject);
+            List.Add (Temp);
+            if (Number == ListNumber)
+               start = (short)i;
+            i++;
+         }
+      } while (Msg->Next (ListNumber) == TRUE);
+
+      if (List.Elements > 0) {
+         i = 0;
+         Array = (CHAR **)malloc ((List.Elements + 1) * sizeof (CHAR *));
+         if ((p = (CHAR *)List.First ()) != NULL)
+            do {
+               Array[i++] = p;
+            } while ((p = (CHAR *)List.Next ()) != NULL);
+         Array[i] = NULL;
+         if ((i = wpickstr (6, 3, 21, 75, 5, LGREY|_BLACK, LGREY|_BLACK, WHITE|_BLUE, Array, start, NULL)) != -1) {
+            Temp[0] = '\0';
+            if ((p = strtok (Array[i], " ")) != NULL)
+               strcpy (Temp, p);
+            Number = Msg->MsgnToUid (atol (Temp));
             RetVal = TRUE;
          }
          if (Array != NULL)
@@ -1515,6 +1584,35 @@ VOID EditMessage (USHORT Reply, USHORT DoQuote)
    }
 }
 
+VOID CHelpDlg (VOID)
+{
+   if (wopen (4, 14, 22, 76, 0, YELLOW|_BLACK, BLUE|_BLACK) != 0) {
+      wtitle (" Help ", TCENTER, YELLOW|_BLACK);
+      wshadow (DGREY|_BLACK);
+      prints (22, 16, YELLOW|_BLACK, " Press any key to close ");
+
+      wprints (0,  1, LGREY|_BLACK, "A, Alt-A        Change message area");
+      wprints (1,  1, LGREY|_BLACK, "E, Alt-E, Ins   Write new message");
+      wprints (2,  1, LGREY|_BLACK, "L, Alt-L        List messages");
+      wprints (3,  1, LGREY|_BLACK, "R, Alt-R        Reply to current message");
+      wprints (4,  1, LGREY|_BLACK, "Q, Alt-Q        Reply to current message (quoted)");
+      wprints (5,  1, LGREY|_BLACK, "V, Alt-V        Show/hide kludge lines");
+      wprints (6,  1, LGREY|_BLACK, "W, Alt-W        Write current message to disk (READER.OUT)");
+      wprints (7,  1, LGREY|_BLACK, "X, Alt-X        Exit");
+      wprints (8,  1, LGREY|_BLACK, "Right           Next message");
+      wprints (9,  1, LGREY|_BLACK, "Left            Previous message");
+      wprints (10, 1, LGREY|_BLACK, "End             Display last part of current message");
+      wprints (11, 1, LGREY|_BLACK, "Home            Display first part of current message");
+      wprints (12, 1, LGREY|_BLACK, "Down            Scroll message display");
+      wprints (13, 1, LGREY|_BLACK, "Up              Scroll message display");
+      wprints (14, 1, LGREY|_BLACK, "PgDn            Display next page of message");
+      wprints (15, 1, LGREY|_BLACK, "PgUp            Display previous page of message");
+
+      getxch ();
+      wclose ();
+   }
+}
+
 void main (int argc, char *argv[])
 {
    int i;
@@ -1562,6 +1660,9 @@ void main (int argc, char *argv[])
       case ST_ADEPT:
          Msg = new ADEPT (Cfg->NetMailPath);
          break;
+      case ST_HUDSON:
+         Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->NetMailBoard);
+         break;
    }
 
    NetMail = TRUE;
@@ -1590,6 +1691,9 @@ void main (int argc, char *argv[])
    while (EndRun == FALSE) {
       if (kbmhit ()) {
          switch (getxch ()) {
+            case 0x3B00:
+               CHelpDlg ();
+               break;
             case 0x5000:   // Freccia giu'
                if ((TotalLines - Line + 1) > 17)
                   DisplayText (++Line);
@@ -1649,7 +1753,6 @@ void main (int argc, char *argv[])
                         strcpy (User->MsgTag->Area, AreaKey);
                         User->MsgTag->Tagged = FALSE;
                         User->MsgTag->LastRead = Number;
-                        User->MsgTag->LastPacked = 0L;
                         User->MsgTag->Add ();
                      }
                      User->Update ();
@@ -1678,6 +1781,9 @@ void main (int argc, char *argv[])
                         case ST_ADEPT:
                            Msg = new ADEPT (Data->Path);
                            break;
+                        case ST_HUDSON:
+                           Msg = new HUDSON (Data->Path, (UCHAR)Data->Board);
+                           break;
                         case ST_USENET:
                            Msg = new USENET (Cfg->NewsServer, Data->NewsGroup);
                            break;
@@ -1701,6 +1807,9 @@ void main (int argc, char *argv[])
                         case ST_ADEPT:
                            Msg = new ADEPT (Cfg->NetMailPath);
                            break;
+                        case ST_HUDSON:
+                           Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->NetMailBoard);
+                           break;
                      }
                   }
                   else if (EMail == TRUE) {
@@ -1720,6 +1829,9 @@ void main (int argc, char *argv[])
                            break;
                         case ST_ADEPT:
                            Msg = new ADEPT (Cfg->MailPath);
+                           break;
+                        case ST_HUDSON:
+                           Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->MailBoard);
                            break;
                      }
                   }
@@ -1741,6 +1853,9 @@ void main (int argc, char *argv[])
                         case ST_ADEPT:
                            Msg = new ADEPT (Cfg->DupePath);
                            break;
+                        case ST_HUDSON:
+                           Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->DupeBoard);
+                           break;
                      }
                   }
                   else if (BadMsgs == TRUE) {
@@ -1760,6 +1875,9 @@ void main (int argc, char *argv[])
                            break;
                         case ST_ADEPT:
                            Msg = new ADEPT (Cfg->BadPath);
+                           break;
+                        case ST_HUDSON:
+                           Msg = new HUDSON (Cfg->HudsonPath, (UCHAR)Cfg->BadBoard);
                            break;
                      }
                   }
@@ -1791,6 +1909,13 @@ void main (int argc, char *argv[])
                if (Number == 0L)
                   Msg->Next (Number);
                DisplayMessage ();
+               break;
+            case 'l':
+            case 0x2600:   // Alt-L = List messages
+               if (CMessageListDlg () == TRUE) {
+                  DisplayMessage ();
+                  Line = 1;
+               }
                break;
             case 'r':
             case 0x1300:   // Alt-R = Reply
@@ -1844,7 +1969,6 @@ void main (int argc, char *argv[])
             strcpy (User->MsgTag->Area, AreaKey);
             User->MsgTag->Tagged = FALSE;
             User->MsgTag->LastRead = Number;
-            User->MsgTag->LastPacked = 0L;
             User->MsgTag->Add ();
          }
          User->Update ();

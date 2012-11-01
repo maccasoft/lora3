@@ -152,6 +152,14 @@ USHORT TTcpip::BytesReady (VOID)
       }
    }
 
+#if defined(__OS2__)
+   if (RetVal == FALSE)
+      DosSleep (1L);
+#elif defined(__NT__)
+   if (RetVal == FALSE)
+      Sleep (1L);
+#endif
+
    return (RetVal);
 }
 
@@ -451,6 +459,10 @@ USHORT TTcpip::WaitClient (VOID)
    }
 #endif
 
+#if defined(__OS2__)
+   DosSleep (1L);
+#endif
+
    return ((USHORT)Sock);
 }
 
@@ -480,21 +492,23 @@ VOID TTcpip::SendBytes (UCHAR *bytes, USHORT len)
 #endif
                fCarrierDown = TRUE;
          }
-#if defined(__OS2__)
-         DosSleep (1L);
-#elif defined(__NT__)
-         Sleep (1L);
-#endif
       } while (len > 0 && EndRun == FALSE && Carrier () == TRUE);
    }
 }
 
 VOID TTcpip::UnbufferBytes (VOID)
 {
-   int Written;
+   int i, Written;
    UCHAR *p;
 
    while (Sock != 0 && fCarrierDown == FALSE && EndRun == FALSE && TxBytes > 0) {
+      i = 0;
+#if defined(__OS2__) || defined(__DOS__) || defined(__LINUX__)
+      ioctl (Sock, FIONBIO, (char *)&i, sizeof (int));
+#elif defined(__NT__)
+      ioctlsocket (Sock, FIONBIO, (unsigned long *)&i);
+#endif
+
       p = TxBuffer;
       do {
          if ((Written = send (Sock, (char *)p, TxBytes, 0)) > 0) {
@@ -511,13 +525,40 @@ VOID TTcpip::UnbufferBytes (VOID)
 #endif
                fCarrierDown = TRUE;
          }
-#if defined(__OS2__)
-         DosSleep (1L);
-#elif defined(__NT__)
-         Sleep (1L);
-#endif
       } while (TxBytes > 0 && EndRun == FALSE && Carrier () == TRUE);
+
+      i = 1;
+#if defined(__OS2__) || defined(__DOS__) || defined(__LINUX__)
+      ioctl (Sock, FIONBIO, (char *)&i, sizeof (int));
+#elif defined(__NT__)
+      ioctlsocket (Sock, FIONBIO, (unsigned long *)&i);
+#endif
    }
+}
+
+VOID TTcpip::SetName (PSZ name)
+{
+   name = name;
+}
+
+VOID TTcpip::SetCity (PSZ name)
+{
+   name = name;
+}
+
+VOID TTcpip::SetLevel (PSZ level)
+{
+   level = level;
+}
+
+VOID TTcpip::SetTimeLeft (ULONG seconds)
+{
+   seconds = seconds;
+}
+
+VOID TTcpip::SetTime (ULONG seconds)
+{
+   seconds = seconds;
 }
 
 

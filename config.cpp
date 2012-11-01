@@ -387,7 +387,34 @@ VOID TConfig::Struct2Class (CONFIG *Cfg)
    strcpy (TempPath, FixPath (Cfg->TempPath));
    strcpy (OLRPacketName, Cfg->OLRPacketName);
    OLRMaxMessages = Cfg->OLRMaxMessages;
-
+   ExternalFax = Cfg->ExternalFax;
+   FaxFormat = Cfg->FaxFormat;
+   strcpy (FaxPath, FixPath (Cfg->FaxPath));
+   strcpy (AfterFaxCmd, Cfg->AfterFaxCmd);
+   strcpy (FaxAlertNodes, Cfg->FaxAlertNodes);
+   strcpy (FaxAlertUser, Cfg->FaxAlertUser);
+   ReloadLog = Cfg->ReloadLog;
+   MakeProcessLog = Cfg->MakeProcessLog;
+   RetriveMaxMessages = Cfg->RetriveMaxMessages;
+   CheckAvatar = Cfg->CheckAvatar;
+   CheckColor = Cfg->CheckColor;
+   CheckFullScreen = Cfg->CheckFullScreen;
+   CheckHotKey = Cfg->CheckHotKey;
+   CheckIBMChars = Cfg->CheckIBMChars;
+   AskLines = Cfg->AskLines;
+   AskPause = Cfg->AskPause;
+   AskScreenClear = Cfg->AskScreenClear;
+   AskBirthDate = Cfg->AskBirthDate;
+   AskMailCheck = Cfg->AskMailCheck;
+   AskFileCheck = Cfg->AskFileCheck;
+   ExternalEditor = Cfg->ExternalEditor;
+   strcpy (EditorCmd, Cfg->EditorCmd);
+   strcpy (HudsonPath, Cfg->HudsonPath);
+   strcpy (GoldPath, Cfg->GoldPath);
+   BadBoard = Cfg->BadBoard;
+   DupeBoard = Cfg->DupeBoard;
+   MailBoard = Cfg->MailBoard;
+   NetMailBoard = Cfg->NetMailBoard;
 }
 
 PSZ TConfig::FixPath (PSZ path)
@@ -556,6 +583,34 @@ USHORT TConfig::Save (PSZ pszConfig, PSZ pszChannel)
       strcpy (Cfg->TempPath, TempPath);
       strcpy (Cfg->OLRPacketName, OLRPacketName);
       Cfg->OLRMaxMessages = OLRMaxMessages;
+      Cfg->ExternalFax = ExternalFax;
+      Cfg->FaxFormat = FaxFormat;
+      strcpy (Cfg->FaxPath, FaxPath);
+      strcpy (Cfg->AfterFaxCmd, AfterFaxCmd);
+      strcpy (Cfg->FaxAlertNodes, FaxAlertNodes);
+      strcpy (Cfg->FaxAlertUser, FaxAlertUser);
+      Cfg->ReloadLog = ReloadLog;
+      Cfg->MakeProcessLog = MakeProcessLog;
+      Cfg->RetriveMaxMessages = RetriveMaxMessages;
+      Cfg->CheckAvatar = CheckAvatar;
+      Cfg->CheckColor = CheckColor;
+      Cfg->CheckFullScreen = CheckFullScreen;
+      Cfg->CheckHotKey = CheckHotKey;
+      Cfg->CheckIBMChars = CheckIBMChars;
+      Cfg->AskLines = AskLines;
+      Cfg->AskPause = AskPause;
+      Cfg->AskScreenClear = AskScreenClear;
+      Cfg->AskBirthDate = AskBirthDate;
+      Cfg->AskMailCheck = AskMailCheck;
+      Cfg->AskFileCheck = AskFileCheck;
+      Cfg->ExternalEditor = ExternalEditor;
+      strcpy (Cfg->EditorCmd, EditorCmd);
+      strcpy (Cfg->HudsonPath, HudsonPath);
+      strcpy (Cfg->GoldPath, GoldPath);
+      Cfg->BadBoard = BadBoard;
+      Cfg->DupeBoard = DupeBoard;
+      Cfg->MailBoard = MailBoard;
+      Cfg->NetMailBoard = NetMailBoard;
 
       write (fd, Cfg, sizeof (CONFIG));
       close (fd);

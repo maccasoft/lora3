@@ -60,7 +60,7 @@ public:
    class  TSerial *Serial;
 
    USHORT GetResponse (VOID);
-   USHORT Initialize (VOID);
+   USHORT Initialize (ULONG comhandle = 0L);
    VOID   Poll (PSZ pszNode);
    VOID   SendCommand (PSZ pszCmd);
 
@@ -102,13 +102,16 @@ public:
    TFax (void);
    ~TFax (void);
 
-   class  TCom *Com;
+   USHORT Format;
+   CHAR   DataPath[64];
+   class  TSerial *Com;
    class  TLog *Log;
 
    int    faxreceive (void);
 
 private:
    int    gEnd_of_document, swaptableinit;
+   int    opage;
    UCHAR  swaptable[256];
    ULONG  faxsize;
    struct faxmodem_response response;
@@ -191,60 +194,6 @@ private:
    class  TNodes *Nodes;
 };
 
-// ----------------------------------------------------------------------------
-
-class TMailProcessor
-{
-public:
-   TMailProcessor (void);
-   ~TMailProcessor (void);
-
-   USHORT Packets;
-   CHAR   Inbound[64], Outbound[64];
-   ULONG  Bad, NetMail, MsgTossed, Duplicate;
-   ULONG  MsgSent;
-   class  TConfig *Cfg;
-   class  TLog *Log;
-   class  TPMList *Output;
-   class  TStatus *Status;
-
-   VOID   Export (VOID);
-   VOID   ExportNetMail (VOID);
-   VOID   Import (VOID);
-   USHORT IsArcmail (VOID);
-   VOID   News (VOID);
-   VOID   Pack (PSZ pszFile);
-   VOID   Mail (VOID);
-   USHORT UnpackArcmail (VOID);
-
-private:
-   CHAR   PktName[32];
-   CHAR   Display[128];
-   CHAR   LastTag[64];
-   CHAR   Temp[128];
-   CHAR   ArcMailName[128];
-   CHAR   Line[128], Name[128];
-   USHORT IsAreasBBS;
-   USHORT BadArea;
-   ULONG  TossedArea;
-   class  PACKET *Packet;
-   class  TNodes *Nodes;
-   class  TMsgData *Data;
-   class  TEchoLink *Forward;
-   class  TDupes *Dupes;
-   class  TMsgBase *Msg;
-   class  TEchotoss *Echo;
-
-   VOID   Change (VOID);
-   USHORT ExportEchoMail (ULONG Number, PSZ pszEchoTag);
-   ULONG  ImportEchoMail (PSZ EchoTag);
-   VOID   MakeArcMailName (PSZ pszAddress, CHAR Flag);
-   USHORT OpenArea (PSZ pszEchoTag);
-   USHORT OpenNextPacket (VOID);
-   VOID   RouteTo (VOID);
-   VOID   SendTo (VOID);
-};
-
 // --------------------------------------------------------------------------
 
 typedef struct {
@@ -277,6 +226,63 @@ private:
    class  TCollection Data;
 };
 
+// ----------------------------------------------------------------------------
+
+class TMailProcessor
+{
+public:
+   TMailProcessor (void);
+   ~TMailProcessor (void);
+
+   USHORT Packets;
+   CHAR   Inbound[64], Outbound[64];
+   ULONG  Bad, NetMail, MsgTossed, Duplicate;
+   ULONG  MsgSent;
+   class  TConfig *Cfg;
+   class  TLog *Log;
+   class  TPMList *Output;
+   class  TStatus *Status;
+
+   VOID   Change (VOID);
+   VOID   Export (VOID);
+   VOID   ExportNetMail (VOID);
+   VOID   Import (VOID);
+   VOID   ImportBad (VOID);
+   USHORT IsArcmail (VOID);
+   VOID   News (VOID);
+   VOID   Pack (PSZ pszFile);
+   VOID   Mail (VOID);
+   USHORT UnpackArcmail (VOID);
+
+private:
+   CHAR   PktName[32];
+   CHAR   Display[128];
+   CHAR   LastTag[64];
+   CHAR   Temp[1024];
+   CHAR   ArcMailName[128];
+   CHAR   Line[128], Name[128];
+   USHORT IsAreasBBS;
+   USHORT BadArea;
+   ULONG  TossedArea;
+   ULONG  Started, BytesProcessed;
+   class  PACKET *Packet;
+   class  TNodes *Nodes;
+   class  TMsgData *Data;
+   class  TEchoLink *Forward;
+   class  TDupes *Dupes;
+   class  TMsgBase *Msg;
+   class  TEchotoss *Echo;
+   class  TKludges *SeenBy, *Path;
+
+   USHORT ExportEchoMail (ULONG Number, PSZ pszEchoTag);
+   ULONG  ImportEchoMail (PSZ EchoTag, class TMsgBase *InBase = NULL);
+   VOID   MakeArcMailName (PSZ pszAddress, CHAR Flag);
+   USHORT OpenArea (PSZ pszEchoTag);
+   USHORT OpenNextPacket (VOID);
+   VOID   RouteTo (VOID);
+   VOID   SendTo (VOID);
+};
+
 // --------------------------------------------------------------------------
 
 class TAreaManager
@@ -289,6 +295,7 @@ public:
    class  TLog *Log;
    class  TMsgBase *Msg;
 
+   USHORT AddArea (PSZ address, PSZ area);
    USHORT FilePassive (PSZ address, USHORT flag);
    USHORT FileRemoveAll (PSZ address);
    VOID   MsgFooter (VOID);
@@ -297,6 +304,7 @@ public:
    VOID   ProcessAreafix (VOID);
    VOID   ProcessRaid (VOID);
    USHORT RemoveAll (PSZ address);
+   USHORT RemoveArea (PSZ address, PSZ area);
    VOID   Rescan (PSZ pszEchoTag, PSZ pszAddress);
    USHORT SetInPacketPwd (PSZ address, PSZ pwd);
    USHORT SetOutPacketPwd (PSZ address, PSZ pwd);
@@ -390,6 +398,7 @@ public:
    CAddressDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
@@ -405,6 +414,7 @@ public:
    CAnswerDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -414,6 +424,7 @@ public:
    CAreafixDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -423,6 +434,7 @@ public:
    CBBSGeneralDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -432,6 +444,7 @@ public:
    CCommandsDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -441,6 +454,7 @@ public:
    CDirectoriesDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -451,6 +465,7 @@ public:
    ~CEventsDlg (void);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
@@ -472,6 +487,17 @@ public:
    CExternalDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
+   VOID   OnOK (VOID);
+};
+
+class CFaxOptDlg : public CDialog
+{
+public:
+   CFaxOptDlg (HWND p_hWnd);
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -483,6 +509,7 @@ public:
 
    VOID   OnAdd (VOID);
    VOID   OnDelete (VOID);
+   VOID   OnHelp (VOID);
    USHORT OnInitDialog (VOID);
    VOID   OnInsert (VOID);
    VOID   OnNext (VOID);
@@ -507,6 +534,7 @@ public:
    CGeneralDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -516,6 +544,7 @@ public:
    CHardwareDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -525,6 +554,7 @@ public:
    CInternetDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -536,6 +566,7 @@ public:
    DECLARE_MESSAGE_MAP ()
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
@@ -550,6 +581,7 @@ public:
    CMailprocDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -560,6 +592,7 @@ public:
    ~CMenuDlg (void);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
@@ -596,6 +629,7 @@ public:
 
    VOID   OnAdd (VOID);
    VOID   OnDelete (VOID);
+   VOID   OnHelp (VOID);
    USHORT OnInitDialog (VOID);
    VOID   OnInsert (VOID);
    VOID   OnNext (VOID);
@@ -620,6 +654,7 @@ public:
    CMiscDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -629,11 +664,14 @@ public:
    CNewUserDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
    VOID   NewUserSecurity (VOID);
 
 private:
    DECLARE_MESSAGE_MAP();
+
+   UCHAR  GetSelection (USHORT id, USHORT Three);
 };
 
 class CNodelistDlg : public CDialog
@@ -642,6 +680,7 @@ public:
    CNodelistDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
@@ -659,6 +698,7 @@ public:
    ~CNodesDlg (void);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
@@ -682,7 +722,27 @@ public:
    COfflineDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
+};
+
+class COriginDlg : public CDialog
+{
+public:
+   COriginDlg (HWND p_hWnd);
+
+   USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
+   VOID   OnOK (VOID);
+
+private:
+   class  TCollection Text;
+   DECLARE_MESSAGE_MAP ()
+
+   VOID   Add (VOID);
+   VOID   ItemSelected (VOID);
+   VOID   Remove (VOID);
+   VOID   Replace (VOID);
 };
 
 class CPackerDlg : public CDialog
@@ -692,6 +752,7 @@ public:
    ~CPackerDlg (void);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
@@ -715,6 +776,7 @@ public:
 
    VOID   OnAdd (VOID);
    VOID   OnDelete (VOID);
+   VOID   OnHelp (VOID);
    USHORT OnInitDialog (VOID);
    VOID   OnNext (VOID);
    VOID   OnOK (VOID);
@@ -735,6 +797,7 @@ public:
    CSiteInfoDlg (HWND p_hWnd);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 };
 
@@ -745,6 +808,7 @@ public:
    ~CUserDlg (void);
 
    USHORT OnInitDialog (VOID);
+   VOID   OnHelp (VOID);
    VOID   OnOK (VOID);
 
 private:
@@ -778,6 +842,7 @@ USHORT CCompressorDlg (VOID);
 USHORT CDirectoriesDlg (VOID);
 USHORT CEventDlg (VOID);
 USHORT CExternalProcDlg (VOID);
+USHORT CFaxDlg (VOID);
 USHORT CFileDlg (VOID);
 USHORT CGeneralOptDlg (VOID);
 USHORT CHardwareDlg (VOID);
@@ -786,6 +851,7 @@ USHORT CMailerMiscDlg (VOID);
 USHORT CMailProcessingDlg (VOID);
 USHORT CMenuEditorDlg (PSZ pszFile);
 USHORT CMessageDlg (VOID);
+USHORT CNewUsersDlg (VOID);
 USHORT CNodelistDlg (VOID);
 USHORT CNodesDlg (VOID);
 USHORT COfflineDlg (VOID);

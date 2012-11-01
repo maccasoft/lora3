@@ -335,13 +335,6 @@ USHORT INETMAIL::GetResponse (PSZ pszResponse, USHORT usMaxLen)
             }
          }
       }
-#if defined(__OS2__)
-      else
-         DosSleep (1L);
-#elif defined(__NT__)
-      else
-         Sleep (1L);
-#endif
    } while (c != '\r' && Tcp->Carrier () == TRUE);
 
    *pszResp = '\0';
@@ -385,6 +378,7 @@ VOID INETMAIL::New (VOID)
    Sent = 0;
    memset (&Written, 0, sizeof (Written));
    memset (&Arrived, 0, sizeof (Arrived));
+   Original = Reply = 0L;
    Text.Clear ();
 }
 

@@ -480,11 +480,11 @@ VOID TJanus::Transfer (VOID)
             SendPacket (TxBuffer, blklen, FNAMEPKT);
             xstate = XRCVFNACK;
             xmit_retry = time (NULL) + TimeoutSecs;
-            Log->Write ("> JAN=XSENDFNAME, XS=%d", xstate);
+//            Log->Write ("> JAN=XSENDFNAME, XS=%d", xstate);
             SendPacket (NULL, 0, EOFACKPKT);
             break;
          case XSENDBLK:
-            Log->Write ("> JAN=XSENDBLK, XS=%d", xstate);
+//            Log->Write ("> JAN=XSENDBLK, XS=%d", xstate);
             *((LONG *)TxBuffer) = lasttx = txpos;
             blklen = (USHORT)read (TxFile, TxBuffer + sizeof (txpos), txblklen);
             SendPacket (TxBuffer, (USHORT)(sizeof (txpos) + blklen), BLKPKT);
@@ -493,13 +493,13 @@ VOID TJanus::Transfer (VOID)
                xmit_retry = time (NULL) + TimeoutSecs;
                xstate = XRCVEOFACK;
             }
-            Log->Write ("> JAN=XSENDBLK (END), XS=%d", xstate);
+//            Log->Write ("> JAN=XSENDBLK (END), XS=%d", xstate);
             break;
          case XSENDFREQNAK:
             SendPacket (NULL, 0, FREQNAKPKT);
             xmit_retry = time (NULL) + TimeoutSecs;
             xstate = XRCVFRNAKACK;
-            Log->Write ("> JAN=XSENDFREQNAK, XS=%d", xstate);
+//            Log->Write ("> JAN=XSENDFREQNAK, XS=%d", xstate);
             break;
       }
 
@@ -507,7 +507,7 @@ VOID TJanus::Transfer (VOID)
          switch (pkttype) {
             case BADPKT:
             case BLKPKT:
-               Log->Write ("> JAN=%s, RS=%d", (pkttype == BADPKT) ? "BADPKT" : "BLKPKT", rstate);
+//               Log->Write ("> JAN=%s, RS=%d", (pkttype == BADPKT) ? "BADPKT" : "BLKPKT", rstate);
                if (rstate == RRCVBLK) {
                   if (pkttype == BADPKT || *((LONG *)RxBuffer) != Rxpos) {
                      if (pkttype == BLKPKT) {
@@ -524,7 +524,7 @@ VOID TJanus::Transfer (VOID)
                         *((LONG *)(RxBuffer + sizeof (Rxpos))) = rpos_sttime;
                         SendPacket (RxBuffer, sizeof (Rxpos) + sizeof (rpos_sttime), RPOSPKT);
                         rpos_retry = time (NULL) + (TimeoutSecs / 2);
-                        Log->Write ("> SEND->RPOSPKT");
+//                        Log->Write ("> SEND->RPOSPKT");
                      }
                   }
                   else {
@@ -556,7 +556,7 @@ VOID TJanus::Transfer (VOID)
                   SendPacket (NULL, 0, EOFACKPKT);
                break;
             case FNAMEPKT:
-               Log->Write ("> JAN=FNAMEPKT, RS=%d", rstate);
+//               Log->Write ("> JAN=FNAMEPKT, RS=%d", rstate);
                if (rstate == RRCVFNAME)
                   Rxpos = rxstpos = ProcessFileName ();
                *((LONG *)RxBuffer) = Rxpos;
@@ -569,7 +569,7 @@ VOID TJanus::Transfer (VOID)
                length = time (NULL);
                break;
             case FNACKPKT:
-               Log->Write ("> JAN=FNACKPKT, RS=%d", rstate);
+//               Log->Write ("> JAN=FNACKPKT, RS=%d", rstate);
                if (xstate == XRCVFNACK) {
                   xmit_retry = 0L;
                   if (TxFileName[0] != '\0') {
@@ -601,7 +601,7 @@ VOID TJanus::Transfer (VOID)
                }
                break;
             case RPOSPKT:
-               Log->Write ("> JAN=RPOSPKT, RS=%d", rstate);
+//               Log->Write ("> JAN=RPOSPKT, RS=%d", rstate);
                if (xstate == XSENDBLK || xstate == XRCVEOFACK) {
                   xmit_retry = 0L;
                   Com->ClearOutbound ();
@@ -611,7 +611,7 @@ VOID TJanus::Transfer (VOID)
                }
                break;
             case EOFACKPKT:
-               Log->Write ("> JAN=EOFACKPKT, RS=%d", rstate);
+//               Log->Write ("> JAN=EOFACKPKT, RS=%d", rstate);
                if (xstate == XRCVEOFACK || xstate == XRCVFNACK) {
                   if (xstate == XRCVEOFACK && TxFile != -1) {
                      close (TxFile);
@@ -634,7 +634,7 @@ VOID TJanus::Transfer (VOID)
                }
                break;
             case FREQPKT:
-               Log->Write ("> JAN=FREQPKT, RS=%d", rstate);
+//               Log->Write ("> JAN=FREQPKT, RS=%d", rstate);
                if (xstate == XRCVFNACK) {
                   xmit_retry = 0L;
                   SharedCap = *(strchr ((PSZ)RxBuffer, '\0') + 1);
@@ -642,7 +642,7 @@ VOID TJanus::Transfer (VOID)
                }
                break;
             case HALTPKT:
-               Log->Write ("> JAN=HALTPKT, RS=%d", rstate);
+//               Log->Write ("> JAN=HALTPKT, RS=%d", rstate);
                SendPacket (NULL, 0, HALTACKPKT);
                xstate = XDONE;
                rstate = RDONE;
@@ -651,12 +651,6 @@ VOID TJanus::Transfer (VOID)
          if (pkttype == HALTPKT || (xstate == XDONE && rstate == RDONE))
             break;
       }
-
-#if defined(__OS2__)
-      DosSleep (1L);
-#elif defined(__NT__)
-      Sleep (1L);
-#endif
    } while ((xstate != XDONE || rstate != RDONE) && Com->Carrier () == TRUE);
 
    if (RxFile != -1)

@@ -91,8 +91,8 @@ VOID TInternet::Telnet (PSZ pszServer, USHORT usPort)
    }
 
    if (pszServer == NULL || pszServer[0] == '\0') {
-      Embedded->Printf ("\n\x16\x01\013Enter the host name, or RETURN to exit: \026\001\x1E");
-      Embedded->GetString (Host, (USHORT)(sizeof (Host) - 1), INP_FIELD);
+      Embedded->Printf ("\n\026\001\017Host name? ");
+      Embedded->GetString (Host, (USHORT)(sizeof (Host) - 1), 0);
       pszServer = Host;
    }
 
@@ -229,12 +229,6 @@ VOID TInternet::Telnet (PSZ pszServer, USHORT usPort)
 
                   Tcp->UnbufferBytes ();
                }
-
-#if defined(__OS2__)
-               DosSleep (1L);
-#elif defined(__NT__)
-               Sleep (1L);
-#endif
             } while (Embedded->AbortSession () == FALSE && Tcp->Carrier () == TRUE && Exit == FALSE);
 
             Log->Write ("+End Telnet");
@@ -258,8 +252,8 @@ VOID TInternet::Finger (PSZ pszServer, USHORT usPort)
    }
 
    if (pszServer == NULL || pszServer[0] == '\0') {
-      Embedded->Printf ("\n\x16\x01\013Enter the host name, or RETURN to exit: \026\001\x1E");
-      Embedded->GetString (Host, (USHORT)(sizeof (Host) - 1), INP_FIELD);
+      Embedded->Printf ("\n\026\001\017Host name? ");
+      Embedded->GetString (Host, (USHORT)(sizeof (Host) - 1), 0);
       pszServer = Host;
    }
 
@@ -268,8 +262,8 @@ VOID TInternet::Finger (PSZ pszServer, USHORT usPort)
          if (Tcp->ConnectServer (pszServer, usPort) == TRUE) {
             Log->Write ("+Finger => %s", pszServer);
 
-            Embedded->Printf ("\n\x16\x01\013Enter a user name, or RETURN to list online users: \026\001\x1E");
-            Embedded->Input (String, (USHORT)(sizeof (String) - 1), INP_FIELD);
+            Embedded->Printf ("\n\026\001\017User name? ");
+            Embedded->GetString (String, (USHORT)(sizeof (String) - 1), 0);
 
             Tcp->SendBytes ((UCHAR *)String, (USHORT)strlen (String));
             Tcp->SendBytes ((UCHAR *)"\r\n", 2);
@@ -284,11 +278,6 @@ VOID TInternet::Finger (PSZ pszServer, USHORT usPort)
                   if (Snoop != NULL)
                      Snoop->BufferByte ((UCHAR)c);
                }
-#if defined(__OS2__)
-               DosSleep (1L);
-#elif defined(__NT__)
-               Sleep (1L);
-#endif
             }
 
             if (Com != NULL)
@@ -319,12 +308,6 @@ USHORT TInternet::GetResponse (PSZ pszResponse, USHORT usMaxLen)
                }
             }
          } while (Tcp->BytesReady () == TRUE && c != '\r');
-
-#if defined(__OS2__)
-      DosSleep (1L);
-#elif defined(__NT__)
-      Sleep (1L);
-#endif
    } while (c != '\r' && Embedded->AbortSession () == FALSE && Tcp->Carrier () == TRUE);
 
    *pszResp = '\0';
@@ -343,22 +326,30 @@ VOID TInternet::FTP_GET (PSZ pszFile, PSZ pszName, USHORT fHash)
 {
    FILE *fp;
    USHORT Len, Counter;
+   CHAR Name[64], *p;
    ULONG Size, Elapsed;
 
    while (Data->WaitClient () == 0) {
       if (Embedded->AbortSession () == TRUE || Tcp->Carrier () == FALSE)
          return;
-#if defined(__OS2__)
-      DosSleep (1L);
-#elif defined(__NT__)
-      Sleep (1L);
-#endif
    }
 
    if (pszFile != NULL) {
-      fp = _fsopen (pszFile, "wb", SH_DENYNO);
       if (Log != NULL)
          Log->Write (" Receiving %s", pszFile);
+      if ((fp = _fsopen (pszFile, "wb", SH_DENYNO)) == NULL) {
+         if ((p = strchr (pszFile, '\0')) != NULL) {
+            while (p > pszFile && *p != '\\' && *p != ':' && *p != '/')
+               p--;
+            strcpy (Name, ++p);
+            Name[12] = '\0';
+            while ((p = strchr (Name, '.')) != NULL)
+               *p = '_';
+            if (strlen (Name) > 8)
+               Name[8] = '.';
+            strcpy (p, Name);
+         }
+      }
    }
 
    Size = 0;
@@ -393,19 +384,7 @@ VOID TInternet::FTP_GET (PSZ pszFile, PSZ pszName, USHORT fHash)
             Embedded->Putch ((UCHAR)'#');
             Counter -= 1024;
          }
-
-#if defined(__OS2__)
-         DosSleep (1L);
-#elif defined(__NT__)
-         Sleep (1L);
-#endif
       }
-
-#if defined(__OS2__)
-      DosSleep (1L);
-#elif defined(__NT__)
-      Sleep (1L);
-#endif
    } while (Data->Carrier () == TRUE && Embedded->AbortSession () == FALSE);
 
    Com->UnbufferBytes ();
@@ -424,7 +403,6 @@ VOID TInternet::FTP_GET (PSZ pszFile, PSZ pszName, USHORT fHash)
       Log->Write ("+Received %s, %lu bytes", pszFile, Size);
 
    if (pszFile != NULL && pszName != NULL && User != NULL) {
-//      Embedded->Printf ("\n\x16\x01\012You have just tagged:\n\n");
       User->FileTag->New ();
       strcpy (User->FileTag->Name, pszName);
       strcpy (User->FileTag->Area, "USER");
@@ -432,7 +410,7 @@ VOID TInternet::FTP_GET (PSZ pszFile, PSZ pszName, USHORT fHash)
       User->FileTag->Size = Size;
       User->FileTag->DeleteAfter = TRUE;
       User->FileTag->Add ();
-//      Embedded->Printf ("\x16\x01\x0A%5d. The file %s in the %s Library\n", User->FileTag->Index, pszName, User->FileTag->Area);
+      Embedded->Printf ("\x16\x01\x0AThe file %s is tagged for download\n", pszName);
       if (Log != NULL)
          Log->Write (":Tagged file %s, library %s", pszName, User->FileTag->Area);
    }
@@ -592,11 +570,6 @@ VOID TInternet::FTP_PUT (PSZ pszFile, USHORT fHash, USHORT fBinary)
    while (Data->WaitClient () == 0) {
       if (Embedded->AbortSession () == TRUE || Tcp->Carrier () == FALSE)
          return;
-#if defined(__OS2__)
-      DosSleep (1L);
-#elif defined(__NT__)
-      Sleep (1L);
-#endif
    }
 
    if (pszFile != NULL)
@@ -611,11 +584,6 @@ VOID TInternet::FTP_PUT (PSZ pszFile, USHORT fHash, USHORT fBinary)
       Size += i;
       if (fHash == TRUE && Size != 0L && (Size % 1024L) == 0L)
          Embedded->Putch ((UCHAR)'#');
-#if defined(__OS2__)
-      DosSleep (1L);
-#elif defined(__NT__)
-      Sleep (1L);
-#endif
    } while (Data->Carrier () == TRUE && i == sizeof (Buffer) && Embedded->AbortSession () == FALSE);
 
    if (Embedded->AbortSession () == FALSE) {
@@ -649,8 +617,8 @@ VOID TInternet::FTP (PSZ pszServer, USHORT usPort)
    DataPort = FTPDATA_PORT;
 
    if (pszServer == NULL || pszServer[0] == '\0') {
-      Embedded->Printf ("\n\x16\x01\013Enter the host name, or RETURN to exit: \026\001\x1E");
-      Embedded->GetString (Host, (USHORT)(sizeof (Host) - 1), INP_FIELD);
+      Embedded->Printf ("\n\026\001\017Host name? ");
+      Embedded->GetString (Host, (USHORT)(sizeof (Host) - 1), 0);
       pszServer = Host;
    }
 

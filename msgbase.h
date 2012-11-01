@@ -51,6 +51,7 @@ public:
    MDATE   Arrived;
    CHAR    FromAddress[48];
    CHAR    ToAddress[48];
+   ULONG   Reply, Original;
    class   TCollection Text;
 
    virtual USHORT Add (VOID) = 0;
@@ -682,7 +683,110 @@ private:
 
 // --------------------------------------------------------------------------
 
-#define MAX_DUPES    2000
+#define HUD_RECKILL     1
+#define HUD_NETMAIL     4
+#define HUD_PRIVATE     8
+#define HUD_RECEIVED    16
+#define HUD_LOCAL       32+64
+
+#define HUD_KILL        1
+#define HUD_SENT        2
+#define HUD_FILE        4
+#define HUD_CRASH       8
+#define HUD_FRQ         16
+#define HUD_ARQ         32
+#define HUD_CPT         64
+
+typedef struct {
+   USHORT LowMsg;
+   USHORT HighMsg;
+   USHORT TotalMsgs;
+   USHORT TotalOnBoard[200];
+} HMSGINFO;
+
+typedef struct {
+   USHORT MsgNum;
+   UCHAR  Board;
+} HMSGIDX;
+
+typedef struct {
+   CHAR   String[36];
+} HMSGTOIDX;
+
+typedef struct {
+   USHORT MsgNum;
+   USHORT PrevReply;
+   USHORT NextReply;
+   USHORT TimesRead;
+   USHORT StartBlock;
+   USHORT NumBlocks;
+   USHORT DestNet;
+   USHORT DestNode;
+   USHORT OrigNet;
+   USHORT OrigNode;
+   UCHAR  DestZone;
+   UCHAR  OrigZone;
+   USHORT Cost;
+   UCHAR  MsgAttr;
+   UCHAR  NetAttr;
+   UCHAR  Board;
+   CHAR   Time[6];
+   CHAR   Date[9];
+   CHAR   WhoTo[36];
+   CHAR   WhoFrom[36];
+   CHAR   Subject[73];
+} HMSGHDR;
+
+class HUDSON : public TMsgBase
+{
+public:
+   HUDSON (void);
+   HUDSON (PSZ pszName, UCHAR board);
+   ~HUDSON (void);
+
+   USHORT Add (VOID);
+   USHORT Add (class TMsgBase *MsgBase);
+   USHORT Add (class TCollection &MsgText);
+   VOID   Close (VOID);
+   USHORT Delete (ULONG ulMsg);
+   USHORT GetHWM (ULONG &ulMsg);
+   ULONG  Highest (VOID);
+   USHORT Lock (ULONG ulTimeout = 0);
+   ULONG  Lowest (VOID);
+   ULONG  MsgnToUid (ULONG ulMsg);
+   VOID   New (VOID);
+   USHORT Next (ULONG &ulMsg);
+   ULONG  Number (VOID);
+   USHORT Open (PSZ pszName, UCHAR board);
+   VOID   Pack (VOID);
+   USHORT Previous (ULONG &ulMsg);
+   USHORT ReadHeader (ULONG ulMsg);
+   USHORT Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth = 79);
+   USHORT Read (ULONG ulMsg, SHORT nWidth = 79);
+   VOID   SetHWM (ULONG ulMsg);
+   ULONG  UidToMsgn (ULONG ulMsg);
+   VOID   UnLock (VOID);
+   USHORT WriteHeader (ULONG ulMsg);
+
+private:
+   int    fdHdr;
+   int    fdTxt;
+   int    fdToIdx;
+   USHORT Locked;
+   CHAR   BaseName[128];
+   UCHAR  BoardNum;
+   ULONG  TotalMsgs;
+   HMSGINFO msgInfo;
+   HMSGIDX *msgIdx;
+   HMSGHDR  msgHdr;
+
+   VOID   Pascal2C (PSZ strp, PSZ strc);
+   VOID   C2Pascal (PSZ strp, PSZ strc);
+};
+
+// --------------------------------------------------------------------------
+
+#define MAX_DUPES    1000
 
 typedef struct {
    CHAR   EchoTag[64];

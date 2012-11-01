@@ -50,7 +50,7 @@
         #define _Cdecl
         #define _Near
     #endif
-#elif defined(__OS2__) || defined(__LINUX__)
+#elif defined(__OS2__) || defined(__LINUX__) || defined(__NT__)
     #define _Cdecl
     #define _Near
 #endif
@@ -84,7 +84,7 @@ typedef short     CXLWIN;
 
 /*-------------[ display adapter types returned from vidtype() ]-------------*/
 
-#define V_NONE      0
+//#define V_NONE      0
 #define V_MDA       1
 #define V_EGAMONO   2
 #define V_MCGAMONO  3
@@ -665,7 +665,7 @@ short      _Cdecl wperror(char *message);
 short      _Cdecl wpgotoxy(short wrow,short wcol);
 char    *_Cdecl wpickfile(short srow,short scol,short erow,short ecol,short btype,
                           short bordattr,short winattr,short barattr,short title,
-                          char *filespec,void (_Cdecl *open)(void));
+                          char *filespec,void (*open)(void));
 short      _Cdecl wpickstr(short srow,short scol,short erow,short ecol,short btype,
                          short bordattr,short winattr,short barattr,char *strarr[],
                          short initelem,void (*open)(void));
@@ -711,7 +711,7 @@ short      _Cdecl wwprints(CXLWIN whandle,short wrow,short wcol,short attr,char 
 #else
 #define MK_FP(seg,ofs)      ((void *) (((unsigned long)(seg) << 16) | (unsigned)(ofs)))
 #endif
-#elif defined(__LINUX__) || defined(__OS2__)
+#elif defined(__LINUX__) || defined(__OS2__) || defined(__NT__)
 #define MK_FP(seg,ofs)      ((void *) (seg + ofs))
 #endif
 #define attrib(f,b,i,bl)    ((b<<4)|(f)|(i<<3)|(bl<<7))

@@ -86,6 +86,8 @@ SHORT TAddress::Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoint,
 VOID TAddress::Clear (VOID)
 {
    List.Clear ();
+   Zone = Net = Node = Point = 0;
+   Domain[0] = String[0] = '\0';
 }
 
 VOID TAddress::Delete (VOID)

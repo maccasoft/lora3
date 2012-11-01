@@ -64,7 +64,8 @@ typedef struct {
 #define MNU_MSGREAD              27
 #define MNU_MSGWRITE             28
 #define MNU_MSGMODIFY            29
-#define MNU_MSGTEXTLIST          31
+#define MNU_MSGUNRECEIVE         30
+#define MNU_MSGREADNONSTOP       31
 #define MNU_MSGDELETE            32
 #define MNU_MSGENTER             33
 #define MNU_MSGREPLY             34
@@ -73,7 +74,14 @@ typedef struct {
 #define MNU_PRESSENTER           37
 #define MNU_VERSION              38
 #define MNU_MSGFORWARD           39
-#define MNU_FILETAGGED           45
+#define MNU_MSGREADORIGINAL      40
+#define MNU_MSGREADREPLY         41
+#define MNU_TOGGLEFULLED         42
+#define MNU_TOGGLEFULLREAD       43
+#define MNU_TOGGLENODISTURB      44
+#define MNU_TOGGLEMAILCHECK      45
+#define MNU_TOGGLEFILECHECK      46
+#define MNU_SETBIRTHDATE         47
 #define MNU_TELNET               50
 #define MNU_FINGER               51
 #define MNU_FTP                  52
@@ -86,6 +94,7 @@ typedef struct {
 #define MNU_OLRVIEWTAGGED        65
 #define MNU_OLRUPLOAD            66
 #define MNU_OLRDOWNLOADPNT       67
+#define MNU_OLRRESTRICTDATE      68
 #define MNU_INQUIREPERSONAL      70
 #define MNU_INQUIRETEXT          71
 #define MNU_MAILREAD             80
@@ -109,6 +118,21 @@ typedef struct {
 #define MNU_SETGENDER            98
 #define MNU_FILEUPLOADUSER       99
 #define MNU_FILEDISPLAY          100
+#define MNU_MSGREADCURRENT       101
+#define MNU_TOGGLEKLUDGES        102
+#define MNU_ADDTAGGED            103
+#define MNU_LISTTAGGED           104
+#define MNU_DELETETAGGED         105
+#define MNU_DELETEALLTAGGED      106
+#define MNU_TOGGLEFULLSCREEN     107
+#define MNU_TOGGLEIBMCHARS       108
+#define MNU_TOGGLEMOREPROMPT     109
+#define MNU_TOGGLESCREENCLEAR    110
+#define MNU_TOGGLEINUSERLIST     111
+#define MNU_SETARCHIVER          112
+#define MNU_SETPROTOCOL          113
+#define MNU_SETSIGNATURE         114
+#define MNU_SETVIDEOMODE         115
 
 class DLL_EXPORT TMenu
 {

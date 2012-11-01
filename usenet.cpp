@@ -240,6 +240,9 @@ USHORT USENET::GetResponse (PSZ pszResponse, USHORT usMaxLen)
 {
    USHORT retVal = FALSE, len = 0;
    CHAR c, *pszResp = pszResponse;
+   LONG timeout;
+
+   timeout = time (NULL) + 60L;
 
    do {
       c = '\0';
@@ -252,14 +255,7 @@ USHORT USENET::GetResponse (PSZ pszResponse, USHORT usMaxLen)
             }
          }
       }
-#if defined(__OS2__)
-      else
-         DosSleep (1L);
-#elif defined(__NT__)
-      else
-         Sleep (1L);
-#endif
-   } while (c != '\r' && Tcp->Carrier () == TRUE);
+   } while (c != '\r' && Tcp->Carrier () == TRUE && time (NULL) < timeout);
 
    *pszResp = '\0';
    if (pszResponse[3] == ' ')
@@ -301,6 +297,7 @@ VOID USENET::New (VOID)
    Sent = 0;
    memset (&Written, 0, sizeof (Written));
    memset (&Arrived, 0, sizeof (Arrived));
+   Original = Reply = 0L;
    Text.Clear ();
 }
 

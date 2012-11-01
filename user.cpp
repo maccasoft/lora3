@@ -106,7 +106,10 @@ VOID TUser::Struct2Class (VOID)
    Color = Usr.Color;
    HotKey = Usr.HotKey;
    Sex = Usr.Sex;
-   BirthDate = Usr.BirthDate;
+   FullEd = Usr.FullEd;
+   FullReader = Usr.FullReader;
+   NoDisturb = Usr.NoDisturb;
+   AccessFailed = Usr.AccessFailed;
    ScreenHeight = Usr.ScreenHeight;
    ScreenWidth = Usr.ScreenWidth;
    Level = Usr.Level;
@@ -137,6 +140,20 @@ VOID TUser::Struct2Class (VOID)
    UseInetAddress = Usr.UseInetAddress;
    strcpy (InetAddress, Usr.InetAddress);
    strcpy (Pop3Pwd, Usr.Pop3Pwd);
+   strcpy (Archiver, Usr.Archiver);
+   strcpy (Protocol, Usr.Protocol);
+   strcpy (Signature, Usr.Signature);
+   FullScreen = Usr.FullScreen;
+   IBMChars = Usr.IBMChars;
+   MorePrompt = Usr.MorePrompt;
+   ScreenClear = Usr.ScreenClear;
+   InUserList = Usr.InUserList;
+   MailCheck = Usr.MailCheck;
+   NewFileCheck = Usr.NewFileCheck;
+   BirthDay = Usr.BirthDay;
+   BirthMonth = Usr.BirthMonth;
+   BirthYear = Usr.BirthYear;
+   LastPwdChange = Usr.LastPwdChange;
 }
 
 VOID TUser::Class2Struct (VOID)
@@ -155,7 +172,10 @@ VOID TUser::Class2Struct (VOID)
    Usr.Color = Color;
    Usr.HotKey = HotKey;
    Usr.Sex = Sex;
-   Usr.BirthDate = BirthDate;
+   Usr.FullEd = FullEd;
+   Usr.FullReader = FullReader;
+   Usr.NoDisturb = NoDisturb;
+   Usr.AccessFailed = AccessFailed;
    Usr.ScreenHeight = ScreenHeight;
    Usr.ScreenWidth = ScreenWidth;
    Usr.Level = Level;
@@ -186,6 +206,20 @@ VOID TUser::Class2Struct (VOID)
    Usr.UseInetAddress = UseInetAddress;
    strcpy (Usr.InetAddress, InetAddress);
    strcpy (Usr.Pop3Pwd, Pop3Pwd);
+   strcpy (Usr.Archiver, Archiver);
+   strcpy (Usr.Protocol, Protocol);
+   strcpy (Usr.Signature, Signature);
+   Usr.FullScreen = FullScreen;
+   Usr.IBMChars = IBMChars;
+   Usr.MorePrompt = MorePrompt;
+   Usr.ScreenClear = ScreenClear;
+   Usr.InUserList = InUserList;
+   Usr.MailCheck = MailCheck;
+   Usr.NewFileCheck = NewFileCheck;
+   Usr.BirthDay = BirthDay;
+   Usr.BirthMonth = BirthMonth;
+   Usr.BirthYear = BirthYear;
+   Usr.LastPwdChange = LastPwdChange;
 }
 
 USHORT TUser::Add (VOID)
@@ -223,6 +257,24 @@ USHORT TUser::Add (VOID)
    return (RetVal);
 }
 
+USHORT TUser::Age (VOID)
+{
+   USHORT RetVal = 0;
+   struct dosdate_t d_date;
+
+   _dos_getdate (&d_date);
+
+   if (BirthDay != 0 && BirthMonth != 0 && BirthYear > 1880 && BirthYear < d_date.year) {
+      RetVal = (USHORT)(d_date.year - BirthYear);
+      if (d_date.month < BirthMonth)
+         RetVal--;
+      else if (d_date.month == BirthMonth && d_date.day < BirthDay)
+         RetVal--;
+   }
+
+   return (RetVal);
+}
+
 USHORT TUser::CheckPassword (PSZ pszPassword)
 {
    USHORT RetVal = FALSE;
@@ -235,31 +287,8 @@ USHORT TUser::CheckPassword (PSZ pszPassword)
 
 VOID TUser::Clear (VOID)
 {
-   memset (Name, 0, sizeof (Name));
-   Password = 0L;
-   memset (RealName, 0, sizeof (RealName));
-   memset (Company, 0, sizeof (Company));
-   memset (Address, 0, sizeof (Address));
-   memset (City, 0, sizeof (City)),
-   memset (DayPhone, 0, sizeof (DayPhone));
-   Ansi = Avatar = Color = HotKey = Sex = FALSE;
-   BirthDate = 0L;
-   ScreenHeight = ScreenWidth = 0;
-   Level = 0;
-   AccessFlags = DenyFlags = 0L;
-   CreationDate = 0L;
-   LastCall = TotalCalls = 0L;
-   TodayTime = WeekTime = MonthTime = YearTime = 0L;
-   memset (MailBox, 0, sizeof (MailBox));
-   memset (LimitClass, 0, sizeof (LimitClass));
-   memset (Language, 0, sizeof (Language));
-   memset (FtpHost, 0, sizeof (FtpHost));
-   memset (FtpName, 0, sizeof (FtpName));
-   memset (FtpPwd, 0, sizeof (FtpPwd));
-   memset (LastMsgArea, 0, sizeof (LastMsgArea));
-   memset (LastFileArea, 0, sizeof (LastFileArea));
-   UploadFiles = DownloadFiles = FilesToday = 0;
-   UploadBytes = DownloadBytes = BytesToday = 0L;
+   memset (&Usr, 0, sizeof (USER));
+   Struct2Class ();
 
    MsgTag->Clear ();
    FileTag->Clear ();
@@ -631,7 +660,7 @@ VOID TMsgTag::Add (VOID)
    Buffer.UserId = UserId;
    strcpy (Buffer.Area, Area);
    Buffer.LastRead = LastRead;
-   Buffer.LastPacked = LastPacked;
+   Buffer.OlderMsg = OlderMsg;
    Data.Add (&Buffer, sizeof (MSGTAGS));
 }
 
@@ -674,7 +703,7 @@ VOID TMsgTag::Clear (VOID)
    Tagged = FALSE;
    Area[0] = '\0';
    LastRead = 0L;
-   LastPacked = 0L;
+   OlderMsg = 0L;
 }
 
 USHORT TMsgTag::First (VOID)
@@ -686,7 +715,7 @@ USHORT TMsgTag::First (VOID)
       Tagged = Buffer->Tagged;
       strcpy (Area, Buffer->Area);
       LastRead = Buffer->LastRead;
-      LastPacked = Buffer->LastPacked;
+      OlderMsg = Buffer->OlderMsg;
       RetVal = TRUE;
    }
 
@@ -718,7 +747,7 @@ VOID TMsgTag::Load (VOID)
       Tagged = Buffer->Tagged;
       strcpy (Area, Buffer->Area);
       LastRead = Buffer->LastRead;
-      LastPacked = Buffer->LastPacked;
+      OlderMsg = Buffer->OlderMsg;
    }
 }
 
@@ -727,7 +756,7 @@ VOID TMsgTag::New (VOID)
    Tagged = FALSE;
    Area[0] = '\0';
    LastRead = 0L;
-   LastPacked = 0L;
+   OlderMsg = 0L;
 }
 
 USHORT TMsgTag::Next (VOID)
@@ -739,7 +768,7 @@ USHORT TMsgTag::Next (VOID)
       Tagged = Buffer->Tagged;
       strcpy (Area, Buffer->Area);
       LastRead = Buffer->LastRead;
-      LastPacked = Buffer->LastPacked;
+      OlderMsg = Buffer->OlderMsg;
       RetVal = TRUE;
    }
 
@@ -755,7 +784,7 @@ USHORT TMsgTag::Previous (VOID)
       Tagged = Buffer->Tagged;
       strcpy (Area, Buffer->Area);
       LastRead = Buffer->LastRead;
-      LastPacked = Buffer->LastPacked;
+      OlderMsg = Buffer->OlderMsg;
       RetVal = TRUE;
    }
 
@@ -836,7 +865,7 @@ VOID TMsgTag::Update (VOID)
       Buffer.Tagged = Tagged;
       strcpy (Buffer.Area, Area);
       Buffer.LastRead = LastRead;
-      Buffer.LastPacked = LastPacked;
+      Buffer.OlderMsg = OlderMsg;
       memcpy (Data.Value (), &Buffer, sizeof (MSGTAGS));
    }
 }
@@ -1174,5 +1203,4 @@ VOID TFileTag::Update (VOID)
       TotalBytes += Size;
    }
 }
-
 

@@ -360,6 +360,7 @@ VOID PACKET::New (VOID)
    Written.Month = 1;
    memset (&Arrived, 0, sizeof (Arrived));
    Arrived.Month = 1;
+   Original = Reply = 0L;
    Text.Clear ();
 }
 
@@ -524,7 +525,7 @@ USHORT PACKET::Open (PSZ pszName, USHORT doScan)
 
    if (RetVal == TRUE) {
       Date.Day = (UCHAR)pkt2Hdr.Day;
-      Date.Month = (UCHAR)pkt2Hdr.Month;
+      Date.Month = (UCHAR)(pkt2Hdr.Month + 1);
       Date.Year = (USHORT)pkt2Hdr.Year;
       Date.Hour = (UCHAR)pkt2Hdr.Hour;
       Date.Minute = (UCHAR)pkt2Hdr.Minute;

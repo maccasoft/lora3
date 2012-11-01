@@ -165,8 +165,10 @@ VOID TEvents::Add (VOID)
       Value = Data.Value ();
    }
 
+   Number = 0;
    if (Data.First () != NULL)
       do {
+         Number++;
          if (Data.Value () == Value)
             break;
       } while (Data.Next () != NULL);
@@ -174,12 +176,24 @@ VOID TEvents::Add (VOID)
 
 VOID TEvents::Delete (VOID)
 {
+   EVENT *Current;
+
    if (Data.Value () != NULL) {
       Data.Remove ();
-      if (Data.Value () != NULL)
-         Struct2Class ((EVENT *)Data.Value ());
-      else
+      if (Data.Value () != NULL) {
+         Current = (EVENT *)Data.Value ();
+         Data.First ();
+         Number = 1;
+         while (Data.Value () != Current) {
+            Data.Next ();
+            Number++;
+         }
+         Struct2Class (Current);
+      }
+      else {
+         Number = 0;
          New ();
+      }
    }
 }
 
@@ -189,6 +203,7 @@ USHORT TEvents::First (VOID)
    EVENT *Event;
 
    if ((Event = (EVENT *)Data.First ()) != NULL) {
+      Number = 1;
       Struct2Class (Event);
       RetVal = TRUE;
    }
@@ -229,8 +244,8 @@ VOID TEvents::New (VOID)
    ImportNormal = ImportProtected = ImportKnown = FALSE;
    memset (RouteCmd, 0, sizeof (RouteCmd));
    memset (Command, 0, sizeof (Command));
-   MaxCalls = 10;
-   MaxConnects = 5;
+   MaxCalls = 0;
+   MaxConnects = 0;
    AllowRequests = MakeRequests = ProcessTIC = ClockAdjustment = FALSE;
 }
 
@@ -240,6 +255,7 @@ USHORT TEvents::Next (VOID)
    EVENT *Event;
 
    if ((Event = (EVENT *)Data.Next ()) != NULL) {
+      Number++;
       Struct2Class (Event);
       RetVal = TRUE;
    }
@@ -253,6 +269,7 @@ USHORT TEvents::Previous (VOID)
    EVENT *Event;
 
    if ((Event = (EVENT *)Data.Previous ()) != NULL) {
+      Number--;
       Struct2Class (Event);
       RetVal = TRUE;
    }
@@ -260,18 +277,41 @@ USHORT TEvents::Previous (VOID)
    return (RetVal);
 }
 
+USHORT TEvents::Read (USHORT evtNum)
+{
+   USHORT RetVal = FALSE;
+
+   if (First () == TRUE)
+      do {
+         if (Number == evtNum) {
+            RetVal = TRUE;
+            break;
+         }
+      } while (Next () == TRUE);
+
+   return (RetVal);
+}
+
 VOID TEvents::Save (VOID)
 {
    int fd;
+   USHORT Current;
 
-   if ((fd = sopen (DataFile, O_WRONLY|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+   if ((fd = sopen (DataFile, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+      Current = Number;
+
       if (Data.First () != NULL)
          do {
             write (fd, Data.Value (), sizeof (EVENT));
          } while (Data.Next () != NULL);
 
-      chsize (fd, tell (fd));
       close (fd);
+
+      if (Data.First () != NULL)
+         do {
+            if (Number == Current)
+               break;
+         } while (Data.Next () != NULL);
    }
 }
 

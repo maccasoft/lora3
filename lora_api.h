@@ -1,6 +1,6 @@
 
 // ----------------------------------------------------------------------
-// LoraBBS Professional Edition - Version 3.00.25
+// LoraBBS Professional Edition - Version 3.00.32
 // Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
@@ -11,6 +11,7 @@
 #define _LORA_API_H
 
 #include "collect.h"
+#include "struc299.h"
 
 #define KEY_UNREGISTERED      0
 #define KEY_BASIC             1
@@ -53,7 +54,7 @@ USHORT DLL_EXPORT CheckExpiration (VOID);
 #endif
 #endif
 
-#define VERSION            "2.99.28"
+#define VERSION            "2.99.34"
 #define VER_MAJOR          2
 #define VER_MINOR          99
 #define PRODUCT_ID         0x4E
@@ -93,7 +94,7 @@ private:
    class  TCollection List;
 };
 
-#define CONFIG_VERSION     3000
+#define CONFIG_VERSION     2932
 
 #define NO                 0
 #define YES                1
@@ -235,6 +236,39 @@ typedef struct {
    CHAR   TempPath[64];
    CHAR   OLRPacketName[16];
    USHORT OLRMaxMessages;
+
+   UCHAR  ExternalFax;
+   UCHAR  FaxFormat;
+   CHAR   FaxPath[64];
+   CHAR   AfterFaxCmd[64];
+   CHAR   FaxAlertNodes[64];
+   CHAR   FaxAlertUser[64];
+
+   UCHAR  ReloadLog;
+   UCHAR  MakeProcessLog;
+   USHORT RetriveMaxMessages;
+
+   UCHAR  CheckAvatar;
+   UCHAR  CheckColor;
+   UCHAR  CheckFullScreen;
+   UCHAR  CheckHotKey;
+   UCHAR  CheckIBMChars;
+   UCHAR  AskLines;
+   UCHAR  AskPause;
+   UCHAR  AskScreenClear;
+   UCHAR  AskBirthDate;
+   UCHAR  AskMailCheck;
+   UCHAR  AskFileCheck;
+
+   UCHAR  ExternalEditor;
+   CHAR   EditorCmd[64];
+
+   CHAR   HudsonPath[64];
+   CHAR   GoldPath[64];
+   USHORT BadBoard;
+   USHORT DupeBoard;
+   USHORT MailBoard;
+   USHORT NetMailBoard;
 } CONFIG;
 
 
@@ -318,6 +352,24 @@ public:
    USHORT PPPTimeLimit;
    CHAR   OLRPacketName[16];
    USHORT OLRMaxMessages;
+   UCHAR  ExternalFax, FaxFormat;
+   CHAR   FaxPath[64], AfterFaxCmd[64], FaxAlertNodes[64], FaxAlertUser[64];
+   UCHAR  ReloadLog, MakeProcessLog;
+   USHORT RetriveMaxMessages;
+   UCHAR  CheckAvatar, CheckColor;
+   UCHAR  CheckFullScreen;
+   UCHAR  CheckHotKey;
+   UCHAR  CheckIBMChars;
+   UCHAR  AskLines;
+   UCHAR  AskPause;
+   UCHAR  AskScreenClear;
+   UCHAR  AskBirthDate;
+   UCHAR  AskMailCheck;
+   UCHAR  AskFileCheck;
+   UCHAR  ExternalEditor;
+   CHAR   EditorCmd[64];
+   CHAR   HudsonPath[64], GoldPath[64];
+   USHORT BadBoard, DupeBoard, MailBoard, NetMailBoard;
    class  TAddress MailAddress;
 
    PSZ    AdjustPath (PSZ path);
@@ -345,12 +397,15 @@ public:
    USHORT Display;
 
    virtual USHORT Open (PSZ pszName);
+   virtual VOID   Resume (VOID);
+   virtual VOID   Suspend (VOID);
    virtual VOID   Write (PSZ pszFormat, ...);
    virtual VOID   WriteBlank (VOID);
 
 protected:
    FILE   *fp;
    PSZ    Months[12];
+   CHAR   FileName[128];
    CHAR   Buffer[512], Temp[512];
 };
 
@@ -410,66 +465,6 @@ private:
 
 // ---------------------------------------------------------------------------
 
-#define ST_JAM                0
-#define ST_SQUISH             1
-#define ST_USENET             2
-#define ST_FIDO               3
-#define ST_ADEPT              4
-#define ST_HUDSON             5
-#define ST_GOLDBASE           6
-#define ST_PASSTHROUGH        7
-
-typedef struct {
-   USHORT Size;             // Dimensioni della struttura
-   CHAR   Display[128];     // Descrizione dell'area
-   CHAR   Key[16];          // Nome dell'area
-   USHORT Level;            // Livello di accesso
-   ULONG  AccessFlags;      // Flags di accesso
-   ULONG  DenyFlags;        // Flags di inibizione
-   USHORT WriteLevel;       // Livello di scrittura
-   ULONG  WriteFlags;       // Flags di scrittura
-   ULONG  DenyWriteFlags;   // Flags di inibizione alla scrittura
-   UCHAR  Age;              // Eta' minima per l'accesso all'area
-   USHORT Storage;          // Tipo di base messaggi
-   CHAR   Path[128];        // Path in cui risiedono i messaggi
-   USHORT Board;            // Numero della board (per le basi messaggi che lo richiedono)
-   USHORT Flags;            // Flags
-   USHORT Group;            // Group number
-   CHAR   EchoMail;         // TRUE=This is an echomail area
-   CHAR   ShowGlobal;       // TRUE=Show this area in global areas list
-   CHAR   UpdateNews;       // TRUE=Update messages from newsserver
-   CHAR   Offline;          // TRUE=Can be used with the Offline-reader
-   CHAR   MenuName[32];     // Nome del menu' per quest'area
-   CHAR   Moderator[64];    // Nome del gestore dell'area
-   ULONG  Cost;             // Costo per l'accesso all'area
-   USHORT DaysOld;          // Numero massimo di giorni per conservare un messaggio
-   USHORT RecvDaysOld;      // Numero massimo di giorni per i messaggi ricevuti
-   USHORT MaxMessages;      // Numero massimo di messaggi da conservare
-   ULONG  ActiveMsgs;       // Numero di messaggi presenti
-   CHAR   NewsGroup[128];   // Nome dell'USENET newsgroup associato
-   ULONG  Highest;          // Highest message retrived from the newsserver
-   CHAR   EchoTag[64];      // Nome dell'area se echomail (Fidonet)
-   CHAR   Origin[64];       // Origin da usare al posto di quella di default
-   ULONG  HighWaterMark;    // Highest message number sent
-   CHAR   Address[48];      // Address to use when sending echomail messages
-   ULONG  FirstMessage;     // First message number in area
-   ULONG  LastMessage;      // Last message number in area
-} MESSAGE;
-
-#ifndef IDX_DELETED
-#define IDX_DELETED         0x0001
-
-typedef struct {
-   CHAR   Key[16];
-   USHORT Level;
-   ULONG  AccessFlags;
-   ULONG  DenyFlags;
-   ULONG  Position;
-   USHORT Flags;
-} INDEX;
-
-#endif
-
 class DLL_EXPORT TMsgData
 {
 public:
@@ -491,9 +486,11 @@ public:
    ULONG  Cost;
    USHORT DaysOld, RecvDaysOld, MaxMessages;
    ULONG  ActiveMsgs, HighWaterMark;
-   CHAR   NewsGroup[128], EchoTag[64], Origin[64];
+   CHAR   NewsGroup[128], EchoTag[64], Origin[80];
    CHAR   Address[48];
    ULONG  Highest, FirstMessage, LastMessage;
+   SHORT  OriginIndex;
+   ULONG  LastReaded;
 
    USHORT Add (VOID);
    VOID   Delete (VOID);
@@ -517,21 +514,6 @@ private:
    VOID   Class2Struct (MESSAGE *Msg);
    VOID   Struct2Class (MESSAGE *Msg);
 };
-
-typedef struct {
-   USHORT Free;
-   ULONG  EchoTag;
-   USHORT Zone;
-   USHORT Net;
-   USHORT Node;
-   USHORT Point;
-   CHAR   Domain[32];
-   UCHAR  SendOnly;
-   UCHAR  ReceiveOnly;
-   UCHAR  PersonalOnly;
-   UCHAR  Passive;
-   UCHAR  Skip;
-} ECHOLINK;
 
 class DLL_EXPORT TEchoLink
 {
@@ -570,47 +552,6 @@ private:
 
 // ---------------------------------------------------------------------------
 
-typedef struct {
-   USHORT Size;                // Dimensioni della struttura
-   CHAR   Display[128];        // Descrizione dell'area
-   CHAR   Key[16];             // Nome dell'area
-   USHORT Level;               // Livello di accesso
-   ULONG  AccessFlags;         // Flags di accesso
-   ULONG  DenyFlags;           // Flags di inibizione dell'accesso
-   USHORT UploadLevel;         // Livello di upload
-   ULONG  UploadFlags;         // Flags di upload
-   ULONG  UploadDenyFlags;     // Flags di inibizione dell'upload
-   USHORT DownloadLevel;       // Livello di download
-   ULONG  DownloadFlags;       // Flags di download
-   ULONG  DownloadDenyFlags;   // Flags di inibizione al download
-   UCHAR  Age;                 // Eta' minima per l'accesso all'area
-   CHAR   Download[128];       // Path da cui prelevare i files
-   CHAR   Upload[128];         // Path per l'upload
-   CHAR   CdRom;               // TRUE=I files sono su un CD-ROM
-   CHAR   FreeDownload;        // TRUE=Non si considerano i limiti di download
-   CHAR   ShowGlobal;          // TRUE=Show this area in global areas list
-   CHAR   MenuName[32];        // Nome del menu' per quest'area
-   CHAR   Moderator[64];       // Nome del gestore dell'area
-   ULONG  Cost;                // Costo per l'accesso all'area
-   ULONG  ActiveFiles;         // Numero di files presenti
-   ULONG  UnapprovedFiles;     // Numero di files da approvare
-   CHAR   EchoTag[64];         // Nome dell'area se echofile (Fidonet)
-} FILES;
-
-#ifndef IDX_DELETED
-#define IDX_DELETED         0x0001
-
-typedef struct {
-   CHAR   Key[16];
-   USHORT Level;
-   ULONG  AccessFlags;
-   ULONG  DenyFlags;
-   ULONG  Position;
-   USHORT Flags;
-} INDEX;
-
-#endif
-
 class DLL_EXPORT TFileData
 {
 public:
@@ -634,6 +575,9 @@ public:
    ULONG  Cost;
    ULONG  ActiveFiles, UnapprovedFiles;
    CHAR   EchoTag[64];
+   UCHAR  UseFilesBBS;
+   UCHAR  DlCost;
+   CHAR   FileList[128];
 
    USHORT Add (VOID);
    VOID   Delete (VOID);
@@ -703,7 +647,7 @@ typedef struct {
    ULONG  UserId;          // CRC32 of user's name
    CHAR   Area[16];        // Area name
    ULONG  LastRead;        // Number of last message read
-   ULONG  LastPacked;      // Timestamp of last message packing (offline reader)
+   ULONG  OlderMsg;        // Timestamp of the older message to pack
 } MSGTAGS;
 
 class DLL_EXPORT TMsgTag
@@ -717,7 +661,7 @@ public:
    ULONG  UserId;          // CRC32 of user's name
    CHAR   Area[16];        // Area name
    ULONG  LastRead;        // Number of last message read
-   ULONG  LastPacked;      // Timestamp of last message packing (offline reader)
+   ULONG  OlderMsg;        // Timestamp of the older message to pack
 
    VOID   Add (VOID);
    VOID   Change (PSZ pszOldName, PSZ pszNewName);
@@ -857,61 +801,6 @@ private:
    CHAR   DatFile[64];
 };
 
-typedef struct {
-   USHORT Deleted;             // Record is deleted
-   ULONG  NameCrc;             // User's name 32bit CRC
-   ULONG  RealNameCrc;         // User's real name 32bit CRC
-   ULONG  Position;
-} UINDEX;
-
-typedef struct {
-   USHORT Size;                  // Size of the record
-   CHAR   Name[48];              // Name or nickname
-   ULONG  Password;              // Password as a 32bit CRC
-   CHAR   RealName[48];          // Real name
-   CHAR   Company[36];           // Company name (if allowed)
-   CHAR   Address[48];           // First line of the address
-   CHAR   City[48];              // Second line of the address
-   CHAR   DayPhone[26];          // Daytime phone number
-   CHAR   Ansi;                  // TRUE=User can display ANSI
-   CHAR   Avatar;                // TRUE=User can display AVATAR
-   CHAR   Color;                 // TRUE=User can display color informations
-   CHAR   HotKey;                // TRUE=User can use hot keyed menus
-   CHAR   System;                // System type (see above)
-   CHAR   Sex;                   // M=Male, F=Female (no other sex allowed at this writing)
-   ULONG  BirthDate;             // Birthdate as a Unix-style timestamp
-   USHORT ScreenHeight;          // User's screen width
-   USHORT ScreenWidth;           // User's screen height
-   USHORT Level;                 // Level
-   ULONG  AccessFlags;           // Access flags
-   ULONG  DenyFlags;             // Deny access flags
-   ULONG  CreationDate;          // Record's creation date as a Unix-style timestamp
-   ULONG  LastCall;              // User's last call date/time as a Unix-style timestamp
-   CHAR   MailBox[32];           // User's mailbox name
-   CHAR   LimitClass[16];        // Class of limits
-   ULONG  TotalCalls;            // Number of calls to the system
-   ULONG  TodayTime;             // Number of minutes on-line today
-   ULONG  WeekTime;              // Number of minutes on-line this week
-   ULONG  MonthTime;             // Number of minutes on-line this month
-   ULONG  YearTime;              // Number of minutes on-line this year
-   CHAR   Language[16];          // Currently selected language (if any)
-   CHAR   FtpHost[48];           // Host name for FTP transfers
-   CHAR   FtpName[32];           // User name for FTP transfers
-   CHAR   FtpPwd[32];            // Password for FTP transfers
-   CHAR   LastMsgArea[16];       // Last message area visited
-   CHAR   LastFileArea[16];      // Last file area visited
-   USHORT UploadFiles;
-   ULONG  UploadBytes;
-   USHORT DownloadFiles;
-   ULONG  DownloadBytes;
-   USHORT FilesToday;
-   ULONG  BytesToday;
-   UCHAR  ImportPOP3Mail;        // TRUE=Import e-mail from POP3 server
-   UCHAR  UseInetAddress;        // TRUE=Use the personal Inet address
-   CHAR   InetAddress[64];       // Personal E-Mail address
-   CHAR   Pop3Pwd[32];           // Password for POP3 mail server
-} USER;
-
 class DLL_EXPORT TUser
 {
 public:
@@ -931,7 +820,10 @@ public:
    CHAR   Color;               // TRUE=User can display color informations
    CHAR   HotKey;              // TRUE=User can use hot keyed menus
    CHAR   Sex;                 // M=Male, F=Female (no other sex allowed at this writing)
-   ULONG  BirthDate;           // Birthdate as a Unix-style timestamp
+   UCHAR  FullEd;              // TRUE=Use fullscreen editor
+   UCHAR  FullReader;          // TRUE=Use fullscreen reader
+   UCHAR  NoDisturb;           // TRUE=Do not disturb
+   UCHAR  AccessFailed;        // TRUE=Last access attempt failed
    USHORT ScreenHeight;        // User's screen width
    USHORT ScreenWidth;         // User's screen height
    USHORT Level;               // Level
@@ -958,14 +850,30 @@ public:
    ULONG  DownloadBytes;
    USHORT FilesToday;
    ULONG  BytesToday;
-   UCHAR  ImportPOP3Mail;        // TRUE=Import e-mail from POP3 server
-   UCHAR  UseInetAddress;        // TRUE=Use the personal Inet address
-   CHAR   InetAddress[64];       // Personal E-Mail address
-   CHAR   Pop3Pwd[32];           // Password for POP3 mail server
+   UCHAR  ImportPOP3Mail;           // TRUE=Import e-mail from POP3 server
+   UCHAR  UseInetAddress;           // TRUE=Use the personal Inet address
+   CHAR   InetAddress[64];          // Personal E-Mail address
+   CHAR   Pop3Pwd[32];              // Password for POP3 mail server
+   CHAR   Archiver[16];             // Default archiver
+   CHAR   Protocol[16];             // Default protocol
+   CHAR   Signature[64];            // Personal signature
+   CHAR   FullScreen;               // TRUE=Full screen enhancements
+   CHAR   IBMChars;                 // TRUE=Can display IBM characters
+   CHAR   MorePrompt;               // TRUE=Display More? prompt at each page
+   CHAR   ScreenClear;              // TRUE=Send screen clear codes
+   CHAR   InUserList;               // TRUE=Display in user list
+   CHAR   Kludges;                  // TRUE=Display message's kludge lines
+   CHAR   MailCheck;                // TRUE=Mail check at logon
+   CHAR   NewFileCheck;             // TRUE=Check for new files at logon
+   UCHAR  BirthDay;
+   UCHAR  BirthMonth;
+   USHORT BirthYear;
+   ULONG  LastPwdChange;            // Time of last password change
    class  TMsgTag  *MsgTag;
    class  TFileTag *FileTag;
 
    USHORT Add (VOID);
+   USHORT Age (VOID);
    USHORT CheckPassword (PSZ pszPassword);
    VOID   Clear (VOID);
    USHORT Delete (VOID);
@@ -1092,44 +1000,6 @@ private:
 
 // ---------------------------------------------------------------------------
 
-#define DATA_EXT           ".DAT"
-#define INDEX_EXT          ".IDX"
-
-#define FILE_DELETED       0x8000
-#define FILE_OFFLINE       0x4000
-#define FILE_UNAPPROVED    0x2000
-#define FILE_CDROM         0x1000
-
-#define FILEBASE_ID        0x602C789FL
-
-typedef struct {
-   ULONG  Id;
-   CHAR   Area[32];
-   CHAR   Name[32];
-   CHAR   Complete[128];
-   USHORT Description;
-   USHORT Uploader;
-   CHAR   Keyword[32];
-   ULONG  Size;
-   ULONG  DlTimes;
-   ULONG  FileDate;
-   ULONG  UploadDate;
-   ULONG  Cost;
-   ULONG  Password;
-   USHORT Level;
-   ULONG  AccessFlags;
-   ULONG  DenyFlags;
-   USHORT Flags;
-} FILEDATA;
-
-typedef struct {
-   ULONG  Area;
-   CHAR   Name[32];
-   ULONG  UploadDate;
-   ULONG  Offset;
-   USHORT Flags;
-} FILEINDEX;
-
 typedef struct {
    UCHAR  Day;
    UCHAR  Month;
@@ -1167,6 +1037,7 @@ public:
    VOID   Pack (VOID);
    USHORT Previous (VOID);
    USHORT Read (PSZ pszFile);
+   VOID   ReadFileList (PSZ list, PSZ dl_path);
    USHORT Replace (VOID);
    USHORT ReplaceHeader (VOID);
    VOID   SearchFile (PSZ pszFile);
@@ -1315,6 +1186,7 @@ public:
    VOID   New (VOID);
    USHORT Next (VOID);
    USHORT Previous (VOID);
+   USHORT Read (USHORT evtNum);
    VOID   Save (VOID);
    VOID   TimeToNext (VOID);
    VOID   Update (VOID);
@@ -1398,6 +1270,7 @@ public:
    USHORT Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoint = 0, PSZ pszDomain = "");
    USHORT AddQueue (OUTFILE &Out);
    VOID   BuildQueue (PSZ pszPath);
+   VOID   Clear (VOID);
    USHORT First (VOID);
    USHORT FirstNode (VOID);
    VOID   New (VOID);
@@ -1420,6 +1293,186 @@ private:
 
 #define MAX_LINE        4096
 
+enum {
+   LNG_LANGUAGE_NAME = 1,
+   LNG_YES,
+   LNG_NO,
+   LNG_NONE,
+   LNG_MALE,
+   LNG_FEMALE,
+   LNG_YESKEY,
+   LNG_NOKEY,
+   LNG_HELPKEY,
+   LNG_MALEKEY,
+   LNG_FEMALEKEY,
+   LNG_JANUARY,
+   LNG_FEBRUARY,
+   LNG_MARCH,
+   LNG_APRIL,
+   LNG_MAY,
+   LNG_JUNI,
+   LNG_JULY,
+   LNG_AUGUST,
+   LNG_SEPTEMBER,
+   LNG_OCTOBER,
+   LNG_NOVEMBER,
+   LNG_DECEMBER,
+   LNG_PRESSENTER,
+   LNG_DEFYESNO,
+   LNG_YESDEFNO,
+   LNG_DEFYESNOHELP,
+   LNG_YESDEFNOHELP,
+   LNG_ASKADDRESS,
+   LNG_ASKANSI,
+   LNG_ASKCITY,
+   LNG_ASKCOMPANYNAME,
+   LNG_ASKDAYPHONE,
+   LNG_ASKPASSWORD,
+   LNG_ASKALIAS,
+   LNG_ASKSEX,
+   LNG_ENTERNAME,
+   LNG_ENTERNAMEORNEW,
+   LNG_ENTERPASSWORD,
+   LNG_INVALIDPASSWORD,
+   LNG_HAVETAGGED,
+   LNG_DISCONNECT,
+   LNG_YOUSURE,
+   LNG_USERFROMCITY,
+   LNG_MENUERROR,
+   LNG_MESSAGEHDR,
+   LNG_MESSAGENUMBER,
+   LNG_MESSAGENUMBER1,
+   LNG_MESSAGENUMBER2,
+   LNG_MESSAGENUMBER3,
+   LNG_MESSAGEDATE,
+   LNG_MESSAGEISREPLY,
+   LNG_MESSAGESEEALSO,
+   LNG_MESSAGEISBOTH,
+   LNG_MESSAGEFLAGS,
+   LNG_MESSAGEFROM,
+   LNG_MESSAGETO,
+   LNG_MESSAGESUBJECT,
+   LNG_MESSAGEFILE,
+   LNG_MESSAGETEXT,
+   LNG_MESSAGEQUOTE,
+   LNG_MESSAGEKLUDGE,
+   LNG_MESSAGEORIGIN,
+   LNG_MESSAGEAREAHEADER,
+   LNG_MESSAGEAREASEPARATOR,
+   LNG_MESSAGEAREADESCRIPTION1,
+   LNG_MESSAGEAREADESCRIPTION2,
+   LNG_MESSAGEAREACURSOR,
+   LNG_MESSAGEAREAKEY,
+   LNG_MESSAGEAREALIST,
+   LNG_MESSAGEAREAREQUEST,
+   LNG_MSGFLAG_RCV,
+   LNG_MSGFLAG_SNT,
+   LNG_MSGFLAG_PVT,
+   LNG_MSGFLAG_CRA,
+   LNG_MSGFLAG_KS,
+   LNG_MSGFLAG_LOC,
+   LNG_MSGFLAG_HLD,
+   LNG_MSGFLAG_ATT,
+   LNG_MSGFLAG_FRQ,
+   LNG_MSGFLAG_TRS,
+   LNG_ENDOFMESSAGES,
+   LNG_READMENU,
+   LNG_ENDREADMENU,
+   LNG_NEXTMESSAGE,
+   LNG_EXITREADMESSAGE,
+   LNG_REREADMESSAGE,
+   LNG_PREVIOUSMESSAGE,
+   LNG_REPLYMESSAGE,
+   LNG_EMAILREPLYMESSAGE,
+   LNG_MENUNAME,
+   LNG_CONFERENCENOTAVAILABLE,
+   LNG_STARTWITHMESSAGE,
+   LNG_NEWMESSAGES,
+   LNG_TEXTFILES,
+   LNG_FORUMNAME,
+   LNG_FORUMOPERATOR,
+   LNG_FORUMTOPIC,
+   LNG_MENUPATH,
+   LNG_MOREQUESTION,
+   LNG_DELETEMOREQUESTION,
+   LNG_NONSTOP,
+   LNG_QUIT,
+   LNG_CONTINUE,
+   LNG_NAMENOTFOUND,
+   LNG_FILEAREAREQUEST,
+   LNG_FILEAREAHEADER,
+   LNG_FILEAREALIST,
+   LNG_FILEAREANOTAVAILABLE,
+   LNG_FILEAREACURSOR,
+   LNG_FILEAREASEPARATOR,
+   LNG_FILEAREADESCRIPTION1,
+   LNG_FILEAREADESCRIPTION2,
+   LNG_FILEAREAKEY,
+   LNG_FILENOTFOUNDINAREA,
+   LNG_FILEDESCRIPTION,
+   LNG_FILEDOWNLOADNAME,
+   LNG_DOWNLOADFILENAME,
+   LNG_NOFILEHERE,
+   LNG_DISPLAYWHICHFILE,
+   LNG_FILELISTHEADER,
+   LNG_FILELISTSEPARATOR,
+   LNG_FILELISTDESCRIPTION1,
+   LNG_FILELISTDESCRIPTION2,
+   LNG_FILELISTTAGGED,
+   LNG_FILELISTNORMAL,
+   LNG_READERFROM,
+   LNG_READERTO,
+   LNG_READERSUBJECT,
+   LNG_READERFILE,
+   LNG_CONTINUEASNEW,
+   LNG_REENTERPASSWORD,
+   LNG_PASSWORDNOMATCH,
+   LNG_ASKAVATAR,
+   LNG_ASKCOLOR,
+   LNG_ASKFULLSCREEN,
+   LNG_ASKHOTKEY,
+   LNG_ASKIBMCHARS,
+   LNG_ASKLINES,
+   LNG_ASKPAUSE,
+   LNG_ASKSCREENCLEAR,
+   LNG_ASKBIRTHDATE,
+   LNG_ASKMAILCHECK,
+   LNG_ASKFILECHECK,
+   LNG_CURRENTPASSWORD,
+   LNG_WHYPASSWORD,
+   LNG_WRONGPASSWORD,
+   LNG_FILEPROTOCOLLIST,
+   LNG_FILETAGGEDWARNING,
+   LNG_FILENOBYTESWARNING,
+   LNG_FILENOTIMEWARNING,
+   LNG_FILEBEGINDOWNLOAD,
+   LNG_FILEBEGINDOWNLOAD2,
+   LNG_FILETAGGEDHEADER,
+   LNG_FILETAGGEDLIST,
+   LNG_FILETAGGEDTOTAL,
+   LNG_FILEDOWNLOADERROR,
+   LNG_FILEDOWNLOADCOMPLETE,
+   LNG_FILEBUILDLIST,
+   LNG_FILENOTAGGED,
+   LNG_FILETAGLISTED,
+   LNG_FILELISTTAGCONFIRM,
+   LNG_FILELISTMOREQUESTION,
+   LNG_FILELISTDELETEMOREQUESTION,
+   LNG_FILELISTTAGKEY,
+   LNG_FILELISTNOFILESFOUND,
+   LNG_FILELISTCOMMENT,
+   LNG_FILELISTNOTFOUND,
+   LNG_FILENAMETODELETE,
+   LNG_FILEDELETED,
+   LNG_FILETODETAG,
+   LNG_FILEDETAGGED,
+   LNG_FILETAGEMPTY,
+   LNG_FILETOTAG,
+   LNG_FILETAGCONFIRM,
+   LNG_FILENOTFOUND,
+   LNG_MAX_ENTRIES
+};
+
 class DLL_EXPORT TLanguage
 {
 public:
@@ -1429,28 +1482,17 @@ public:
    CHAR   File[32], Comment[64], MenuName[32];
    CHAR   TextFiles[64], MenuPath[64];
 
-   CHAR   Yes, No, Help, Male, Female;
-   CHAR   ExitReadMessage, NextMessage, RereadMessage, PreviousMessage;
-   CHAR   ReplyMessage, EMailReplyMessage, Quit, NonStop, Continue;
    PSZ    Months[12];
-   PSZ    AskAddress, AskAnsi, AskCity, AskCompanyName;
-   PSZ    AskDayPhone, AskPassword, AskRealName, AskSex;
-   PSZ    DefYesNo, YesDefNo, DefYesNoHelp, YesDefNoHelp;
-   PSZ    EnterName, EnterNameOrNew, EnterPassword, MenuError;
-   PSZ    InvalidPassword, PressEnter, UserFromCity;
-   PSZ    MessageFrom, MessageHdr, MessageTo, MessageSubject;
-   PSZ    MessageText, MessageQuote, MessageKludge, MessageOrigin;
-   PSZ    EndOfMessages, ReadMenu, EndReadMenu, SelectConference;
-   PSZ    HaveTagged, TerminateConnection, YouSure, ConferenceListHdr;
-   PSZ    ConferenceList, ConferenceNotAvailable, StartWithMessage;
-   PSZ    NewMessages, ForumName, ForumOperator, ForumTopic;
-   PSZ    MoreQuestion, DeleteMoreQuestion, NameNotFound;
+   CHAR   Yes, No, Help;
+   CHAR   Male, Female;
 
    VOID   Default (VOID);
    USHORT Load (PSZ pszFile);
+   PSZ    Text (USHORT Id);
 
 private:
-   PSZ    TextMemory, Pointer;
+   PSZ    TextMemory;
+   PSZ    Pointer[LNG_MAX_ENTRIES];
 
    USHORT CheckKeyword (PSZ pszKey);
    PSZ    CopyString (USHORT Key, PSZ Arg, PSZ Pointer);

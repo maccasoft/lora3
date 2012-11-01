@@ -486,7 +486,7 @@ USHORT TNodes::ReadNodelist (class TAddress *Address)
             if (nodeIdx.Zone == Address->Zone && nodeIdx.Net == Address->Net && (nodeIdx.Node == 0 || nodeIdx.Node == Address->Node)) {
                strcpy (Temp, DataFile);
                if ((p = strchr (Temp, '\0')) != NULL) {
-                  while (p > Temp && *p != '\\')
+                  while (p > Temp && *p != '\\' && *p != '/')
                      *p-- = '\0';
                }
                strcat (Temp, idxHead.Name);
@@ -569,6 +569,13 @@ USHORT TNodes::ReadNodelist (class TAddress *Address)
          }
       }
       fclose (fp);
+   }
+
+   if (RetVal == TRUE) {
+      Zone = Address->Zone;
+      Net = Address->Net;
+      Node = Address->Node;
+      Point = Address->Point;
    }
 
    return (RetVal);

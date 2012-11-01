@@ -18,20 +18,17 @@ TPipe::TPipe (void)
 
 TPipe::~TPipe (void)
 {
+   Name[0] = City[0] = Level[0] = '\0';
+   TimeLeft = Time = 0L;
+
 #if defined(__OS2__)
    if (hFile != NULL) {
       DosDisConnectNPipe (hFile);
       DosClose (hFile);
    }
 #elif defined(__NT__)
-   if (hServerR != INVALID_HANDLE_VALUE)
-      CloseHandle (hServerR);
-   if (hServerW != INVALID_HANDLE_VALUE)
-      CloseHandle (hServerW);
-   if (hClientR != INVALID_HANDLE_VALUE)
-      CloseHandle (hClientR);
-   if (hClientW != INVALID_HANDLE_VALUE)
-      CloseHandle (hClientW);
+   if (hFile != INVALID_HANDLE_VALUE)
+      CloseHandle (hFile);
 #endif
 }
 
@@ -56,27 +53,77 @@ USHORT TPipe::BytesReady (VOID)
 {
    USHORT RetVal = FALSE;
 #if defined(__OS2__)
+   CHAR c, *p;
    ULONG data, Temp, pipeState;
    struct _AVAILDATA Available;
 
    if (hFile != NULLHANDLE) {
+      data = 0L;
       DosPeekNPipe (hFile, (PVOID)&Temp, sizeof (Temp), &data, &Available, &pipeState);
-      if (data > 0)
+      if (data > 0L)
          RetVal = TRUE;
       EndRun = FALSE;
       if (pipeState == NP_STATE_CLOSING)
          EndRun = TRUE;
    }
+
+   if (hFileCtl != NULLHANDLE) {
+      data = 0L;
+      DosPeekNPipe (hFileCtl, (PVOID)&Temp, sizeof (Temp), &data, &Available, &pipeState);
+      if (data >= 2L) {
+         c = 0;
+         DosRead (hFileCtl, (PVOID)&c, 1L, &data);
+         switch (c) {
+            case 1:
+               p = Name;
+               do {
+                  c = '\0';
+                  DosRead (hFileCtl, (PVOID)&c, 1L, &data);
+                  *p++ = c;
+               } while (c != '\0');
+               break;
+            case 2:
+               p = City;
+               do {
+                  c = '\0';
+                  DosRead (hFileCtl, (PVOID)&c, 1L, &data);
+                  *p++ = c;
+               } while (c != '\0');
+               break;
+            case 3:
+               p = Level;
+               do {
+                  c = '\0';
+                  DosRead (hFileCtl, (PVOID)&c, 1L, &data);
+                  *p++ = c;
+               } while (c != '\0');
+               break;
+            case 4:
+               DosRead (hFileCtl, (PVOID)&TimeLeft, sizeof (ULONG), &data);
+               break;
+            case 5:
+               DosRead (hFileCtl, (PVOID)&Time, sizeof (ULONG), &data);
+               break;
+         }
+      }
+   }
+
+   if (RetVal == FALSE)
+      DosSleep (1L);
+
 #elif defined(__NT__)
    ULONG Available;
 
-   if (hServerR != INVALID_HANDLE_VALUE) {
+   if (hFile != INVALID_HANDLE_VALUE) {
       EndRun = FALSE;
-      if (PeekNamedPipe (hServerR, NULL, 0L, NULL, &Available, NULL) == FALSE)
+      if (PeekNamedPipe (hFile, NULL, 0L, NULL, &Available, NULL) == FALSE)
          EndRun = TRUE;
       if (Available > 0)
          RetVal = TRUE;
    }
+
+   if (RetVal == FALSE)
+      Sleep (1L);
 #endif
 
    return (RetVal);
@@ -84,7 +131,6 @@ USHORT TPipe::BytesReady (VOID)
 
 USHORT TPipe::Carrier (VOID)
 {
-//   return ((EndRun == FALSE) ? TRUE : FALSE);
    return (TRUE);
 }
 
@@ -97,64 +143,95 @@ VOID TPipe::ClearOutbound (VOID)
    TxBytes = 0;
 }
 
-#if defined(__OS2__)
-USHORT TPipe::Initialize (PSZ pszPipeName, USHORT usInstances)
+USHORT TPipe::Initialize (PSZ pszPipeName, PSZ pszCtlName, USHORT usInstances)
 {
    USHORT RetVal = FALSE;
+   CHAR TempFile[128];
 
-   hFile = NULLHANDLE;
+   CtlConnect = PipeConnect = FALSE;
 
-   if (DosCreateNPipe (pszPipeName, &hFile, NP_ACCESS_DUPLEX, NP_NOWAIT|usInstances, TSIZE, RSIZE, 1000) == 0) {
-      RetVal = TRUE;
+#if defined(__OS2__)
+   hFileCtl = NULLHANDLE;
+   if (!strncmp (pszCtlName, "\\\\.", 3)) {
+      strcpy (TempFile, &pszCtlName[3]);
+      pszCtlName = TempFile;
+   }
+   if (DosCreateNPipe (pszCtlName, &hFileCtl, NP_ACCESS_DUPLEX, NP_NOWAIT|usInstances, TSIZE, RSIZE, 1000) != 0) {
+      hFileCtl = NULLHANDLE;
+      CtlConnect = TRUE;
    }
 
-   return (RetVal);
-}
-
-USHORT TPipe::ConnectServer (PSZ pszPipeName)
-{
-   USHORT RetVal = FALSE;
-   ULONG Action;
-
    hFile = NULLHANDLE;
-
-   if (DosOpen (pszPipeName, &hFile, &Action, 0, FILE_NORMAL, FILE_OPEN, OPEN_ACCESS_READWRITE|OPEN_SHARE_DENYNONE, NULL) == 0)
+   if (!strncmp (pszPipeName, "\\\\.", 3)) {
+      strcpy (TempFile, &pszPipeName[3]);
+      pszPipeName = TempFile;
+   }
+   if (DosCreateNPipe (pszPipeName, &hFile, NP_ACCESS_DUPLEX, NP_NOWAIT|usInstances, TSIZE, RSIZE, 1000) == 0)
       RetVal = TRUE;
-
-   return (RetVal);
-}
 
 #elif defined(__NT__)
+   hFileCtl = INVALID_HANDLE_VALUE;
+   if (strncmp (pszCtlName, "\\\\.", 3)) {
+      sprintf (TempFile, "\\\\.%s", pszCtlName);
+      pszCtlName = TempFile;
+   }
+   hFileCtl = CreateNamedPipe (pszCtlName, PIPE_ACCESS_DUPLEX|FILE_FLAG_WRITE_THROUGH, PIPE_TYPE_BYTE|PIPE_READMODE_BYTE|PIPE_NOWAIT, usInstances, TSIZE * 2, RSIZE, 1000, NULL);
 
-USHORT TPipe::Initialize (VOID)
+   hFile = INVALID_HANDLE_VALUE;
+   if (strncmp (pszPipeName, "\\\\.", 3)) {
+      sprintf (TempFile, "\\\\.%s", pszPipeName);
+      pszPipeName = TempFile;
+   }
+   if ((hFile = CreateNamedPipe (pszPipeName, PIPE_ACCESS_DUPLEX|FILE_FLAG_WRITE_THROUGH, PIPE_TYPE_BYTE|PIPE_READMODE_BYTE|PIPE_NOWAIT, usInstances, TSIZE * 2, RSIZE, 1000, NULL)) != INVALID_HANDLE_VALUE)
+      RetVal = TRUE;
+#endif
+
+   return (RetVal);
+}
+
+USHORT TPipe::ConnectServer (PSZ pszPipeName, PSZ pszCtlName)
 {
    USHORT RetVal = FALSE;
-   SECURITY_ATTRIBUTES sa;
-
-   sa.nLength = sizeof (SECURITY_ATTRIBUTES);
-   sa.lpSecurityDescriptor = NULL;
-   sa.bInheritHandle = TRUE;
-   if (CreatePipe (&hServerR, &hClientW, &sa, 0L)) {
-      sa.nLength = sizeof (SECURITY_ATTRIBUTES);
-      sa.lpSecurityDescriptor = NULL;
-      sa.bInheritHandle = TRUE;
-      if (CreatePipe (&hClientR, &hServerW, &sa, 0L))
-         RetVal = TRUE;
-   }
-
-   return (RetVal);
-}
-
-USHORT TPipe::ConnectServer (HANDLE hRead, HANDLE hWrite)
-{
-   USHORT RetVal = TRUE;
-
-   hServerR = hRead;
-   hServerW = hWrite;
-
-   return (RetVal);
-}
+   CHAR TempFile[128];
+#if defined(__OS2__)
+   ULONG Action;
 #endif
+
+#if defined(__OS2__)
+   hFileCtl = NULLHANDLE;
+   if (!strncmp (pszCtlName, "\\\\.", 3)) {
+      strcpy (TempFile, &pszCtlName[3]);
+      pszCtlName = TempFile;
+   }
+   if (DosOpen (pszCtlName, &hFileCtl, &Action, 0, FILE_NORMAL, FILE_OPEN, OPEN_ACCESS_READWRITE|OPEN_SHARE_DENYNONE, NULL) != 0)
+      hFileCtl = NULLHANDLE;
+
+   hFile = NULLHANDLE;
+   if (!strncmp (pszPipeName, "\\\\.", 3)) {
+      strcpy (TempFile, &pszPipeName[3]);
+      pszPipeName = TempFile;
+   }
+   if (DosOpen (pszPipeName, &hFile, &Action, 0, FILE_NORMAL, FILE_OPEN, OPEN_ACCESS_READWRITE|OPEN_SHARE_DENYNONE, NULL) == 0)
+      RetVal = TRUE;
+#elif defined(__NT__)
+   hFileCtl = INVALID_HANDLE_VALUE;
+   if (strncmp (pszCtlName, "\\\\.", 3)) {
+      sprintf (TempFile, "\\\\.%s", pszCtlName);
+      pszCtlName = TempFile;
+   }
+   hFileCtl = CreateFile (pszCtlName, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL|FILE_FLAG_WRITE_THROUGH, NULL);
+
+   hFile = INVALID_HANDLE_VALUE;
+   if (strncmp (pszPipeName, "\\\\.", 3)) {
+      sprintf (TempFile, "\\\\.%s", pszPipeName);
+      pszPipeName = TempFile;
+   }
+   if ((hFile = CreateFile (pszPipeName, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL|FILE_FLAG_WRITE_THROUGH, NULL)) != INVALID_HANDLE_VALUE)
+      RetVal = TRUE;
+#endif
+
+   return (RetVal);
+}
 
 UCHAR TPipe::ReadByte (VOID)
 {
@@ -165,8 +242,8 @@ UCHAR TPipe::ReadByte (VOID)
    if (hFile != NULLHANDLE)
       DosRead (hFile, (PVOID)&c, 1L, &bytesRead);
 #elif defined(__NT__)
-   if (hServerR != INVALID_HANDLE_VALUE)
-      ReadFile (hServerR, (PVOID)&c, 1L, &bytesRead, NULL);
+   if (hFile != INVALID_HANDLE_VALUE)
+      ReadFile (hFile, (PVOID)&c, 1L, &bytesRead, NULL);
 #endif
 
    return ((UCHAR)c);
@@ -180,8 +257,8 @@ USHORT TPipe::ReadBytes (UCHAR *bytes, USHORT len)
    if (hFile != NULLHANDLE)
       DosRead (hFile, (PVOID)bytes, len, &bytesRead);
 #elif defined(__NT__)
-   if (hServerR != INVALID_HANDLE_VALUE)
-      ReadFile (hServerR, (PVOID)&bytes, len, &bytesRead, NULL);
+   if (hFile != INVALID_HANDLE_VALUE)
+      ReadFile (hFile, (PVOID)bytes, len, &bytesRead, NULL);
 #endif
 
    return ((USHORT)bytesRead);
@@ -192,12 +269,15 @@ VOID TPipe::SendByte (UCHAR byte)
    ULONG written;
 
 #if defined(__OS2__)
-   if (hFile != NULLHANDLE && EndRun == FALSE)
-      DosWrite (hFile, (PVOID)&byte, 1L, &written);
+   if (hFile != NULLHANDLE && EndRun == FALSE) {
+      DosSetNPHState (hFile, NP_WAIT|NP_READMODE_BYTE);
+      DosWrite (hFile, (PVOID)&byte, (long)1, &written);
+      DosSetNPHState (hFile, NP_NOWAIT|NP_READMODE_BYTE);
+   }
 #elif defined(__NT__)
-   if (hServerW != INVALID_HANDLE_VALUE && EndRun == FALSE)
+   if (hFile != INVALID_HANDLE_VALUE && EndRun == FALSE)
       do {
-         WriteFile (hServerW, (LPCVOID)&byte, 1L, &written, NULL);
+         WriteFile (hFile, (LPCVOID)&byte, 1L, &written, NULL);
       } while (written != 1L);
 #endif
 }
@@ -207,12 +287,15 @@ VOID TPipe::SendBytes (UCHAR *bytes, USHORT len)
    ULONG written;
 
 #if defined(__OS2__)
-   if (hFile != NULLHANDLE)
+   if (hFile != NULLHANDLE) {
+      DosSetNPHState (hFile, NP_WAIT|NP_READMODE_BYTE);
       DosWrite (hFile, (PVOID)bytes, (long)len, &written);
+      DosSetNPHState (hFile, NP_NOWAIT|NP_READMODE_BYTE);
+   }
 #elif defined(__NT__)
-   if (hServerW != INVALID_HANDLE_VALUE && EndRun == FALSE)
+   if (hFile != INVALID_HANDLE_VALUE && EndRun == FALSE)
       do {
-         WriteFile (hServerW, (LPCVOID)bytes, (long)len, &written, NULL);
+         WriteFile (hFile, (LPCVOID)bytes, (long)len, &written, NULL);
          bytes += written;
          len -= written;
       } while (len > 0 && EndRun == FALSE);
@@ -226,20 +309,16 @@ VOID TPipe::UnbufferBytes (VOID)
 
 #if defined(__OS2__)
    if (hFile != NULLHANDLE && TxBytes > 0 && EndRun == FALSE) {
-      p = TxBuffer;
-      do {
-         DosWrite (hFile, (PVOID)p, (long)TxBytes, &Written);
-         if (Written < TxBytes)
-            DosSleep (10L);
-         p += Written;
-         TxBytes -= (USHORT)Written;
-      } while (TxBytes > 0 && EndRun == FALSE);
+      DosSetNPHState (hFile, NP_WAIT|NP_READMODE_BYTE);
+      DosWrite (hFile, (PVOID)TxBuffer, (long)TxBytes, &Written);
+      TxBytes = 0;
+      DosSetNPHState (hFile, NP_NOWAIT|NP_READMODE_BYTE);
    }
 #elif defined(__NT__)
-   if (hServerW != INVALID_HANDLE_VALUE && TxBytes > 0 && EndRun == FALSE) {
+   if (hFile != INVALID_HANDLE_VALUE && TxBytes > 0 && EndRun == FALSE) {
       p = TxBuffer;
       do {
-         WriteFile (hServerW, (LPCVOID)p, (long)TxBytes, &Written, NULL);
+         WriteFile (hFile, (LPCVOID)p, (long)TxBytes, &Written, NULL);
          p += Written;
          if (Written < TxBytes)
             Sleep (10L);
@@ -254,12 +333,100 @@ USHORT TPipe::WaitClient (VOID)
    USHORT RetVal = FALSE;
 
 #if defined(__OS2__)
-   if (DosConnectNPipe (hFile) == 0)
+   if (hFileCtl != NULLHANDLE && CtlConnect == FALSE) {
+      if (DosConnectNPipe (hFileCtl) == 0)
+         CtlConnect = TRUE;
+   }
+   if (hFile != NULLHANDLE && PipeConnect == FALSE) {
+      if (DosConnectNPipe (hFile) == 0)
+         PipeConnect = TRUE;
+   }
+   if (CtlConnect == TRUE && PipeConnect == TRUE)
       RetVal = TRUE;
 #elif defined(__NT__)
+   if (hFileCtl != INVALID_HANDLE_VALUE)
+      ConnectNamedPipe (hFileCtl, NULL);
+   ConnectNamedPipe (hFile, NULL);
+   if (GetLastError () == ERROR_PIPE_CONNECTED)
+      RetVal = TRUE;
 #endif
 
    return (RetVal);
+}
+
+VOID TPipe::SetName (PSZ name)
+{
+   ULONG written;
+
+#if defined(__OS2__)
+   if (hFileCtl != NULLHANDLE) {
+      DosSetNPHState (hFileCtl, NP_WAIT|NP_READMODE_BYTE);
+      DosWrite (hFileCtl, (PVOID)"\x01", 1L, &written);
+      DosWrite (hFileCtl, (PVOID)name, (long)(strlen (name) + 1), &written);
+      DosSetNPHState (hFileCtl, NP_NOWAIT|NP_READMODE_BYTE);
+   }
+#elif defined(__NT__)
+#endif
+}
+
+VOID TPipe::SetCity (PSZ name)
+{
+   ULONG written;
+
+#if defined(__OS2__)
+   if (hFileCtl != NULLHANDLE) {
+      DosSetNPHState (hFileCtl, NP_WAIT|NP_READMODE_BYTE);
+      DosWrite (hFileCtl, (PVOID)"\x02", 1L, &written);
+      DosWrite (hFileCtl, (PVOID)name, (long)(strlen (name) + 1), &written);
+      DosSetNPHState (hFileCtl, NP_NOWAIT|NP_READMODE_BYTE);
+   }
+#elif defined(__NT__)
+#endif
+}
+
+VOID TPipe::SetLevel (PSZ level)
+{
+   ULONG written;
+
+#if defined(__OS2__)
+   if (hFileCtl != NULLHANDLE) {
+      DosSetNPHState (hFileCtl, NP_WAIT|NP_READMODE_BYTE);
+      DosWrite (hFileCtl, (PVOID)"\x03", 1L, &written);
+      DosWrite (hFileCtl, (PVOID)level, (long)(strlen (level) + 1), &written);
+      DosSetNPHState (hFileCtl, NP_NOWAIT|NP_READMODE_BYTE);
+   }
+#elif defined(__NT__)
+#endif
+}
+
+VOID TPipe::SetTimeLeft (ULONG seconds)
+{
+   ULONG written;
+
+#if defined(__OS2__)
+   if (hFileCtl != NULLHANDLE) {
+      DosSetNPHState (hFileCtl, NP_WAIT|NP_READMODE_BYTE);
+      DosWrite (hFileCtl, (PVOID)"\x04", 1L, &written);
+      DosWrite (hFileCtl, (PVOID)&seconds, sizeof (ULONG), &written);
+      DosSetNPHState (hFileCtl, NP_NOWAIT|NP_READMODE_BYTE);
+   }
+#elif defined(__NT__)
+#endif
+}
+
+VOID TPipe::SetTime (ULONG seconds)
+{
+   ULONG written;
+
+#if defined(__OS2__)
+   if (hFileCtl != NULLHANDLE) {
+      DosSetNPHState (hFileCtl, NP_WAIT|NP_READMODE_BYTE);
+      DosWrite (hFileCtl, (PVOID)"\x05", 1L, &written);
+      DosWrite (hFileCtl, (PVOID)&seconds, sizeof (ULONG), &written);
+      DosSetNPHState (hFileCtl, NP_NOWAIT|NP_READMODE_BYTE);
+   }
+#elif defined(__NT__)
+#endif
 }
 
 

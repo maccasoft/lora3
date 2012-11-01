@@ -18,6 +18,7 @@ public:
    CHAR   Command[16];
    class  TConfig *Cfg;
    class  TFileData *Current;
+   class  TLanguage *Language;
 
    VOID   Begin (VOID);
    USHORT DrawScreen (VOID);
@@ -56,7 +57,7 @@ VOID TLibrary::ExternalProtocols (USHORT Batch)
       if (Protocol->First () == TRUE)
          do {
             if (Protocol->Active == TRUE && (Batch == FALSE || Protocol->Batch == TRUE))
-               Embedded->Printf ("  \x16\x01\013%s ... \x16\x01\016%s\n", Protocol->Key, Protocol->Description);
+               Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), Protocol->Key, Protocol->Description);
          } while (Protocol->Next () == TRUE);
       delete Protocol;
    }
@@ -76,41 +77,52 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
       Files = new TFileTag;
       ClearAfter = TRUE;
 
-      Embedded->Printf ("\n\x16\x01\013Enter file name to download, RETURN to exit, or ? for help: ");
-      Embedded->Input (Names, (USHORT)(sizeof (Names) - 1), 0);
-      Embedded->Printf ("\n");
-
-      Files->Clear ();
-
-      if ((Data = new TFileBase (Cfg->SystemPath, (AnyLibrary == TRUE) ? "" : Current->Key)) != NULL) {
-         if ((p = strtok (Names, " ")) != NULL)
-            do {
-               if (Data->Read (p) == TRUE) {
+      if (User->FileTag->TotalFiles != 0) {
+         Embedded->Printf (Language->Text (LNG_FILETAGGEDWARNING), User->FileTag->TotalFiles);
+         if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_YES) {
+            if (User->FileTag->First () == TRUE)
+               do {
                   Files->New ();
-                  strcpy (Files->Name, Data->Name);
-                  strcpy (Files->Area, Data->Area);
-                  Files->Size = Data->Size;
-                  if (Data->Complete[0] == '\0')
-                     sprintf (Files->Complete, "%s%s", Current->Download, Files->Name);
-                  else
-                     strcpy (Files->Complete, Data->Complete);
-                  Files->CdRom = Data->CdRom;
-                  if (Files->Add () == TRUE) {
-                     if ((p = (PSZ)Data->Description->First ()) == NULL)
-                        p = "";
-                     Embedded->Printf ("\x16\x01\x0E %-12.12s %4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                  }
-               }
-               else {
-                  if (AnyLibrary == TRUE)
-                     Embedded->Printf ("\n\026\001\015File not found\n\006\007\006\007");
-                  else
-                     Embedded->Printf ("\n\026\001\015File not found in this library\n\006\007\006\007");
-               }
-            } while ((p = strtok (NULL, " ")) != NULL);
-         Data->Close ();
-         delete Data;
+                  strcpy (Files->Name, User->FileTag->Name);
+                  strcpy (Files->Area, User->FileTag->Area);
+                  Files->Size = User->FileTag->Size;
+                  strcpy (Files->Complete, User->FileTag->Complete);
+                  Files->CdRom = User->FileTag->CdRom;
+                  Files->Add ();
+               } while (User->FileTag->Next () == TRUE);
+            User->FileTag->Clear ();
+         }
       }
+
+      do {
+         Embedded->Printf (Language->Text (LNG_FILEDOWNLOADNAME), Files->TotalFiles + 1);
+         Embedded->Input (Names, (USHORT)(sizeof (Names) - 1), 0);
+
+         if ((Data = new TFileBase (Cfg->SystemPath, (AnyLibrary == TRUE) ? "" : Current->Key)) != NULL) {
+            if ((p = strtok (Names, " ")) != NULL)
+               do {
+                  if (Data->Read (p) == TRUE) {
+                     Files->New ();
+                     strcpy (Files->Name, Data->Name);
+                     strcpy (Files->Area, Data->Area);
+                     Files->Size = Data->Size;
+                     if (Data->Complete[0] == '\0')
+                        sprintf (Files->Complete, "%s%s", Current->Download, Files->Name);
+                     else
+                        strcpy (Files->Complete, Data->Complete);
+                     Files->CdRom = Data->CdRom;
+                     if (Files->Add () == TRUE) {
+                        DlTime = Data->Size / (CarrierSpeed / 10L);
+                        Embedded->Printf (Language->Text (LNG_DOWNLOADFILENAME), Files->Index, Data->Name, DlTime / 60L, DlTime % 60L, Data->Size);
+                     }
+                  }
+                  else
+                     Embedded->Printf (Language->Text (LNG_NOFILEHERE), p);
+               } while ((p = strtok (NULL, " ")) != NULL);
+            Data->Close ();
+            delete Data;
+         }
+      } while (Names[0] != '\0');
    }
    else
       Log->Write (":Download of %d tagged files", Files->TotalFiles);
@@ -118,13 +130,13 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
    DlTime = (Files->TotalBytes / (CarrierSpeed / 10L)) / 60L;
 
    if (DlTime >= Embedded->TimeRemain ()) {
-      Embedded->Printf ("\n\026\001\015You don't have enough time to download these files.\n\006\007\006\007");
+      Embedded->Printf (Language->Text (LNG_FILENOTIMEWARNING));
       Continue = FALSE;
    }
    if ((Limits = new TLimits (Cfg->SystemPath)) != NULL) {
       if (Limits->Read (User->LimitClass) == TRUE) {
          if ((Files->TotalBytes + 1023L)/ 1024L > (Limits->DayDownloadLimit - (User->BytesToday + 1023L) / 1024L)) {
-            Embedded->Printf ("\n\026\001\015You don't have enough bytes to download these files.\n\006\007\006\007");
+            Embedded->Printf (Language->Text (LNG_FILENOBYTESWARNING));
             Continue = FALSE;
          }
       }
@@ -138,16 +150,16 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
          Embedded->Printf ("\n\x16\x01\012Approximate download time: %ld minutes.\n\n", DlTime);
 
       if (Files->TotalFiles == 1) {
-         Embedded->Printf ("  \x16\x01\013A ... \x16\x01\016ASCII (continuos dump)\n");
-         Embedded->Printf ("  \x16\x01\013M ... \x16\x01\016XMODEM (Checksum/CRC)\n");
-         Embedded->Printf ("  \x16\x01\0131 ... \x16\x01\016XMODEM-1K\n");
+         Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "A", "ASCII (continuos dump)");
+         Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "M", "XMODEM (Checksum/CRC)");
+         Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "1", "XMODEM-1K");
       }
-      Embedded->Printf ("  \x16\x01\013Z ... \x16\x01\016ZMODEM\n");
+      Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "Z", "ZMODEM");
       ExternalProtocols ((Files->TotalFiles == 1) ? FALSE : TRUE);
 //      Embedded->Printf ("  \x16\x01\013T ... \x16\x01\016FTP to Internet host\n");
 //      Embedded->Printf ("  \x16\x01\013F ... \x16\x01\016File Export (to any DOS path)\n");
       if (ClearAfter == TRUE)
-         Embedded->Printf ("  \x16\x01\013T ... \x16\x01\016Tag file(s) for later download\n");
+         Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "T", "Tag file(s) for later download");
 
       SelectOK = FALSE;
 
@@ -180,12 +192,9 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
          Transfer->Telnet = Cfg->ZModemTelnet;
          strcpy (Transfer->Device, Cfg->Device);
          while (Loop == TRUE && Files->TotalFiles > 0 && Embedded->AbortSession () == FALSE) {
-            if (Cmd[0] != 'T' && Cmd[0] != 'A')
-               Embedded->Printf ("\n\x16\x01\012(Hit \x16\x01\013CTRL-X \x16\x01\012a few times to abort)\n");
-
             if (Cmd[0] == '1') {
                Files->First ();
-               Embedded->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "XMODEM-1K", Files->Name);
+               Embedded->Printf (Language->Text (LNG_FILEBEGINDOWNLOAD), "XMODEM-1K", Files->Name);
                if (Transfer->Send1kXModem (Files->Complete) == TRUE) {
                   if ((Data = new TFileBase (Cfg->SystemPath, Files->Area)) != NULL) {
                      if (Data->Read (Files->Name) == TRUE) {
@@ -226,7 +235,7 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
             }
             else if (Cmd[0] == 'M') {
                Files->First ();
-               Embedded->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "XMODEM", Files->Name);
+               Embedded->Printf (Language->Text (LNG_FILEBEGINDOWNLOAD), "XMODEM", Files->Name);
                if (Transfer->SendXModem (Files->Complete) == TRUE) {
                   if ((Data = new TFileBase (Cfg->SystemPath, Files->Area)) != NULL) {
                      if (Data->Read (Files->Name) == TRUE) {
@@ -246,7 +255,7 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
                }
             }
             else if (Cmd[0] == 'Z') {
-               Embedded->Printf ("\x16\x01\012Beginning %s download of the file(s)\n", "ZMODEM");
+               Embedded->Printf (Language->Text (LNG_FILEBEGINDOWNLOAD2), "ZMODEM");
                while (Files->First () == TRUE && Embedded->AbortSession () == FALSE) {
                   if (Transfer->SendZModem (Files->Complete) == FALSE)
                      break;
@@ -271,7 +280,8 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
             }
             else if (Cmd[0] == 'T') {
                if (ClearAfter == TRUE) {
-                  Embedded->Printf ("\n\x16\x01\012You have just tagged:\n\n");
+                  Embedded->Printf (Language->Text (LNG_FILETAGGEDHEADER));
+
                   if (Files->First () == TRUE)
                      do {
                         User->FileTag->New ();
@@ -282,9 +292,16 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
                         User->FileTag->DeleteAfter = Files->DeleteAfter;
                         User->FileTag->CdRom = Files->CdRom;
                         User->FileTag->Add ();
-                        Embedded->Printf ("\x16\x01\x0A%5d. The file %s in the %s Library\n", User->FileTag->Index, Files->Name, Files->Area);
+
+                        DlTime = User->FileTag->Size / (CarrierSpeed / 10L);
+                        Embedded->Printf (Language->Text (LNG_FILETAGGEDLIST), User->FileTag->Index, User->FileTag->Name, User->FileTag->Area, DlTime / 60L, DlTime % 60L, User->FileTag->Size);
+
                         Log->Write (":Tagged file %s, library %s", Files->Name, Files->Area);
                      } while (Files->Next () == TRUE);
+
+                  DlTime = User->FileTag->TotalBytes / (CarrierSpeed / 10L);
+                  Embedded->Printf (Language->Text (LNG_FILETAGGEDTOTAL), User->FileTag->TotalBytes, DlTime / 60L, DlTime % 60L);
+
                   Files->Clear ();
                }
             }
@@ -335,14 +352,14 @@ VOID TLibrary::Download (class TFileTag *Files, USHORT AnyLibrary)
 
             if (Cmd[0] != 'T' && Embedded->AbortSession () == FALSE) {
                if (Files->TotalFiles > 0) {
-                  Embedded->Printf ("\006\007\n\n\x16\x01\015*** ERROR DOWNLOADING FILES ***\n\006\007\006\007");
+                  Embedded->Printf (Language->Text (LNG_FILEDOWNLOADERROR));
 //                  Embedded->Printf ("\n\x16\x01\013Do you want to try to download the file(s) again");
 //                  if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_NO)
 //                  Files->Clear ();
                   Loop = FALSE;
                }
                else
-                  Embedded->Printf ("\006\007\n\n\x16\x01\016*** DOWNLOAD COMPLETE ***\n\006\007\006\007");
+                  Embedded->Printf (Language->Text (LNG_FILEDOWNLOADCOMPLETE));
             }
          }
 
@@ -361,7 +378,7 @@ VOID TLibrary::TypeFile (VOID)
    CHAR File[128], Names[32], *p;
    class TFileBase *Data;
 
-   Embedded->Printf ("\n\x16\x01\013Enter file name to view, RETURN to exit, or ? for help: ");
+   Embedded->Printf (Language->Text (LNG_DISPLAYWHICHFILE));
    Embedded->Input (Names, (USHORT)(sizeof (Names) - 1), 0);
    Embedded->Printf ("\n");
 
@@ -376,7 +393,7 @@ VOID TLibrary::TypeFile (VOID)
             }
          }
          else
-            Embedded->Printf ("\n\026\001\015File not found in this library\n\006\007\006\007");
+            Embedded->Printf (Language->Text (LNG_NOFILEHERE), Names);
       }
       delete Data;
    }
@@ -402,12 +419,12 @@ USHORT TLibrary::DownloadFile (PSZ pszFile, PSZ pszName, ULONG ulSize)
 
    Embedded->Printf ("  \x16\x01\013A ... \x16\x01\016ASCII (continuos dump)\n");
    if (DlTime < Embedded->TimeRemain ()) {
-      Embedded->Printf ("  \x16\x01\013M ... \x16\x01\016XMODEM (Checksum/CRC)\n");
-      Embedded->Printf ("  \x16\x01\0131 ... \x16\x01\016XMODEM-1K\n");
-      Embedded->Printf ("  \x16\x01\013Z ... \x16\x01\016ZMODEM\n");
+      Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "M", "XMODEM (Checksum/CRC)");
+      Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "1", "XMODEM-1K");
+      Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "Z", "ZMODEM");
       ExternalProtocols (FALSE);
    }
-   Embedded->Printf ("  \x16\x01\013T ... \x16\x01\016Tag file(s) for later download\n");
+   Embedded->Printf (Language->Text (LNG_FILEPROTOCOLLIST), "T", "Tag file(s) for later download");
 
    SelectOK = FALSE;
 
@@ -434,9 +451,6 @@ USHORT TLibrary::DownloadFile (PSZ pszFile, PSZ pszName, ULONG ulSize)
 
       while (Loop == TRUE && RetVal == FALSE && Embedded->AbortSession () == FALSE) {
          if (DlTime < Embedded->TimeRemain ()) {
-            if (Cmd[0] != 'T' && Cmd[0] != 'A')
-               Embedded->Printf ("\n\x16\x01\012(Hit \x16\x01\013CTRL-X \x16\x01\012a few times to abort)\n");
-
             if (Cmd[0] == 'A') {
                RetVal = Transfer->SendASCIIDump (pszFile);
                if (User != NULL) {
@@ -447,7 +461,7 @@ USHORT TLibrary::DownloadFile (PSZ pszFile, PSZ pszName, ULONG ulSize)
                }
             }
             else if (Cmd[0] == '1') {
-               Embedded->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "XMODEM-1K", pszName);
+               Embedded->Printf (Language->Text (LNG_FILEBEGINDOWNLOAD), "XMODEM-1K", pszName);
                if ((RetVal = Transfer->Send1kXModem (pszFile)) == TRUE) {
                   if (User != NULL) {
                      User->FilesToday++;
@@ -458,7 +472,7 @@ USHORT TLibrary::DownloadFile (PSZ pszFile, PSZ pszName, ULONG ulSize)
                }
             }
             else if (Cmd[0] == 'M') {
-               Embedded->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "XMODEM", pszName);
+               Embedded->Printf (Language->Text (LNG_FILEBEGINDOWNLOAD), "XMODEM", pszName);
                if ((RetVal = Transfer->SendXModem (pszFile)) == TRUE) {
                   if (User != NULL) {
                      User->FilesToday++;
@@ -469,7 +483,7 @@ USHORT TLibrary::DownloadFile (PSZ pszFile, PSZ pszName, ULONG ulSize)
                }
             }
             else if (Cmd[0] == 'Z') {
-               Embedded->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "ZMODEM", pszName);
+               Embedded->Printf (Language->Text (LNG_FILEBEGINDOWNLOAD), "ZMODEM", pszName);
                if ((RetVal = Transfer->SendZModem (pszFile)) == TRUE) {
                   if (User != NULL) {
                      User->FilesToday++;
@@ -520,13 +534,13 @@ USHORT TLibrary::DownloadFile (PSZ pszFile, PSZ pszName, ULONG ulSize)
 
          if (Cmd[0] != 'T') {
             if (RetVal == FALSE) {
-               Embedded->Printf ("\006\007\n\n\x16\x01\015*** NO FILES DOWNLOADED ***\n\006\007\006\007");
+               Embedded->Printf (Language->Text (LNG_FILEDOWNLOADERROR));
 //               Embedded->Printf ("\n\x16\x01\013Do you want to try to download the file again");
 //               if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_NO)
                Loop = FALSE;
             }
             else
-               Embedded->Printf ("\006\007\n\n\x16\x01\016*** DOWNLOAD COMPLETE ***\n\006\007\006\007");
+               Embedded->Printf (Language->Text (LNG_FILEDOWNLOADCOMPLETE));
          }
       }
 
@@ -548,7 +562,7 @@ VOID TLibrary::DownloadList (VOID)
 
    sprintf (Work, "%s%s\\", Cfg->UsersHomePath, User->MailBox);
    BuildPath (Work);
-   strcat (Work, "BBSLIST.TXT");
+   strcat (Work, "bbslist.txt");
 
    if (Log != NULL)
       Log->Write ("+Building list of files");
@@ -556,7 +570,7 @@ VOID TLibrary::DownloadList (VOID)
    if ((fp = _fsopen (Work, "wt", SH_DENYNO)) != NULL) {
       if ((File = new TFileData (DataPath)) != NULL) {
          if (File->First () == TRUE) {
-            Embedded->Printf ("\n\x16\x01\012Please wait... ");
+            Embedded->Printf (Language->Text (LNG_FILEBUILDLIST));
             do {
                if (User->Level >= File->Level) {
                   if ((File->AccessFlags & User->AccessFlags) == File->AccessFlags) {
@@ -609,17 +623,22 @@ VOID TLibrary::DownloadList (VOID)
          if (Cmd[0] != '\0' && Packer->Read (Cmd) == TRUE) {
             Embedded->Printf ("\n\x16\x01\016Please wait while compressing your mail packet.\n");
             sprintf (Temp, "%s%s\\", Cfg->UsersHomePath, User->MailBox);
-            strcat (Temp, "FILELIST.BBS");
+            strcat (Temp, "filelist.bbs");
             if (Packer->DoPack (Temp, Work) == TRUE) {
                stat (Temp, &statbuf);
-               if (DownloadFile (Temp, "FILELIST.BBS", statbuf.st_size) == TRUE) {
+               if (DownloadFile (Temp, "filelist.bbs", statbuf.st_size) == TRUE) {
                   unlink (Temp);
                   sprintf (Work, "%s%s", Cfg->UsersHomePath, User->MailBox);
                   rmdir (Work);
                }
-               else if (User->FileTag->Check ("FILELIST.BBS") == TRUE) {
+               else if (User->FileTag->Check ("filelist.bbs") == TRUE) {
                   User->FileTag->DeleteAfter = TRUE;
                   User->FileTag->Update ();
+               }
+               else {
+                  unlink (Temp);
+                  sprintf (Work, "%s%s", Cfg->UsersHomePath, User->MailBox);
+                  rmdir (Work);
                }
             }
          }
@@ -729,10 +748,82 @@ VOID TLibrary::ListDownloadedFiles (VOID)
    }
 }
 
+VOID TLibrary::TagListed (VOID)
+{
+   USHORT First = TRUE;
+   CHAR Names[64], *p;
+   ULONG DlTime;
+   class TFileBase *Data;
+   class TFileTag *Files = User->FileTag;
+
+   Embedded->Printf (Language->Text (LNG_FILETAGLISTED), Files->TotalFiles + 1);
+   Embedded->Input (Names, (USHORT)(sizeof (Names) - 1), INP_NOCRLF);
+
+   if ((Data = new TFileBase (Cfg->SystemPath, "")) != NULL) {
+      if ((p = strtok (Names, " ")) != NULL)
+         do {
+            if (First == FALSE)
+               Pause (100L);
+
+            First = FALSE;
+            if (Data->Read (p) == TRUE) {
+               Files->New ();
+               strcpy (Files->Name, Data->Name);
+               strcpy (Files->Area, Data->Area);
+               Files->Size = Data->Size;
+               if (Data->Complete[0] == '\0')
+                  sprintf (Files->Complete, "%s%s", Current->Download, Files->Name);
+               else
+                  strcpy (Files->Complete, Data->Complete);
+               Files->CdRom = Data->CdRom;
+               if (Files->Add () == TRUE) {
+                  DlTime = Data->Size / (CarrierSpeed / 10L);
+                  Embedded->Printf (Language->Text (LNG_FILELISTTAGCONFIRM), Files->Index, Data->Name, DlTime / 60L, DlTime % 60L, Data->Size);
+               }
+            }
+            else
+               Embedded->Printf (Language->Text (LNG_FILELISTNOTFOUND), p);
+         } while ((p = strtok (NULL, " ")) != NULL);
+      Data->Close ();
+      delete Data;
+   }
+}
+
+SHORT TLibrary::MoreQuestion (SHORT nLine)
+{
+   CHAR Temp[2];
+
+   if (nLine == -1 || nLine == 0 || Embedded->More == FALSE)
+      return (nLine);
+
+   if (++nLine >= (SHORT)(Embedded->ScreenHeight - 1)) {
+      while (Embedded->AbortSession () == FALSE) {
+         Embedded->Printf (Language->Text (LNG_FILELISTMOREQUESTION));
+         Embedded->GetString (Temp, 1, INP_NOCRLF|INP_NOCOLOR|INP_HOTKEY);
+         if (toupper (Temp[0]) == Language->Text(LNG_QUIT)[0]) {
+            Embedded->Printf (Language->Text(LNG_FILELISTDELETEMOREQUESTION));
+            return (0);
+         }
+         else if (toupper (Temp[0]) == Language->Text(LNG_NONSTOP)[0]) {
+            Embedded->Printf (Language->Text(LNG_FILELISTDELETEMOREQUESTION));
+            return (-1);
+         }
+         else if (toupper (Temp[0]) == Language->Text(LNG_CONTINUE)[0] || Temp[0] == '\0') {
+            Embedded->Printf (Language->Text(LNG_FILELISTDELETEMOREQUESTION));
+            return (1);
+         }
+         else if (toupper (Temp[0]) == Language->Text(LNG_FILELISTTAGKEY)[0])
+            TagListed ();
+      }
+   }
+
+   return (nLine);
+}
+
 VOID TLibrary::ListFiles (class TFileBase *Data)
 {
    USHORT i, y, t, End, DoDelete = FALSE;
-   SHORT Line;
+   SHORT Line, TopLine = 3;
    CHAR FileName[128], Redraw, Titles, *p;
    class TCollection List;
    class TFileTag *Tag = User->FileTag;
@@ -743,314 +834,320 @@ VOID TLibrary::ListFiles (class TFileBase *Data)
       DoDelete = TRUE;
    }
 
-   if (Data != NULL && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
-      List.Clear ();
-      i = 0;
-      if (Data->First () == TRUE) {
-         do {
-            List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
-            i++;
-         } while (Data->Next () == TRUE && i < (User->ScreenHeight - 6));
+   if (Data != NULL) {
+      if (User->FullScreen == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
+         List.Clear ();
+         i = 0;
+         if (Data->First () == TRUE) {
+            do {
+               List.Add (Data->Name);
+               i++;
+            } while (Data->Next () == TRUE && i < (User->ScreenHeight - TopLine - 2));
 
-         y = 4;
-         List.First ();
-         Data->First ();
-         End = FALSE;
-         Titles = Redraw = TRUE;
+            y = TopLine;
+            List.First ();
+            Data->First ();
+            End = FALSE;
+            Titles = Redraw = TRUE;
 
-         while (End == FALSE && Embedded->AbortSession () == FALSE) {
-            if (Redraw == TRUE) {
-               while (List.Previous () != NULL)
-                  Data->Previous ();
+            while (End == FALSE && Embedded->AbortSession () == FALSE) {
+               if (Redraw == TRUE) {
+                  while (List.Previous () != NULL)
+                     Data->Previous ();
 
-               if (Titles == TRUE) {
-                  Embedded->Printf ("\x0C\x16\x01\x0B%s \x16\x01\x0A- \x16\x01\x0B%s\026\007\n", Current->Key, Current->Display);
-                  Embedded->Printf ("\x16\x01\012 File Name    Size  Date     Description\n ============ ===== ======== ==================================================\n");
-               }
+                  if (Titles == TRUE) {
+                     Embedded->Printf ("\x0C");
+                     Embedded->Printf (Language->Text (LNG_FILELISTHEADER));
 
-               if (Tag->TotalFiles != 0)
-                  Embedded->PrintfAt (1, 29, " \x16\x01\013CTRL-T \x16\x01\016downloads tagged files (%d tagged).\n\n\n", Tag->TotalFiles);
+                     Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, Language->Text (LNG_FILELISTSEPARATOR));
+                     Embedded->Printf (Language->Text (LNG_FILELISTDESCRIPTION1));
+                     Embedded->Printf (Language->Text (LNG_FILELISTDESCRIPTION2));
 
-               if (Titles == TRUE) {
-                  Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "\x16\x01\x0A ============ ===== ======== ==================================================\n");
+                     Embedded->PrintfAt (TopLine, 1, "");
+                  }
 
-                  Embedded->Printf ("\026\001\012Hit \026\001\013CTRL-V \026\001\012for next page, \026\001\013CTRL-Y \026\001\012for previous page, \026\001\013? \026\001\012for help, or \026\001\013X \026\001\012to exit.\n");
-                  Embedded->Printf ("\026\001\012To highlight a file, use your \026\001\013arrow keys\026\001\012, \026\001\013RETURN \026\001\012views details, \026\001\013SPACE \026\001\012tags it.");
-
-//                  Embedded->Printf ("\x16\x01\x0A Press \x16\x01\x0B? \x16\x01\012for help, or \x16\x01\x0BX \x16\x01\x0Ato exit. To highlight a file, use your \x16\x01\013arrow keys\x16\x01\x0A.\n \x16\x01\013RETURN \x16\x01\x0Aview details on highlighted file, \x16\x01\013SPACE \x16\x01\x0Atags it.");
-                  Embedded->PrintfAt (4, 1, "");
-               }
-
-               i = 0;
-               do {
-                  if ((p = (PSZ)Data->Description->First ()) == NULL)
-                     p = "";
-                  if (Tag->Check (Data->Name) == TRUE)
-                     Embedded->Printf ("\x16\x01\x0E*%-12.12s*%4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                  else
-                     Embedded->Printf ("\x16\x01\x0E %-12.12s %4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                  i++;
-               } while (Data->Next () == TRUE && i < (User->ScreenHeight - 6));
-
-               List.Last ();
-               for (t = (USHORT)(i + 4 - 1); t > y; t--) {
-                  List.Previous ();
-                  Data->Previous ();
-               }
-
-               if (i < (User->ScreenHeight - 6)) {
+                  i = 0;
                   do {
-                     Embedded->Printf ("\n");
+                     if ((p = (PSZ)Data->Description->First ()) == NULL)
+                        p = "";
+                     if (Tag->Check (Data->Name) == TRUE)
+                        Embedded->Printf (Language->Text (LNG_FILELISTTAGGED), Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                     else
+                        Embedded->Printf (Language->Text (LNG_FILELISTNORMAL), Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
                      i++;
-                  } while (i < (User->ScreenHeight - 6));
+                  } while (Data->Next () == TRUE && i < (User->ScreenHeight - TopLine - 2));
+
+                  List.Last ();
+                  for (t = (USHORT)(i + TopLine - 1); t > y; t--) {
+                     List.Previous ();
+                     Data->Previous ();
+                  }
+
+                  if (i < (User->ScreenHeight - 2 - TopLine)) {
+                     do {
+                        Embedded->Printf ("\n");
+                        i++;
+                     } while (i < (User->ScreenHeight - 2 - TopLine));
+                  }
+                  else
+                     Data->Previous ();
+
+                  Embedded->PrintfAt (y, 2, "\026\001\x70%-12.12s", (PSZ)List.Value ());
+                  Redraw = Titles = FALSE;
                }
-               else
-                  Data->Previous ();
 
-               Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
-               Redraw = Titles = FALSE;
-            }
+               if (Embedded->KBHit () == TRUE) {
+                  if ((i = Embedded->Getch ()) == 0)
+                     i = (USHORT)(Embedded->Getch () << 8);
+                  else
+                     i = (USHORT)toupper (i);
 
-            if (Embedded->KBHit () == TRUE) {
-               if ((i = Embedded->Getch ()) == 0)
-                  i = (USHORT)(Embedded->Getch () << 8);
-               else
-                  i = (USHORT)toupper (i);
+                  if (i == ESC) {
+                     if ((i = Embedded->Getch ()) == '[') {
+                        while ((i = Embedded->Getch ()) == ';' || isdigit (i))
+                           ;
+                        if (i == 'A')
+                           i = CTRLE;
+                        else if (i == 'B')
+                           i = CTRLX;
+                     }
+                  }
 
-               if (i == ESC) {
-                  if ((i = Embedded->Getch ()) == '[') {
-                     while ((i = Embedded->Getch ()) == ';' || isdigit (i))
-                        ;
-                     if (i == 'A')
-                        i = CTRLE;
-                     else if (i == 'B')
-                        i = CTRLX;
+                  switch (i) {
+                     case CTRLD:
+                        Embedded->Printf ("\x0C\n");
+                        if ((p = (PSZ)Data->Description->First ()) == NULL)
+                           p = "";
+                        Embedded->Printf ("\026\001\016 %-12.12s \026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+
+                        sprintf (FileName, "%s%s", Current->Download, Data->Name);
+                        if (DownloadFile (FileName, Data->Name, Data->Size) == TRUE) {
+                           Data->DlTimes++;
+                           Data->ReplaceHeader ();
+                        }
+
+                        Titles = Redraw = TRUE;
+                        break;
+
+                     case CTRLT:
+                        if (Tag->TotalFiles > 0) {
+                           Embedded->Printf ("\x0C\n");
+                           Download (Tag);
+                           Titles = Redraw = TRUE;
+                        }
+                        break;
+
+                     case ' ':
+                        if (Tag->Check (Data->Name) == FALSE) {
+                           Tag->New ();
+                           strcpy (Tag->Name, Data->Name);
+                           strcpy (Tag->Area, Data->Area);
+                           if (Data->Complete[0] == '\0')
+                              sprintf (Tag->Complete, "%s%s", Current->Download, Tag->Name);
+                           else
+                              strcpy (Tag->Complete, Data->Complete);
+                           Tag->Size = Data->Size;
+                           Tag->Add ();
+                        }
+                        else
+                           Tag->Remove (Data->Name);
+                        Embedded->PrintfAt (1, 29, " \x16\x01\013CTRL-T \x16\x01\016downloads tagged files (%d tagged).", Tag->TotalFiles);
+                        if (Tag->TotalFiles == 0)
+                           Embedded->PrintfAt (1, 29, "\x1B[K");
+                        if (Tag->Check (Data->Name) == TRUE)
+                           Embedded->PrintfAt (y, 1, "\026\001\016*%-12.12s*", Data->Name);
+                        else
+                           Embedded->PrintfAt (y, 1, "\026\001\016 %-12.12s ", Data->Name);
+                        Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
+                        break;
+
+                     case CTRLY:
+                        Embedded->PrintfAt (y, 2, "\x16\x01\x0E%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
+                        while (List.Previous () != NULL) {
+                           Data->Previous ();
+                           y--;
+                        }
+                        if (Data->Previous () == TRUE) {
+                           Embedded->PrintfAt (TopLine, 1, "");
+                           for (i = 0; i < (User->ScreenHeight - TopLine - 2); i++)
+                              Embedded->Printf ("\x1B[K\n");
+                           for (i = 0; i < (User->ScreenHeight - TopLine - 2 - 1); i++)
+                              Data->Previous ();
+                           List.Clear ();
+                           Embedded->PrintfAt (TopLine, 1, "");
+                           i = 0;
+                           do {
+                              if ((p = (PSZ)Data->Description->First ()) == NULL)
+                                 p = "";
+                              if (Tag->Check (Data->Name) == TRUE)
+                                 Embedded->Printf ("\026\001\016*%-12.12s*\026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                              else
+                                 Embedded->Printf ("\026\001\016 %-12.12s \026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                              List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
+                              i++;
+                           } while (Data->Next () == TRUE && i < (User->ScreenHeight - TopLine - 2));
+                           Data->Previous ();
+                           y = (USHORT)(TopLine + User->ScreenHeight - TopLine - 2 - 1);
+                           List.Last ();
+                           Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
+                        }
+                        break;
+
+                     case CTRLE:
+                     case 0x4800:
+                        if (List.Previous () != NULL) {
+                           Embedded->PrintfAt (y, 2, "\x16\x01\x0E%-12.12s\x16\x01\x0E", (PSZ)List.Next ());
+                           Embedded->PrintfAt (--y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Previous ());
+                           Data->Previous ();
+                        }
+                        else if (Data->Previous () == TRUE) {
+                           Embedded->PrintfAt (TopLine, 1, "");
+                           for (i = 0; i < (User->ScreenHeight - TopLine - 2); i++)
+                              Embedded->Printf ("\x1B[K\n");
+                           for (i = 0; i < (User->ScreenHeight - TopLine - 2 - 1); i++)
+                              Data->Previous ();
+                           List.Clear ();
+                           Embedded->PrintfAt (TopLine, 1, "");
+                           i = 0;
+                           do {
+                              if ((p = (PSZ)Data->Description->First ()) == NULL)
+                                 p = "";
+                              if (Tag->Check (Data->Name) == TRUE)
+                                 Embedded->Printf ("\026\001\016*%-12.12s*\026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                              else
+                                 Embedded->Printf ("\026\001\016 %-12.12s \026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                              List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
+                              i++;
+                           } while (Data->Next () == TRUE && i < (User->ScreenHeight - TopLine - 2));
+                           Data->Previous ();
+                           y = (USHORT)(TopLine + User->ScreenHeight - TopLine - 2 - 1);
+                           List.Last ();
+                           Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
+                        }
+                        break;
+
+                     case '\r':
+                        FileDetails (Data);
+                        Titles = Redraw = TRUE;
+                        break;
+
+                     case CTRLV:
+                        Embedded->PrintfAt (y, 2, "\x16\x01\x0E%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
+                        while (List.Next () != NULL) {
+                           Data->Next ();
+                           y++;
+                        }
+                        if (Data->Next () == TRUE) {
+                           Embedded->PrintfAt (TopLine, 1, "");
+                           for (i = 0; i < (User->ScreenHeight - TopLine - 2); i++)
+                              Embedded->Printf ("\x1B[K\n");
+                           List.Clear ();
+                           Embedded->PrintfAt (TopLine, 1, "");
+                           i = 0;
+                           do {
+                              if ((p = (PSZ)Data->Description->First ()) == NULL)
+                                 p = "";
+                              if (Tag->Check (Data->Name) == TRUE)
+                                 Embedded->Printf ("\026\001\016*%-12.12s*\026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                              else
+                                 Embedded->Printf ("\026\001\016 %-12.12s \026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                              List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
+                           } while (Data->Next () == TRUE && ++i < (User->ScreenHeight - TopLine - 2));
+                           for (y = 0; y < i; y++)
+                              Data->Previous ();
+                           y = TopLine;
+                           List.First ();
+                           Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
+                        }
+                        break;
+
+                     case CTRLX:
+                     case 0x5000:
+                        if (List.Next () != NULL) {
+                           Embedded->PrintfAt (y, 2, "\x16\x01\x0E%-12.12s\x16\x01\x0E", (PSZ)List.Previous ());
+                           Embedded->PrintfAt (++y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Next ());
+                           Data->Next ();
+                        }
+                        else if (Data->Next () == TRUE) {
+                           Embedded->PrintfAt (TopLine, 1, "");
+                           for (i = 0; i < (User->ScreenHeight - TopLine - 2); i++)
+                              Embedded->Printf ("\x1B[K\n");
+                           List.Clear ();
+                           Embedded->PrintfAt (TopLine, 1, "");
+                           i = 0;
+                           do {
+                              if ((p = (PSZ)Data->Description->First ()) == NULL)
+                                 p = "";
+                              if (Tag->Check (Data->Name) == TRUE)
+                                 Embedded->Printf ("\026\001\016*%-12.12s*\026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                              else
+                                 Embedded->Printf ("\026\001\016 %-12.12s \026\001\015%4ldK \026\001\002%2d/%02d/%02d \026\001\003%.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+                              List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
+                           } while (Data->Next () == TRUE && ++i < (User->ScreenHeight - TopLine - 2));
+                           for (y = 0; y < i; y++)
+                              Data->Previous ();
+                           y = TopLine;
+                           List.First ();
+                           Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
+                        }
+                        break;
+
+                     case 'X':
+                        End = TRUE;
+                        break;
                   }
                }
 
-               switch (i) {
-                  case CTRLD:
-                     Embedded->Printf ("\x0C\n");
-                     if ((p = (PSZ)Data->Description->First ()) == NULL)
-                        p = "";
-                     Embedded->Printf ("\x16\x01\x0E%-12.12s %4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-
-                     sprintf (FileName, "%s%s", Current->Download, Data->Name);
-                     if (DownloadFile (FileName, Data->Name, Data->Size) == TRUE) {
-                        Data->DlTimes++;
-                        Data->ReplaceHeader ();
-                     }
-
-                     Titles = Redraw = TRUE;
-                     break;
-
-                  case CTRLT:
-                     if (Tag->TotalFiles > 0) {
-                        Embedded->Printf ("\x0C\n");
-                        Download (Tag);
-                        Titles = Redraw = TRUE;
-                     }
-                     break;
-
-                  case ' ':
-                     if (Tag->Check (Data->Name) == FALSE) {
-                        Tag->New ();
-                        strcpy (Tag->Name, Data->Name);
-                        strcpy (Tag->Area, Data->Area);
-                        if (Data->Complete[0] == '\0')
-                           sprintf (Tag->Complete, "%s%s", Current->Download, Tag->Name);
-                        else
-                           strcpy (Tag->Complete, Data->Complete);
-                        Tag->Size = Data->Size;
-                        Tag->Add ();
-                     }
-                     else
-                        Tag->Remove (Data->Name);
-                     Embedded->PrintfAt (1, 29, " \x16\x01\013CTRL-T \x16\x01\016downloads tagged files (%d tagged).", Tag->TotalFiles);
-                     if (Tag->TotalFiles == 0)
-                        Embedded->PrintfAt (1, 29, "\x1B[K");
-                     if (Tag->Check (Data->Name) == TRUE)
-                        Embedded->PrintfAt (y, 1, "\x16\x01\x0E*%-12.12s*", Data->Name);
-                     else
-                        Embedded->PrintfAt (y, 1, "\x16\x01\x0E %-12.12s ", Data->Name);
-                     Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
-                     break;
-
-                  case CTRLY:
-                     Embedded->PrintfAt (y, 2, "\x16\x01\x0E%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
-                     while (List.Previous () != NULL) {
-                        Data->Previous ();
-                        y--;
-                     }
-                     if (Data->Previous () == TRUE) {
-                        Embedded->PrintfAt (4, 1, "");
-                        for (i = 0; i < (User->ScreenHeight - 6); i++)
-                           Embedded->Printf ("\x1B[K\n");
-                        for (i = 0; i < (User->ScreenHeight - 6 - 1); i++)
-                           Data->Previous ();
-                        List.Clear ();
-                        Embedded->PrintfAt (4, 1, "");
-                        i = 0;
-                        do {
-                           if ((p = (PSZ)Data->Description->First ()) == NULL)
-                              p = "";
-                           if (Tag->Check (Data->Name) == TRUE)
-                              Embedded->Printf ("\x16\x01\x0E*%-12.12s*%4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                           else
-                              Embedded->Printf ("\x16\x01\x0E %-12.12s %4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                           List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
-                           i++;
-                        } while (Data->Next () == TRUE && i < (User->ScreenHeight - 6));
-                        Data->Previous ();
-                        y = (USHORT)(4 + User->ScreenHeight - 6 - 1);
-                        List.Last ();
-                        Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
-                     }
-                     break;
-
-                  case CTRLE:
-                  case 0x4800:
-                     if (List.Previous () != NULL) {
-                        Embedded->PrintfAt (y, 2, "\x16\x01\x0E%-12.12s\x16\x01\x0E", (PSZ)List.Next ());
-                        Embedded->PrintfAt (--y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Previous ());
-                        Data->Previous ();
-                     }
-                     else if (Data->Previous () == TRUE) {
-                        Embedded->PrintfAt (4, 1, "");
-                        for (i = 0; i < (User->ScreenHeight - 6); i++)
-                           Embedded->Printf ("\x1B[K\n");
-                        for (i = 0; i < (User->ScreenHeight - 6 - 1); i++)
-                           Data->Previous ();
-                        List.Clear ();
-                        Embedded->PrintfAt (4, 1, "");
-                        i = 0;
-                        do {
-                           if ((p = (PSZ)Data->Description->First ()) == NULL)
-                              p = "";
-                           if (Tag->Check (Data->Name) == TRUE)
-                              Embedded->Printf ("\x16\x01\x0E*%-12.12s*%4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                           else
-                              Embedded->Printf ("\x16\x01\x0E %-12.12s %4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                           List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
-                           i++;
-                        } while (Data->Next () == TRUE && i < (User->ScreenHeight - 6));
-                        Data->Previous ();
-                        y = (USHORT)(4 + User->ScreenHeight - 6 - 1);
-                        List.Last ();
-                        Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
-                     }
-                     break;
-
-                  case '\r':
-                     FileDetails (Data);
-                     Titles = Redraw = TRUE;
-                     break;
-
-                  case CTRLV:
-                     Embedded->PrintfAt (y, 2, "\x16\x01\x0E%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
-                     while (List.Next () != NULL) {
-                        Data->Next ();
-                        y++;
-                     }
-                     if (Data->Next () == TRUE) {
-                        Embedded->PrintfAt (4, 1, "");
-                        for (i = 0; i < (User->ScreenHeight - 6); i++)
-                           Embedded->Printf ("\x1B[K\n");
-                        List.Clear ();
-                        Embedded->PrintfAt (4, 1, "");
-                        i = 0;
-                        do {
-                           if ((p = (PSZ)Data->Description->First ()) == NULL)
-                              p = "";
-                           if (Tag->Check (Data->Name) == TRUE)
-                              Embedded->Printf ("\x16\x01\x0E*%-12.12s*%4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                           else
-                              Embedded->Printf ("\x16\x01\x0E %-12.12s %4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                           List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
-                        } while (Data->Next () == TRUE && ++i < (User->ScreenHeight - 6));
-                        for (y = 0; y < i; y++)
-                           Data->Previous ();
-                        y = 4;
-                        List.First ();
-                        Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
-                     }
-                     break;
-
-                  case CTRLX:
-                  case 0x5000:
-                     if (List.Next () != NULL) {
-                        Embedded->PrintfAt (y, 2, "\x16\x01\x0E%-12.12s\x16\x01\x0E", (PSZ)List.Previous ());
-                        Embedded->PrintfAt (++y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Next ());
-                        Data->Next ();
-                     }
-                     else if (Data->Next () == TRUE) {
-                        Embedded->PrintfAt (4, 1, "");
-                        for (i = 0; i < (User->ScreenHeight - 6); i++)
-                           Embedded->Printf ("\x1B[K\n");
-                        List.Clear ();
-                        Embedded->PrintfAt (4, 1, "");
-                        i = 0;
-                        do {
-                           if ((p = (PSZ)Data->Description->First ()) == NULL)
-                              p = "";
-                           if (Tag->Check (Data->Name) == TRUE)
-                              Embedded->Printf ("\x16\x01\x0E*%-12.12s*%4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                           else
-                              Embedded->Printf ("\x16\x01\x0E %-12.12s %4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-                           List.Add (Data->Name, (USHORT)(strlen (Data->Name) + 1));
-                        } while (Data->Next () == TRUE && ++i < (User->ScreenHeight - 6));
-                        for (y = 0; y < i; y++)
-                           Data->Previous ();
-                        y = 4;
-                        List.First ();
-                        Embedded->PrintfAt (y, 2, "\x16\x01\x70%-12.12s\x16\x01\x0E", (PSZ)List.Value ());
-                     }
-                     break;
-
-                  case 'X':
-                     End = TRUE;
-                     break;
-               }
-            }
-
 #if defined(__OS2__)
-            DosSleep (1L);
+               DosSleep (1L);
 #elif defined(__NT__)
-            Sleep (1L);
+               Sleep (1L);
 #endif
-         }
-
-         Embedded->Printf ("\x0C");
-      }
-      else
-         Embedded->Printf ("\n\x16\x01\015Sorry, no files are found to match your search/list parameters.\n\006\007\006\007");
-   }
-   else if (Data != NULL) {
-      if (Data->First () == TRUE) {
-         Embedded->Printf ("\x0C\x16\x01\x0B%s \x16\x01\x0A- \x16\x01\x0B%s\026\007\n", Current->Key, Current->Display);
-         Embedded->Printf ("\x16\x01\012 File Name    Size  Date     Description\n ============ ===== ======== ==================================================\n");
-         Line = 3;
-         do {
-            if ((p = (PSZ)Data->Description->First ()) == NULL)
-               p = "";
-            Embedded->Printf ("\x16\x01\x0E %-12.12s %4ldK \x16\x01\x0A%2d/%02d/%02d %.50s\n", Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
-            if ((Line = Embedded->MoreQuestion (Line)) == 1) {
-               Embedded->Printf ("\x0C\x16\x01\x0B%s \x16\x01\x0A- \x16\x01\x0B%s\x1B[K\n", Current->Key, Current->Display);
-               Embedded->Printf ("\x16\x01\012 File Name    Size  Date     Description\n ============ ===== ======== ==================================================\n");
-               Line = 3;
             }
-         } while (Data->Next () == TRUE && Embedded->AbortSession () == FALSE && Line != 0);
 
-         if (Line > 3)
-            Embedded->PressEnter ();
+            Embedded->Printf ("\x0C");
+         }
+         else
+            Embedded->Printf (Language->Text (LNG_FILELISTNOFILESFOUND));
       }
-      else
-         Embedded->Printf ("\n\x16\x01\015Sorry, no files are found to match your search/list parameters.\n\006\007\006\007");
-   }
+      else {
+         if (Data->First () == TRUE) {
+            Embedded->BufferedPrintf ("\x0C");
+            Embedded->BufferedPrintf (Language->Text (LNG_FILELISTHEADER));
+            Line = 2;
+            do {
+               if ((p = (PSZ)Data->Description->First ()) == NULL)
+                  p = "";
+               if (Tag->Check (Data->Name) == TRUE)
+                  Embedded->BufferedPrintf (Language->Text (LNG_FILELISTTAGGED), Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+               else
+                  Embedded->BufferedPrintf (Language->Text (LNG_FILELISTNORMAL), Data->Name, (Data->Size + 1023) / 1024, Data->UplDate.Day, Data->UplDate.Month, Data->UplDate.Year % 100, p);
+               if ((Line = MoreQuestion (Line)) == 1) {
+                  Embedded->BufferedPrintf ("\x0C");
+                  Embedded->BufferedPrintf (Language->Text (LNG_FILELISTHEADER));
+                  Line = 2;
+               }
+               while ((p = (PSZ)Data->Description->Next ()) != NULL && Embedded->AbortSession () == FALSE && Line != 0) {
+                  Embedded->BufferedPrintf (Language->Text (LNG_FILELISTCOMMENT), p);
+                  if ((Line = MoreQuestion (Line)) == 1) {
+                     Embedded->BufferedPrintf ("\x0C");
+                     Embedded->BufferedPrintf (Language->Text (LNG_FILELISTHEADER));
+                     Line = 2;
+                  }
+               }
+            } while (Data->Next () == TRUE && Embedded->AbortSession () == FALSE && Line != 0);
 
-   if (Data != NULL && DoDelete == TRUE) {
-      Data->Close ();
-      delete Data;
+            if (Line > 3)
+               MoreQuestion (99);
+         }
+         else
+            Embedded->Printf (Language->Text (LNG_FILELISTNOFILESFOUND));
+      }
+
+      if (DoDelete == TRUE) {
+         Data->Close ();
+         delete Data;
+      }
    }
 }
 
@@ -1069,95 +1166,108 @@ VOID TLibrary::ListRecentFiles (VOID)
    }
 }
 
-VOID TLibrary::ManageTagged (VOID)
+VOID TLibrary::AddTagged (VOID)
 {
-   SHORT Index;
-   CHAR Temp[10], szFile[128], End;
-   ULONG Size, Minute;
-   class TFileBase *File;
+   CHAR Names[64], *p;
+   ULONG DlTime;
+   class TFileBase *Data;
+   class TFileTag *Files = User->FileTag;
+
+   do {
+      Embedded->Printf (Language->Text (LNG_FILETOTAG), Files->TotalFiles + 1);
+      Embedded->Input (Names, (USHORT)(sizeof (Names) - 1), 0);
+
+      if ((Data = new TFileBase (Cfg->SystemPath, "")) != NULL) {
+         if ((p = strtok (Names, " ")) != NULL)
+            do {
+               if (Data->Read (p) == TRUE) {
+                  Files->New ();
+                  strcpy (Files->Name, Data->Name);
+                  strcpy (Files->Area, Data->Area);
+                  Files->Size = Data->Size;
+                  if (Data->Complete[0] == '\0')
+                     sprintf (Files->Complete, "%s%s", Current->Download, Files->Name);
+                  else
+                     strcpy (Files->Complete, Data->Complete);
+                  Files->CdRom = Data->CdRom;
+                  if (Files->Add () == TRUE) {
+                     DlTime = Data->Size / (CarrierSpeed / 10L);
+                     Embedded->Printf (Language->Text (LNG_FILETAGCONFIRM), Files->Index, Data->Name, DlTime / 60L, DlTime % 60L, Data->Size);
+                  }
+               }
+               else
+                  Embedded->Printf (Language->Text (LNG_FILENOTFOUND), p);
+            } while ((p = strtok (NULL, " ")) != NULL);
+         Data->Close ();
+         delete Data;
+      }
+   } while (Names[0] != '\0');
+}
+
+VOID TLibrary::ListTagged (VOID)
+{
+   ULONG DlTime;
    class TFileTag *Tag = User->FileTag;
 
    Tag->Reindex ();
 
-   End = FALSE;
-   while (Tag->TotalFiles > 0 && Embedded->AbortSession () == FALSE && End == FALSE) {
-      if (Tag->First () == TRUE) {
-         Embedded->Printf ("\n\x16\x01\x0AYou have tagged the following:\n\n");
+   if (Tag->First () == TRUE) {
+      Embedded->Printf (Language->Text (LNG_FILETAGGEDHEADER));
 
-         do {
-            Size = Tag->Size / 1024L;
-            if ((Tag->Size % 1024L) != 0L)
-               Size++;
-            Minute = (Tag->Size / (CarrierSpeed / 10L)) / 60L;
-            if (Minute < 1)
-               Embedded->Printf ("\x16\x01\x0A%5d. The file %s in the %s Library (%ldK, < 1 minute)\n", Tag->Index, Tag->Name, Tag->Area, Size);
-            else
-               Embedded->Printf ("\x16\x01\x0A%5d. The file %s in the %s Library (%ldK, %ld minute(s))\n", Tag->Index, Tag->Name, Tag->Area, Size, Minute);
-         } while (Tag->Next () == TRUE);
+      do {
+         DlTime = Tag->Size / (CarrierSpeed / 10L);
+         Embedded->Printf (Language->Text (LNG_FILETAGGEDLIST), Tag->Index, Tag->Name, Tag->Area, DlTime / 60L, DlTime % 60L, Tag->Size);
+      } while (Tag->Next () == TRUE);
 
-         Size = Tag->TotalBytes / 1024L;
-         if ((Tag->TotalBytes % 1024L) != 0L)
-            Size++;
-         Embedded->Printf ("\n\x16\x01\x0ATotal size of tagged Library files: \x16\x01\x0E%ldK\n", Size);
-         Minute = (Tag->TotalBytes / (CarrierSpeed / 10L)) / 60L;
-         if (Minute < 1)
-            Embedded->Printf ("\x16\x01\x0A         Approximate transfer time: \x16\x01\x0E< 1 minute\n\n");
-         else
-            Embedded->Printf ("\x16\x01\x0A         Approximate transfer time: \x16\x01\x0E%ld minute(s)\n\n", Minute);
-      }
+      DlTime = Tag->TotalBytes / (CarrierSpeed / 10L);
+      Embedded->Printf (Language->Text (LNG_FILETAGGEDTOTAL), Tag->TotalBytes, DlTime / 60L, DlTime % 60L);
+   }
+   else
+      Embedded->Printf (Language->Text (LNG_FILENOTAGGED));
+}
 
-      Embedded->Printf ("\x16\x01\013           D \x16\x01\x0E... Download all these files\n");
-      Embedded->Printf ("\x16\x01\013%4d \x16\x01\x0Ato \x16\x01\013%4d \x16\x01\x0E... Download one file\n", 1, Tag->TotalFiles);
-      Embedded->Printf ("\x16\x01\013%4d \x16\x01\x0Ato \x16\x01\013%4d \x16\x01\x0E... Untag one file\n", -1, -Tag->TotalFiles);
-      Embedded->Printf ("\x16\x01\013        -ALL \x16\x01\x0E... Untag all these files\n\n");
+VOID TLibrary::DeleteTagged (VOID)
+{
+   SHORT Index;
+   CHAR Temp[32];
+   class TFileTag *Tag = User->FileTag;
 
-      Embedded->Printf ("\x16\x01\013Enter option, X to exit or ? for help: ");
+   Tag->Reindex ();
+
+   if (Tag->First () == TRUE) {
+      Embedded->Printf (Language->Text (LNG_FILETODETAG), Tag->TotalFiles);
       Embedded->Input (Temp, (USHORT)(sizeof (Temp) - 1), 0);
+
       if (Embedded->AbortSession () == FALSE) {
-         if (toupper (Temp[0]) == 'X')
-            End = TRUE;
-         else if (!stricmp (Temp, "-ALL")) {
-            while (Tag->First () == TRUE)
+         if (toupper (Temp[0] == 'A')) {
+            while (Tag->First () == TRUE) {
+               Embedded->Printf (Language->Text (LNG_FILEDETAGGED), Tag->Name);
                Tag->Remove ();
-            Embedded->Printf ("\n\x16\x01\x0AOk, all files have been untagged.\n");
+            }
+            Embedded->Printf (Language->Text (LNG_FILETAGEMPTY));
          }
-         else if (!stricmp (Temp, "D"))
-            Download (Tag);
          else {
             Index = (SHORT)atoi (Temp);
-            if (Index < 0) {
-               if (Tag->Select ((USHORT)abs (Index)) == TRUE) {
+            if (Index > 0) {
+               if (Tag->Select ((USHORT)abs (Index)) == TRUE)
                   Tag->Remove ();
-                  Tag->Reindex ();
-               }
-            }
-            else if (Index > 0) {
-               if (Tag->Select ((USHORT)abs (Index)) == TRUE) {
-                  if (DownloadFile (Tag->Complete, Tag->Name, Tag->Size) == TRUE) {
-                     if (stricmp (Tag->Area, "USER")) {
-                        if ((File = new TFileBase (Cfg->SystemPath, Current->Key)) != NULL) {
-                           if (File->Read (Tag->Name) == TRUE) {
-                              File->DlTimes++;
-                              File->ReplaceHeader ();
-                           }
-                           File->Close ();
-                           delete File;
-                        }
-                     }
-                     Tag->Remove ();
-                     Tag->Reindex ();
-                  }
-               }
             }
          }
       }
    }
+}
 
-   sprintf (szFile, "%s%s", Cfg->UsersHomePath, User->MailBox);
-   rmdir (AdjustPath (szFile));
+VOID TLibrary::DeleteAllTagged (VOID)
+{
+   class TFileTag *Tag = User->FileTag;
 
-   if (Tag->TotalFiles == 0)
-      Embedded->Printf ("\n\x16\x01\x0DNo tagged files.\n\006\007\006\007");
+   Tag->Reindex ();
+
+   if (Tag->First () == TRUE) {
+      while (Tag->First () == TRUE)
+         Tag->Remove ();
+      Embedded->Printf (Language->Text (LNG_FILETAGEMPTY));
+   }
 }
 
 VOID TLibrary::RemoveFiles (VOID)
@@ -1165,14 +1275,14 @@ VOID TLibrary::RemoveFiles (VOID)
    CHAR FileName[32];
    class TFileBase *Data;
 
-   Embedded->Printf ("\n\x16\x01\013Enter file name to delete, or RETURN to exit: ");
+   Embedded->Printf (Language->Text (LNG_FILENAMETODELETE));
    Embedded->Input (FileName, sizeof (FileName) - 1, 0);
 
    if (FileName[0] != '\0') {
       if ((Data = new TFileBase (Cfg->SystemPath, Current->Key)) != NULL) {
          if (Data->Read (FileName) == TRUE) {
             Data->Delete ();
-            Embedded->Printf ("\n\x16\x01\x0D%s deleted from Library records...\n\006\007\006\007", strupr (FileName));
+            Embedded->Printf (Language->Text (LNG_FILEDELETED), strupr (FileName));
 
             Current->ActiveFiles--;
             Current->Update ();
@@ -1180,7 +1290,7 @@ VOID TLibrary::RemoveFiles (VOID)
                Log->Write ("+Deleted file %s from library %s", FileName, Current->Key);
          }
          else
-            Embedded->Printf ("\n\x16\x01\x0DThere is no such file in this Library!\n\006\007\006\007");
+            Embedded->Printf (Language->Text (LNG_FILENOTFOUND), FileName);
 
          Data->Close ();
          delete Data;
@@ -1298,38 +1408,88 @@ USHORT TLibrary::SelectArea (PSZ pszArea)
    if ((File = new TFileData (DataPath)) != NULL) {
       do {
          if (DoList == FALSE) {
-            Embedded->Printf ("\n\026\001\013Enter the name of new Library, or ? for a list: \026\001\x1E");
+            Embedded->Printf (Language->Text (LNG_FILEAREAREQUEST));
             Embedded->Input (Command, (USHORT)(sizeof (Command) - 1), INP_FIELD);
          }
          else
             DoList = FALSE;
 
          if (!stricmp (Command, "?")) {
-            if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE) {
+            if (User->FullScreen == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
                if ((List = new TFileAreaListing) != NULL) {
                   List->Cfg = Cfg;
                   List->Embedded = Embedded;
                   List->Log = Log;
                   List->Current = Current;
                   List->User = User;
+                  List->Language = Language;
                   RetVal = List->Run ();
                   delete List;
                }
             }
             else {
                if (File->First () == TRUE) {
-                  Embedded->Printf ("\n\026\001\012Library          Files  Description\n\026\001\017\031Ä\017  \031Ä\005  \031Ä\067\n");
+                  Embedded->Printf ("\x0C");
+                  Embedded->Printf (Language->Text (LNG_FILEAREAHEADER));
                   Line = 3;
                   do {
                      if (User->Level >= File->Level) {
                         if ((File->AccessFlags & User->AccessFlags) == File->AccessFlags) {
-                           Embedded->Printf ("\026\001\013%-15.15s  \026\001\016%5ld  %.55s\n", File->Key, File->ActiveFiles, File->Display);
-                           Line = Embedded->MoreQuestion (Line);
+                           Embedded->Printf (Language->Text (LNG_FILEAREALIST), File->Key, File->ActiveFiles, File->Display);
+                           if ((Line = Embedded->MoreQuestion (Line)) == 1) {
+                              Embedded->Printf ("\x0C");
+                              Embedded->Printf (Language->Text (LNG_FILEAREAHEADER));
+                              Line = 3;
+                           }
                         }
                      }
                   } while (Line != 0 && Embedded->AbortSession () == FALSE && File->Next () == TRUE);
                }
             }
+         }
+         else if (!stricmp (Command, "[")) {
+            File->Read (Current->Key, FALSE);
+            if (File->Previous () == TRUE)
+               do {
+                  if (User->Level >= File->Level) {
+                     if ((File->AccessFlags & User->AccessFlags) == File->AccessFlags) {
+                        Current->Read (File->Key);
+                        if (User != NULL) {
+                           strcpy (User->LastFileArea, Current->Key);
+                           User->Update ();
+                        }
+                        if (Current->Download[strlen (Current->Download) - 1] != '\\')
+                           strcat (Current->Download, "\\");
+                        if (Current->Upload[strlen (Current->Upload) - 1] != '\\')
+                           strcat (Current->Upload, "\\");
+                        Log->Write (":File Area: %s - %s", File->Key, File->Display);
+                        RetVal = TRUE;
+                        break;
+                     }
+                  }
+               } while (File->Previous () == TRUE);
+         }
+         else if (!stricmp (Command, "]")) {
+            File->Read (Current->Key, FALSE);
+            if (File->Next () == TRUE)
+               do {
+                  if (User->Level >= File->Level) {
+                     if ((File->AccessFlags & User->AccessFlags) == File->AccessFlags) {
+                        Current->Read (File->Key);
+                        if (User != NULL) {
+                           strcpy (User->LastFileArea, Current->Key);
+                           User->Update ();
+                        }
+                        if (Current->Download[strlen (Current->Download) - 1] != '\\')
+                           strcat (Current->Download, "\\");
+                        if (Current->Upload[strlen (Current->Upload) - 1] != '\\')
+                           strcat (Current->Upload, "\\");
+                        Log->Write (":File Area: %s - %s", File->Key, File->Display);
+                        RetVal = TRUE;
+                        break;
+                     }
+                  }
+               } while (File->Next () == TRUE);
          }
          else if (Command[0] != '\0') {
             if (File->Read (Command) == TRUE) {
@@ -1353,7 +1513,7 @@ USHORT TLibrary::SelectArea (PSZ pszArea)
             }
 
             if (RetVal == FALSE) {
-               if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE) {
+               if (User->FullScreen == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
                   if ((List = new TFileAreaListing) != NULL) {
                      List->Cfg = Cfg;
                      List->Embedded = Embedded;
@@ -1361,6 +1521,7 @@ USHORT TLibrary::SelectArea (PSZ pszArea)
                      List->Current = Current;
                      List->User = User;
                      strcpy (List->Command, Command);
+                     List->Language = Language;
                      RetVal = List->Run ();
                      delete List;
                   }
@@ -1377,8 +1538,8 @@ USHORT TLibrary::SelectArea (PSZ pszArea)
                               strcpy (Temp, File->Key);
                               if (strstr (strupr (Temp), Command) != NULL) {
                                  if (FirstHit == TRUE)
-                                    Embedded->Printf ("\n\026\001\012Library          Files  Description\n---------------  -----  -------------------------------------------------------\n");
-                                 Embedded->Printf ("\026\001\013%-15.15s  \026\001\016%5ld  %.55s\n", File->Key, File->ActiveFiles, File->Display);
+                                    Embedded->Printf (Language->Text (LNG_FILEAREAHEADER));
+                                 Embedded->Printf (Language->Text (LNG_FILEAREALIST), File->Key, File->ActiveFiles, File->Display);
                                  Line = Embedded->MoreQuestion (Line);
                                  FirstHit = FALSE;
                               }
@@ -1386,8 +1547,8 @@ USHORT TLibrary::SelectArea (PSZ pszArea)
                                  strcpy (Temp, File->Display);
                                  if (strstr (strupr (Temp), Command) != NULL) {
                                     if (FirstHit == TRUE)
-                                       Embedded->Printf ("\n\026\001\012Library          Files  Description\n---------------  -----  -------------------------------------------------------\n");
-                                    Embedded->Printf ("\026\001\013%-15.15s  \026\001\016%5ld  %.55s\n", File->Key, File->ActiveFiles, File->Display);
+                                       Embedded->Printf (Language->Text (LNG_FILEAREAHEADER));
+                                    Embedded->Printf (Language->Text (LNG_FILEAREALIST), File->Key, File->ActiveFiles, File->Display);
                                     Line = Embedded->MoreQuestion (Line);
                                     FirstHit = FALSE;
                                  }
@@ -1398,7 +1559,7 @@ USHORT TLibrary::SelectArea (PSZ pszArea)
                   }
 
                   if (FirstHit == TRUE)
-                     Embedded->Printf ("\n\026\001\014This Library isn't available to you.\n");
+                     Embedded->Printf (Language->Text (LNG_FILEAREANOTAVAILABLE));
                }
                if (pszArea != NULL && *pszArea != '\0')
                   Command[0] = '\0';
@@ -1572,7 +1733,7 @@ VOID TLibrary::Upload (VOID)
                            if ((Editor = new TCommentEditor) != NULL) {
                               Editor->Embedded = Embedded;
                               Editor->File = Data;
-                              Editor->ScreenWidth = 60;
+                              Editor->Width = 60;
                               if (Editor->Write () == TRUE)
                                  Editor->Menu ();
                            }
@@ -1748,6 +1909,7 @@ VOID TLibrary::UploadUser (PSZ user)
 TFileAreaListing::TFileAreaListing (void)
 {
    Command[0] = '\0';
+   Language = NULL;
 }
 
 VOID TFileAreaListing::Begin (VOID)
@@ -1816,6 +1978,7 @@ USHORT TFileAreaListing::DrawScreen (VOID)
 
    i = 0;
    do {
+      List.Next ();
       pld = (LISTDATA *)Data.Value ();
       if (Found == TRUE && !strcmp (pld->Key, Current->Key)) {
          y = (USHORT)(i + 4);
@@ -1830,30 +1993,30 @@ USHORT TFileAreaListing::DrawScreen (VOID)
 
 VOID TFileAreaListing::PrintTitles (VOID)
 {
-   Embedded->Printf ("\x0C\n");
-   Embedded->Printf ("\026\001\012Library          Files  Description\n\026\001\017\031=\017  \031=\005  \031=\067\n");
+   Embedded->Printf ("\x0C");
+   Embedded->Printf (Language->Text (LNG_FILEAREAHEADER));
 
-   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "\026\001\017\031=\017  \031=\005  \031=\067\n");
+   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, Language->Text (LNG_FILEAREASEPARATOR));
 
-   Embedded->Printf ("\026\001\012Hit \026\001\013CTRL-V \026\001\012for next page, \026\001\013CTRL-Y \026\001\012for previous page, \026\001\013? \026\001\012for help, or \026\001\013X \026\001\012to exit.\n");
-   Embedded->Printf ("\026\001\012To highlight an area, use your \026\001\013arrow keys\026\001\012, \026\001\013RETURN \026\001\012selects it.");
+   Embedded->Printf (Language->Text (LNG_FILEAREADESCRIPTION1));
+   Embedded->Printf (Language->Text (LNG_FILEAREADESCRIPTION2));
 
    Embedded->PrintfAt (4, 1, "");
 }
 
 VOID TFileAreaListing::PrintLine (VOID)
 {
-   Embedded->Printf ("\026\001\013%-15.15s  \026\001\016%5ld  %.55s\n", pld->Key, pld->ActiveFiles, pld->Display);
+   Embedded->Printf (Language->Text (LNG_FILEAREALIST), pld->Key, pld->ActiveFiles, pld->Display);
 }
 
 VOID TFileAreaListing::PrintCursor (USHORT y)
 {
-   Embedded->PrintfAt (y, 1, "\x16\x01\x70%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
+   Embedded->PrintfAt (y, 1, Language->Text (LNG_FILEAREACURSOR), (PSZ)List.Value ());
 }
 
 VOID TFileAreaListing::RemoveCursor (USHORT y)
 {
-   Embedded->PrintfAt (y, 1, "\x16\x01\x0B%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
+   Embedded->PrintfAt (y, 1, Language->Text (LNG_FILEAREAKEY), (PSZ)List.Value ());
 }
 
 VOID TFileAreaListing::Select (VOID)

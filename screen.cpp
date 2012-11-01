@@ -18,6 +18,7 @@ TScreen::TScreen (void)
    Attr = BLACK|_LGREY;
    RxBytes = 0;
    RxPosition = 0;
+   Counter = 0;
 }
 
 TScreen::~TScreen (void)
@@ -29,6 +30,10 @@ TScreen::~TScreen (void)
    }
 
    hidecur ();
+
+#if defined(__NT__)
+   FreeConsole ();
+#endif
 }
 
 USHORT TScreen::BytesReady (VOID)
@@ -36,7 +41,7 @@ USHORT TScreen::BytesReady (VOID)
    int c;
    USHORT RetVal = FALSE;
 
-   while (kbhit ()) {
+   while (kbmhit ()) {
       c = (USHORT)getxch ();
       if (c == 0x4800) {
          memcpy (&RxBuffer[RxBytes], "\x1B[A", 3);
@@ -71,6 +76,14 @@ USHORT TScreen::BytesReady (VOID)
    }
    if (RxBytes > 0)
       RetVal = TRUE;
+
+#if defined(__OS2__)
+   if (RetVal == FALSE)
+      DosSleep (1L);
+#elif defined(__NT__)
+   if (RetVal == FALSE)
+      Sleep (1L);
+#endif
 
    return (RetVal);
 }
@@ -210,13 +223,20 @@ VOID TScreen::BufferByte (UCHAR byte)
          else
             Ansi = FALSE;
       }
-      else if (byte == CTRLL)
+      else if (byte == CTRLL) {
          wclear ();
+         videoupdate ();
+      }
       else if (byte != ESC)
          wputc (byte);
    }
 
    Prec = byte;
+
+   if ((++Counter % 64) == 0) {
+      videoupdate ();
+      Counter = 0;
+   }
 }
 
 VOID TScreen::BufferBytes (UCHAR *bytes, USHORT len)
@@ -247,11 +267,19 @@ USHORT TScreen::Initialize (VOID)
    RxBytes = 0;
    RxPosition = 0;
 
+#if defined(__NT__)
+   AllocConsole ();
+#endif
+
 #if defined(__OS2__) || defined(__NT__)
    videoinit ();
 #endif
    if ((wh = wopen (0, 0, (short)(24 - 1), 79, 5, LGREY|_BLACK, LGREY|_BLACK)) != -1) {
       wopen (24, 0, 24, 79, 5, WHITE|_BLUE, WHITE|_BLUE);
+      wprintc (0, 22, WHITE|_BLUE, '³');
+      wprintc (0, 43, WHITE|_BLUE, '³');
+      wprintc (0, 58, WHITE|_BLUE, '³');
+      wprintc (0, 69, WHITE|_BLUE, '³');
       wactiv (wh);
       showcur ();
       RetVal = TRUE;
@@ -334,6 +362,56 @@ VOID TScreen::SendBytes (UCHAR *bytes, USHORT len)
 
 VOID TScreen::UnbufferBytes (VOID)
 {
+   videoupdate ();
+}
+
+VOID TScreen::SetName (PSZ name)
+{
+   CHAR Temp[48];
+
+   sprintf (Temp, "%-20.20s", name);
+   prints (24, 1, WHITE|_BLUE, Temp);
+   videoupdate ();
+}
+
+VOID TScreen::SetCity (PSZ name)
+{
+   CHAR Temp[48];
+
+   sprintf (Temp, "%-18.18s", name);
+   prints (24, 24, WHITE|_BLUE, Temp);
+   videoupdate ();
+}
+
+VOID TScreen::SetLevel (PSZ level)
+{
+   CHAR Temp[48];
+
+   sprintf (Temp, "%-12.12s", level);
+   prints (24, 45, WHITE|_BLUE, Temp);
+   videoupdate ();
+}
+
+VOID TScreen::SetTimeLeft (ULONG seconds)
+{
+   CHAR Temp[48];
+
+   if (seconds >= 3600L)
+      sprintf (Temp, "%2d:%02d:%02d", seconds / 3600L, (seconds % 3600L) / 60L, (seconds % 3600L) % 60L);
+   else
+      sprintf (Temp, "  %2d:%02d", seconds / 60L, seconds % 60L);
+   prints (24, 60, WHITE|_BLUE, Temp);
+   videoupdate ();
+}
+
+VOID TScreen::SetTime (ULONG seconds)
+{
+   CHAR Temp[48];
+   struct tm *ltm;
+
+   ltm = localtime ((time_t *)&seconds);
+   sprintf (Temp, "%2d:%02d:%02d", ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+   prints (24, 71, WHITE|_BLUE, Temp);
    videoupdate ();
 }
 

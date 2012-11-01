@@ -41,10 +41,25 @@ USHORT TLog::Open (PSZ pszName)
    if (fp != NULL)
       fclose (fp);
 
-   if ((fp = fopen (pszName, "a+t")) != NULL)
+   strcpy (FileName, pszName);
+   if ((fp = fopen (FileName, "a+t")) != NULL)
       RetVal = TRUE;
 
    return (RetVal);
+}
+
+VOID TLog::Suspend (VOID)
+{
+   if (fp != NULL) {
+      fclose (fp);
+      fp = NULL;
+   }
+}
+
+VOID TLog::Resume (VOID)
+{
+   if (fp == NULL)
+      fp = fopen (FileName, "a+t");
 }
 
 VOID TLog::Write (PSZ pszFormat, ...)

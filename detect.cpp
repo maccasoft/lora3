@@ -475,6 +475,12 @@ USHORT TDetect::RemoteMailer (VOID)
             }
             prev = key;
          }
+
+#if defined(__OS2__)
+         DosSleep (1L);
+#elif defined(__NT__)
+         Sleep (1L);
+#endif
       }
 
       if (Remote == REMOTE_NONE && AbortSession () == FALSE && Com != NULL) {
@@ -657,6 +663,8 @@ VOID TDetect::SendEMSIPacket (VOID)
    sprintf (Temp, "{%02X}{%s/OS2}{%s}{}{IDENT}{", PRODUCT_ID, NAME, VERSION);
 #elif defined(__NT__)
    sprintf (Temp, "{%02X}{%s/NT}{%s}{}{IDENT}{", PRODUCT_ID, NAME, VERSION);
+#elif defined(__LINUX__)
+   sprintf (Temp, "{%02X}{%s/Linux}{%s}{}{IDENT}{", PRODUCT_ID, NAME, VERSION);
 #else
    sprintf (Temp, "{%02X}{%s/DOS}{%s}{}{IDENT}{", PRODUCT_ID, NAME, VERSION);
 #endif
@@ -728,6 +736,8 @@ VOID TDetect::SendIEMSIPacket (VOID)
    sprintf (SendIEMSI, "{%s/OS2,%s,Unregistered}{", NAME, VERSION);
 #elif defined(__NT__)
    sprintf (SendIEMSI, "{%s/NT,%s,Unregistered}{", NAME, VERSION);
+#elif defined(__LINUX__)
+   sprintf (SendIEMSI, "{%s/Linux,%s,Unregistered}{", NAME, VERSION);
 #else
    sprintf (SendIEMSI, "{%s/DOS,%s,Unregistered}{", NAME, VERSION);
 #endif
@@ -870,13 +880,18 @@ USHORT TDetect::EMSISender (VOID)
 
 VOID TDetect::Terminal (VOID)
 {
-   USHORT key, prev, pos, i, gotAnswer, IsEMSI;
-   USHORT mayberip, canexit;
+   USHORT key, prev, pos, i, gotAnswer, IsEMSI, ripos;
+   USHORT canexit, MailOnly;
+   CHAR Temp[128], RipTemp[32];
    ULONG tout;
    PSZ Announce = "\rAuto-Sensing Terminal...\r";
+#if !defined(__POINT__)
+   class TEvents *Events;
+#endif
 
    StartCall = time (NULL);
    canexit = FALSE;
+   ripos = 0;
 
    if (Cfg != NULL)
       strcpy (Inbound, Cfg->NormalInbound);
@@ -886,23 +901,102 @@ VOID TDetect::Terminal (VOID)
    tout = TimerSet (400);
    prev = 0;
    IsEMSI = FALSE;
-   mayberip = FALSE;
-   Remote = REMOTE_USER;
 
    if (Cfg->Ansi == NO)
       Ansi = FALSE;
    else if (Cfg->Ansi == YES)
       Ansi = TRUE;
 
+#if !defined(__POINT__)
+   if ((Events = new TEvents (Cfg->SchedulerFile)) != NULL) {
+      Events->Load ();
+      Events->SetCurrent ();
+      MailOnly = Events->MailOnly;
+      delete Events;
+   }
+#endif
+
+   Remote = (MailOnly == TRUE) ? REMOTE_NONE : REMOTE_USER;
+
    for (i = 0; i < 5 && gotAnswer == FALSE && AbortSession () == FALSE; i++) {
       while (!TimeUp (tout) && AbortSession () == FALSE) {
          if (Com->BytesReady () == TRUE) {
             key = Com->ReadByte ();
+
+            switch (ripos) {
+               case 0:
+                  if (key == 'R')
+                     RipTemp[ripos++] = key;
+                  else
+                     ripos = 0;
+                  break;
+               case 1:
+                  if (key == 'I')
+                     RipTemp[ripos++] = key;
+                  else
+                     ripos = 0;
+                  break;
+               case 2:
+                  if (key == 'P')
+                     RipTemp[ripos++] = key;
+                  else
+                     ripos = 0;
+                  break;
+               case 3:
+                  if (key == 'S')
+                     RipTemp[ripos++] = key;
+                  else
+                     ripos = 0;
+                  break;
+               case 4:
+                  if (key == 'C')
+                     RipTemp[ripos++] = key;
+                  else
+                     ripos = 0;
+                  break;
+               case 5:
+                  if (key == 'R')
+                     RipTemp[ripos++] = key;
+                  else
+                     ripos = 0;
+                  break;
+               case 6:
+                  if (key == 'I')
+                     RipTemp[ripos++] = key;
+                  else
+                     ripos = 0;
+                  break;
+               case 7:
+                  if (key == 'P')
+                     RipTemp[ripos++] = key;
+                  else
+                     ripos = 0;
+                  break;
+               default:
+                  if (ripos > 7 && ripos < 14) {
+                     if (isdigit (key))
+                        RipTemp[ripos++] = key;
+                     else
+                        ripos = 0;
+                     if (ripos == 13) {
+                        if (RipTemp[12] == '0' && RipTemp[13] == '0')
+                           ;
+//                           Max = TRUE;
+                        else
+                           Rip = TRUE;
+                        Ansi = TRUE;
+                        Remote = REMOTE_USER;
+                        gotAnswer = TRUE;
+                     }
+                  }
+                  break;
+            }
+
             switch (key) {
                case '~': {
                   CHAR Temp[64];
 
-                  if (Cfg->EnablePPP == TRUE && Cfg->PPPCmd[0] != '\0' && ValidateKey ("bbs", NULL, NULL) == KEY_PROFESSIONAL) {
+                  if (MailOnly == FALSE && Cfg->EnablePPP == TRUE && Cfg->PPPCmd[0] != '\0' && ValidateKey ("bbs", NULL, NULL) == KEY_PROFESSIONAL) {
                      if (Log != NULL)
                         Log->Write ("+Detected PPP connection");
 
@@ -922,7 +1016,7 @@ VOID TDetect::Terminal (VOID)
                   if (prev == '*') {
                      switch (CheckEMSIPacket ()) {
                         case EMSI_ICI:
-                           if (Cfg->IEMSI == YES) {
+                           if (MailOnly == FALSE && Cfg->IEMSI == YES) {
                               IEMSIReceiver ();
                               tout = TimerSet (200);
                               Remote = REMOTE_USER;
@@ -944,6 +1038,7 @@ VOID TDetect::Terminal (VOID)
                   }
                   break;
 
+/*
                case 'I':
                   if (prev == 'R')
                      mayberip = TRUE;
@@ -956,14 +1051,25 @@ VOID TDetect::Terminal (VOID)
                      gotAnswer = TRUE;
                   }
                   break;
+*/
 
                case 0x1B:
                   if (prev == 0x1B) {
                      if (canexit == TRUE) {
-                        if (Com != NULL)
-                           Com->SendBytes ((UCHAR *)"\r\n\r\n", 4);
-                        Remote = REMOTE_USER;
-                        return;
+                        if (MailOnly == FALSE) {
+                           if (Com != NULL)
+                              Com->SendBytes ((UCHAR *)"\r\n\r\n", 4);
+                           Remote = REMOTE_USER;
+                           return;
+                        }
+                        else {
+                           if (Cfg->MailOnly[0] != '\0')
+                              sprintf (Temp, "%s\r", Cfg->MailOnly);
+                           else
+                              sprintf (Temp, "%s\r", "Processing mail only. Please call later.");
+                           Com->SendBytes ((UCHAR *)Temp, (USHORT)strlen (Temp));
+                           key = 0;
+                        }
                      }
                   }
                   if (canexit == FALSE)
@@ -995,7 +1101,7 @@ VOID TDetect::Terminal (VOID)
                   break;
 
                default:
-                  mayberip = FALSE;
+//                  mayberip = FALSE;
                   if (isdigit (key)) {
                      pos = (USHORT)(pos * 10);
                      pos += (USHORT)(key - '0');
@@ -1004,6 +1110,16 @@ VOID TDetect::Terminal (VOID)
             }
             prev = key;
          }
+
+         if (gotAnswer == TRUE && MailOnly == TRUE) {
+            if (Cfg->MailOnly[0] != '\0')
+               sprintf (Temp, "%s\r", Cfg->MailOnly);
+            else
+               sprintf (Temp, "%s\r", "Processing mail only. Please call later.");
+            Com->SendBytes ((UCHAR *)Temp, (USHORT)strlen (Temp));
+            gotAnswer = FALSE;
+         }
+
 #if defined(__OS2__)
          DosSleep (1L);
 #elif defined(__NT__)
@@ -1014,16 +1130,29 @@ VOID TDetect::Terminal (VOID)
       if (gotAnswer == FALSE && AbortSession () == FALSE && Com != NULL) {
          Com->BufferBytes ((UCHAR *)" \r", 2);
 
-         Com->BufferBytes ((UCHAR *)"\r\x19\x20\x0B", 4);
+         if (MailOnly == FALSE)
+            Com->BufferBytes ((UCHAR *)"\r\x19\x20\x0B", 4);
          if (Cfg->EMSI == TRUE)
             Com->BufferBytes ((UCHAR *)"\r**EMSI_REQA77E\r", 16);
-         if (Cfg->IEMSI == TRUE)
+         if (Cfg->IEMSI == TRUE && MailOnly == FALSE)
             Com->BufferBytes ((UCHAR *)"\r**EMSI_IRQ8E08\r", 16);
-         if (Cfg->Ansi == AUTO)
+         if (Cfg->Ansi == AUTO && MailOnly == FALSE)
             Com->BufferBytes ((UCHAR *)"\x1B[6n", 4);
-         Com->BufferBytes ((UCHAR *)"\x1B[!", 3);
+         if (MailOnly == FALSE)
+            Com->BufferBytes ((UCHAR *)"\x1B[!", 3);
 
          Com->BufferBytes ((UCHAR *)Announce, (USHORT)strlen (Announce));
+         if (MailOnly == TRUE) {
+            if (Cfg->MailOnly[0] != '\0')
+               sprintf (Temp, "%s\r", Cfg->MailOnly);
+            else
+               sprintf (Temp, "%s\r", "Processing mail only. Please call later.");
+            Com->BufferBytes ((UCHAR *)Temp, (USHORT)strlen (Temp));
+         }
+         else if (Cfg->EnterBBS[0] != '\0') {
+            sprintf (Temp, "%s\r", Cfg->EnterBBS);
+            Com->BufferBytes ((UCHAR *)Temp, (USHORT)strlen (Temp));
+         }
          Com->UnbufferBytes ();
 
          tout = TimerSet (400);
@@ -1031,8 +1160,10 @@ VOID TDetect::Terminal (VOID)
       }
    }
 
-   if (AbortSession () == FALSE && Com != NULL)
-      Com->SendBytes ((UCHAR *)"\r\n\r\n", 4);
+   if (AbortSession () == FALSE && Com != NULL) {
+      if (MailOnly == FALSE)
+         Com->SendBytes ((UCHAR *)"\r\n\r\n", 4);
+   }
 }
 
 SHORT TDetect::TimedRead (VOID)
@@ -1104,7 +1235,7 @@ VOID TDetect::ParseEMSIPacket (VOID)
 {
    USHORT i, t, idents, firstEntry;
    UCHAR Byte, *Read, *Write, c, FoundKnown, FoundProt;
-   CHAR *Tokens[MAX_EMSITOKEN], Temp[48], *p, List[128];
+   CHAR *Tokens[MAX_EMSITOKEN], Temp[64], *p, List[128];
    class TNodes *Nodes;
    class TOutbound *Outbound;
 
@@ -1185,8 +1316,14 @@ VOID TDetect::ParseEMSIPacket (VOID)
             }
 
             if (!stricmp (Temp, "IDENT")) {
+               if (strlen (Tokens[EMSI_SYSTEMNAME]) > sizeof (RemoteSystem) - 1)
+                  Tokens[EMSI_SYSTEMNAME][sizeof (RemoteSystem) - 1] = '\0';
                strcpy (RemoteSystem, Tokens[EMSI_SYSTEMNAME]);
+               if (strlen (Tokens[EMSI_SYSOPNAME]) > sizeof (RemoteSysop) - 1)
+                  Tokens[EMSI_SYSOPNAME][sizeof (RemoteSysop) - 1] = '\0';
                strcpy (RemoteSysop, Tokens[EMSI_SYSOPNAME]);
+               if (strlen (Tokens[EMSI_LOCATION]) > sizeof (RemoteLocation) - 1)
+                  Tokens[EMSI_LOCATION][sizeof (RemoteLocation) - 1] = '\0';
                strcpy (RemoteLocation, Tokens[EMSI_LOCATION]);
                if (Tokens[EMSI_MAILERSERIAL][0] != '\0')
                   sprintf (RemoteProgram, "%s %s/%s", Tokens[EMSI_MAILERNAME], Tokens[EMSI_MAILERVERSION], Tokens[EMSI_MAILERSERIAL]);
@@ -1221,9 +1358,8 @@ VOID TDetect::ParseEMSIPacket (VOID)
                if (Outbound != NULL)
                   Outbound->Add (Address.Zone, Address.Net, Address.Node, Address.Point, Address.Domain);
                sprintf (Temp, "%s ", Address.String);
-               if ((strlen (MailerStatus->Akas) + strlen (Temp)) >= sizeof (MailerStatus->Akas))
-                  break;
-               strcat (MailerStatus->Akas, Temp);
+               if ((strlen (MailerStatus->Akas) + strlen (Temp) + 1) <= sizeof (MailerStatus->Akas))
+                  strcat (MailerStatus->Akas, Temp);
             } while (Address.Next () == TRUE);
          }
       }
@@ -1243,8 +1379,14 @@ VOID TDetect::ParseEMSIPacket (VOID)
          delete Outbound;
       }
 
+      if (strlen (RemoteSystem) > sizeof (MailerStatus->SystemName) - 1)
+         RemoteSystem[sizeof (MailerStatus->SystemName) - 1] = '\0';
       strcpy (MailerStatus->SystemName, RemoteSystem);
+      if (strlen (RemoteSysop) > sizeof (MailerStatus->SysopName) - 1)
+         RemoteSysop[sizeof (MailerStatus->SysopName) - 1] = '\0';
       strcpy (MailerStatus->SysopName, RemoteSysop);
+      if (strlen (RemoteLocation) > sizeof (MailerStatus->Location) - 1)
+         RemoteLocation[sizeof (MailerStatus->Location) - 1] = '\0';
       strcpy (MailerStatus->Location, RemoteLocation);
       strcpy (MailerStatus->Program, RemoteProgram);
       MailerStatus->Speed = Speed;
@@ -1401,6 +1543,7 @@ VOID TDetect::ParseIEMSIPacket (VOID)
 
    Tokens[i] = NULL;
 
+   strupr (Tokens[IEMSI_CRTDEF]);
    if (strstr (Tokens[IEMSI_CRTDEF], "AVT0") != NULL) {
       Ansi = TRUE;
       Avatar = TRUE;
@@ -1411,6 +1554,24 @@ VOID TDetect::ParseIEMSIPacket (VOID)
       Ansi = TRUE;
    if (strstr (Tokens[IEMSI_CRTDEF], "VT100") != NULL)
       Ansi = TRUE;
+
+   strupr (Tokens[IEMSI_CAPS]);
+   if (strstr (Tokens[IEMSI_CAPS], "ASCII8") != NULL)
+      IBMChars = TRUE;
+
+   strupr (Tokens[IEMSI_REQUESTS]);
+   if (strstr (Tokens[IEMSI_REQUESTS], "MORE") != NULL)
+      MorePrompt = TRUE;
+   if (strstr (Tokens[IEMSI_REQUESTS], "HOT") != NULL)
+      HotKeys = TRUE;
+   if (strstr (Tokens[IEMSI_REQUESTS], "CLR") != NULL)
+      ScreenClear = TRUE;
+   if (strstr (Tokens[IEMSI_REQUESTS], "FSED") != NULL)
+      FullEd = TRUE;
+   if (strstr (Tokens[IEMSI_REQUESTS], "MAIL") != NULL)
+      MailCheck = TRUE;
+   if (strstr (Tokens[IEMSI_REQUESTS], "FILE") != NULL)
+      FileCheck = TRUE;
 
    strcpy (Name, Tokens[IEMSI_NAME]);
    strcpy (RealName, Tokens[IEMSI_ALIAS]);

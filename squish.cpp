@@ -34,13 +34,8 @@ FILE *sh_fopen (char *filename, char *access, int shmode)
          break;
 #endif
       t2 = time (NULL);
-#if defined(__OS2__)
       while (time (NULL) < t2 + 1)
-         DosSleep (10L);
-#elif defined(__NT__)
-      while (time (NULL) < t2 + 1)
-         Sleep (10L);
-#endif
+         ;
    }
 #endif
 
@@ -101,6 +96,9 @@ USHORT SQUISH::Add (class TMsgBase *MsgBase)
    Arrived.Hour = MsgBase->Arrived.Hour;
    Arrived.Minute = MsgBase->Arrived.Minute;
    Arrived.Second = MsgBase->Arrived.Second;
+
+   Original = MsgBase->Original;
+   Reply = MsgBase->Reply;
 
    Crash = MsgBase->Crash;
    Direct = MsgBase->Direct;
@@ -235,6 +233,9 @@ USHORT SQUISH::Add (class TCollection &MsgText)
       XMsg.Attr |= (ReceiptRequest == TRUE) ? MSGRRQ : 0;
       XMsg.Attr |= (Received == TRUE) ? MSGREAD : 0;
       XMsg.Attr |= (Sent == TRUE) ? MSGSENT : 0;
+
+      XMsg.ReplyTo = Original;
+      XMsg.Replies[0] = Reply;
 
       fwrite (&XMsg, sizeof (XMsg), 1, fpDat);
 
@@ -559,17 +560,18 @@ USHORT SQUISH::Lock (ULONG ulTimeout)
    }
 
    sprintf (File, "%s.sqd", SqBase.Base);
-   fpDat = sh_fopen (File, "r+b", SH_DENYNO);
-   fread (&SqBase, sizeof (SQBASE), 1, fpDat);
+   if ((fpDat = sh_fopen (File, "r+b", SH_DENYNO)) != NULL) {
+      fread (&SqBase, sizeof (SQBASE), 1, fpDat);
 
-   sprintf (File, "%s.sqi", SqBase.Base);
-   if ((fpIdx = sh_fopen (File, "r+b", SH_DENYNO)) != NULL) {
-      if ((pSqIdx = (SQIDX *)malloc (sizeof (SQIDX) * 4500)) != NULL) {
-         SqBase.NumMsg = fread (pSqIdx, sizeof (SQIDX), 4500, fpIdx);
-         SqBase.HighMsg = SqBase.NumMsg;
+      sprintf (File, "%s.sqi", SqBase.Base);
+      if ((fpIdx = sh_fopen (File, "r+b", SH_DENYNO)) != NULL) {
+         if ((pSqIdx = (SQIDX *)malloc (sizeof (SQIDX) * 4500)) != NULL) {
+            SqBase.NumMsg = fread (pSqIdx, sizeof (SQIDX), 4500, fpIdx);
+            SqBase.HighMsg = SqBase.NumMsg;
+         }
+         fseek (fpIdx, 0L, SEEK_END);
+         Locked = TRUE;
       }
-      fseek (fpIdx, 0L, SEEK_END);
-      Locked = TRUE;
    }
 
    return (TRUE);
@@ -643,6 +645,9 @@ ULONG SQUISH::MsgnToUid (ULONG ulMsg)
          RetVal = pSqIdx[(size_t)(ulMsg - 1L)].MsgId;
    }
 
+   if (SqBase.NumMsg == 0L)
+      RetVal = 0L;
+
    return (RetVal);
 }
 
@@ -655,6 +660,7 @@ VOID SQUISH::New (VOID)
    memset (&Written, 0, sizeof (Written));
    memset (&Arrived, 0, sizeof (Arrived));
    FromAddress[0] = ToAddress[0] = '\0';
+   Original = Reply = 0L;
    Text.Clear ();
 }
 
@@ -691,8 +697,10 @@ USHORT SQUISH::Next (ULONG &ulMsg)
       else {
          for (i = 0; i < SqBase.NumMsg; i++) {
             if (pSqIdx[i].MsgId != 0xFFFFFFFFL && pSqIdx[i].MsgId >= ulMsg) {
-               if (pSqIdx[i].MsgId == ulMsg)
-                  i++;
+               if (pSqIdx[i].MsgId == ulMsg) {
+                  while (pSqIdx[i].MsgId == ulMsg && i < SqBase.NumMsg)
+                     i++;
+               }
                if (i < SqBase.NumMsg) {
                   ulMsg = pSqIdx[i].MsgId;
                   RetVal = TRUE;
@@ -725,6 +733,10 @@ USHORT SQUISH::Open (PSZ pszName)
    while ((p = strchr (File, '\\')) != NULL)
       *p = '/';
 #endif
+
+   memset (&SqBase, 0, sizeof (SQBASE));
+   strcpy (SqBase.Base, pszName);
+
    if ((fd = sopen (strlwr (File), O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
       if (read (fd, &SqBase, sizeof (SQBASE)) != sizeof (SQBASE)) {
          memset (&SqBase, 0, sizeof (SQBASE));
@@ -998,6 +1010,9 @@ USHORT SQUISH::ReadHeader (ULONG ulMsg)
          Arrived.Minute = (UCHAR)((XMsg.DateArrived & 0x07E00000L) >> 21);
          Arrived.Hour = (UCHAR)((XMsg.DateArrived & 0xF8000000L) >> 27);
 
+         Original = XMsg.ReplyTo;
+         Reply = XMsg.Replies[0];
+
          Crash = (UCHAR)((XMsg.Attr & MSGCRASH) ? TRUE : FALSE);
          FileAttach = (UCHAR)((XMsg.Attr & MSGFILE) ? TRUE : FALSE);
          FileRequest = (UCHAR)((XMsg.Attr & MSGFRQ) ? TRUE : FALSE);
@@ -1213,6 +1228,9 @@ ULONG SQUISH::UidToMsgn (ULONG ulMsg)
       }
    }
 
+   if (SqBase.NumMsg == 0L)
+      RetVal = 0L;
+
    return (RetVal);
 }
 
@@ -1301,6 +1319,9 @@ USHORT SQUISH::WriteHeader (ULONG ulMsg)
          XMsg.Attr |= (ReceiptRequest == TRUE) ? MSGRRQ : 0;
          XMsg.Attr |= (Received == TRUE) ? MSGREAD : 0;
          XMsg.Attr |= (Sent == TRUE) ? MSGSENT : 0;
+
+         XMsg.ReplyTo = Original;
+         XMsg.Replies[0] = Reply;
 
          fseek (fpDat, Position, SEEK_SET);
          fwrite (&XMsg, sizeof (XMSG), 1, fpDat);

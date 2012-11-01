@@ -10,6 +10,7 @@
 #if defined(__OS2__)
 #define IDOK            1
 #define IDCANCEL        2
+#define IDHELP          3
 
 #define IDYES           MBID_YES
 #endif
@@ -105,6 +106,7 @@ public:
 
    virtual LONG   DoModal (VOID);
    virtual VOID   OnCancel (VOID);
+   virtual VOID   OnHelp (VOID);
    virtual USHORT OnInitDialog (VOID);
    virtual VOID   OnOK (VOID);
 
@@ -116,6 +118,7 @@ protected:
    USHORT GetDlgItemTextLength (int id);
    VOID   SetFocus (int id);
    VOID   SetDlgItemText (int id, PSZ text);
+   VOID   WinHelp (PSZ help_file, int topic_id, PSZ title = "Application Help");
 
    USHORT BM_QueryCheck (int id);
    VOID   BM_SetCheck (int id, USHORT value);
@@ -130,7 +133,9 @@ protected:
    USHORT LM_QueryItemCount (int id);
    VOID   LM_QueryItemText (int id, USHORT value, USHORT size, PSZ text);
    USHORT LM_QuerySelection (int id);
+   VOID   LM_SetItemText (int id, USHORT value, PSZ text);
    VOID   LVM_AllocateColumns (int id, int value);
+   VOID   LVM_DeleteAll (int id);
    VOID   LVM_DeleteItem (int id, int item);
    VOID   LVM_InsertColumn (int id, PSZ text, int align);
    VOID   LVM_InsertItem (int id);
@@ -141,14 +146,15 @@ protected:
    VOID   LVM_SetItemText (int id, int item, int column, PSZ text);
    int    LVM_QueryItemCount (int id);
    VOID   LVM_QueryItemText (int id, int item, int column, PSZ text);
-   USHORT SPBM_QueryValue (int id);
-   VOID   SPBM_SetCurrentValue (int id, USHORT value);
-   VOID   SPBM_SetLimits (int id, USHORT highest, USHORT lowest);
+   LONG   SPBM_QueryValue (int id);
+   VOID   SPBM_SetCurrentValue (int id, LONG value);
+   VOID   SPBM_SetLimits (int id, LONG highest, LONG lowest);
 
 private:
    SHORT  lv_Selected;
    CHAR   dlgTemplate[64];
    HWND   owner_hWnd;
+   HWND   help_hWnd;
 
    DECLARE_MESSAGE_MAP ()
 

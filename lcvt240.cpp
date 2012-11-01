@@ -239,11 +239,18 @@ VOID ConvertMessageAreas (PSZ pszFrom, PSZ pszTo, USHORT flUseName)
             Data->AccessFlags = msg.msg_flags;
             Data->WriteLevel = msg.write_priv;
             Data->WriteFlags = msg.write_flags;
-            if (msg.squish != 0)
+            if (msg.squish != 0) {
                Data->Storage = ST_SQUISH;
-            else
+               strcpy (Data->Path, msg.msg_path);
+            }
+            else if (msg.quick_board != 0) {
+               Data->Storage = ST_HUDSON;
+               strcpy (Data->Path, cfg->quick_msgpath);
+            }
+            else {
                Data->Storage = ST_FIDO;
-            strcpy (Data->Path, msg.msg_path);
+               strcpy (Data->Path, msg.msg_path);
+            }
             Data->MaxMessages = msg.max_msgs;
             Data->DaysOld = msg.max_age;
             sprintf (Data->Address, "%d:%d/%d.%d", cfg->alias[msg.use_alias].zone, cfg->alias[msg.use_alias].net, cfg->alias[msg.use_alias].node, cfg->alias[msg.use_alias].point);

@@ -17,6 +17,7 @@ TMsgData::TMsgData (void)
    strcpy (DataFile, "msg.dat");
    strcpy (IdxFile, "msg.idx");
    LastKey[0] = '\0';
+   LastReaded = 0L;
 }
 
 TMsgData::TMsgData (PSZ pszDataPath)
@@ -30,6 +31,7 @@ TMsgData::TMsgData (PSZ pszDataPath)
    LastKey[0] = '\0';
    AdjustPath (strlwr (DataFile));
    AdjustPath (strlwr (IdxFile));
+   LastReaded = 0L;
 }
 
 TMsgData::~TMsgData (void)
@@ -128,6 +130,7 @@ VOID TMsgData::Class2Struct (MESSAGE *Msg)
    strcpy (Msg->Address, Address);
    Msg->FirstMessage = FirstMessage;
    Msg->LastMessage = LastMessage;
+   Msg->OriginIndex = OriginIndex;
 }
 
 VOID TMsgData::Delete (VOID)
@@ -153,32 +156,34 @@ VOID TMsgData::Delete (VOID)
                write (fdNew, Msg, sizeof (MESSAGE));
          }
 
-         lseek (fdDat, 0L, SEEK_SET);
-         lseek (fdNew, 0L, SEEK_SET);
-
          if ((Position = tell (fdIdx)) > 0L)
             Position -= sizeof (Idx);
-         lseek (fdIdx, 0L, SEEK_SET);
 
-         while (read (fdNew, Msg, sizeof (MESSAGE)) == sizeof (MESSAGE)) {
-            memset (&Idx, 0, sizeof (Idx));
-            strcpy (Idx.Key, Msg->Key);
-            Idx.Level = Msg->Level;
-            Idx.AccessFlags = Msg->AccessFlags;
-            Idx.DenyFlags = Msg->DenyFlags;
-            Idx.Position = tell (fdDat);
+         close (fdDat);
+         close (fdIdx);
+         fdIdx = sopen (IdxFile, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
+         fdDat = sopen (DataFile, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
 
-            write (fdIdx, &Idx, sizeof (Idx));
-            write (fdDat, Msg, sizeof (MESSAGE));
-         }
+         if (fdDat != -1 && fdIdx != -1) {
+            lseek (fdNew, 0L, SEEK_SET);
 
-         chsize (fdIdx, tell (fdIdx));
-         chsize (fdDat, tell (fdDat));
+            while (read (fdNew, Msg, sizeof (MESSAGE)) == sizeof (MESSAGE)) {
+               memset (&Idx, 0, sizeof (Idx));
+               strcpy (Idx.Key, Msg->Key);
+               Idx.Level = Msg->Level;
+               Idx.AccessFlags = Msg->AccessFlags;
+               Idx.DenyFlags = Msg->DenyFlags;
+               Idx.Position = tell (fdDat);
 
-         lseek (fdIdx, Position, SEEK_SET);
-         if (Next () == FALSE) {
-            if (Previous () == FALSE)
-               New ();
+               write (fdIdx, &Idx, sizeof (Idx));
+               write (fdDat, Msg, sizeof (MESSAGE));
+            }
+
+            lseek (fdIdx, Position, SEEK_SET);
+            if (Next () == FALSE) {
+               if (Previous () == FALSE)
+                  New ();
+            }
          }
 
          free (Msg);
@@ -474,14 +479,10 @@ USHORT TMsgData::Read (PSZ pszName, USHORT fCloseFile)
 
    New ();
 
-   if (fdIdx == -1) {
+   if (fdIdx == -1)
       fdIdx = sopen (IdxFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
-      fCloseFile = TRUE;
-   }
-   if (fdDat == -1) {
+   if (fdDat == -1)
       fdDat = sopen (DataFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
-      fCloseFile = TRUE;
-   }
 
    if (fdDat != -1 && fdIdx != -1) {
       lseek (fdIdx, 0L, SEEK_SET);
@@ -576,7 +577,7 @@ VOID TMsgData::Struct2Class (MESSAGE *Msg)
    Storage = Msg->Storage;
 
    strcpy (Path, Msg->Path);
-   if (Msg->Storage == ST_FIDO) {
+   if (Msg->Storage == ST_FIDO || Msg->Storage == ST_HUDSON) {
       if (Path[strlen (Path) - 1] != '\\' && Path[strlen (Path) - 1] != '/')
          strcat (Path, "\\");
    }
@@ -614,6 +615,7 @@ VOID TMsgData::Struct2Class (MESSAGE *Msg)
    strcpy (Address, Msg->Address);
    FirstMessage = Msg->FirstMessage;
    LastMessage = Msg->LastMessage;
+   OriginIndex = Msg->OriginIndex;
 
    strcpy (LastKey, Msg->Key);
 }
@@ -823,15 +825,16 @@ USHORT TEchoLink::AddString (PSZ pszString)
                p++;
             }
             Address.Parse (p);
-            if (Address.Zone != 0)
-               Zone = Address.Zone;
-            if (Address.Net != 0)
-               Net = Address.Net;
-            if (Address.Node != 0)
+            if (Check (Address.String) == FALSE) {
+               if (Address.Zone != 0)
+                  Zone = Address.Zone;
+               if (Address.Net != 0)
+                  Net = Address.Net;
                Node = Address.Node;
-            Point = Address.Point;
-            strcpy (Domain, Address.Domain);
-            RetVal = Add ();
+               Point = Address.Point;
+               strcpy (Domain, Address.Domain);
+               RetVal = Add ();
+            }
          }
       } while ((p = strtok (NULL, " ")) != NULL);
 

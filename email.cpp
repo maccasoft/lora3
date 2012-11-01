@@ -178,13 +178,13 @@ VOID TMailList::Select (VOID)
          do {
             if (ShowKludges == TRUE || (strncmp (Text, "SEEN-BY: ", 9) && Text[0] != 1)) {
                if (strchr (Text, '>') != NULL)
-                  Embedded->BufferedPrintf (Language->MessageQuote, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEQUOTE), Text);
                else if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1)
-                  Embedded->BufferedPrintf (Language->MessageKludge, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEKLUDGE), Text);
                else if (!strncmp (Text, " * Origin", 9) || !strncmp (Text, "---", 3))
-                  Embedded->BufferedPrintf (Language->MessageOrigin, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEORIGIN), Text);
                else
-                  Embedded->BufferedPrintf (Language->MessageText, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGETEXT), Text);
 
                MaxLine = Line;
                if ((Line = Embedded->MoreQuestion (Line)) == 1) {
@@ -260,7 +260,7 @@ VOID TEMail::BriefList (VOID)
             Embedded->Printf ("\n\026\001\013Read messages (F)rom you or (T)o you (? for help)? \026\001\007");
             Embedded->Input (Temp, 10, INP_HOTKEY|INP_NUMERIC);
             if ((Which = (CHAR)toupper (Temp[0])) == '\0')
-               Which = Language->NextMessage;
+               Which = Language->Text(LNG_NEXTMESSAGE)[0];
          } while (Which != 'T' && Which != 'F' && Which != '\0' && Embedded->AbortSession () == FALSE);
 
          if ((Which == 'T' || Which == 'F') && Embedded->AbortSession () == FALSE) {
@@ -283,8 +283,8 @@ VOID TEMail::BriefList (VOID)
                Number = 0L;
 
                do {
-                  Embedded->Printf (Language->StartWithMessage);
-                  Embedded->Printf (Language->NewMessages);
+                  Embedded->Printf (Language->Text(LNG_STARTWITHMESSAGE));
+                  Embedded->Printf (Language->Text(LNG_NEWMESSAGES));
                   Embedded->Printf (": ");
                   Embedded->Input (Temp, 10, INP_HOTKEY|INP_NUMERIC);
                   if ((Start = (CHAR)toupper (Temp[0])) == Language->Help)
@@ -411,9 +411,9 @@ VOID TEMail::CheckUnread (VOID)
    }
 
    if (Unread > 0)
-      Embedded->Printf ("\n\026\001\015You have %u unread e-mail message(s)\n\006\007\006\007", Unread);
+      ReadMessages ();
    else
-      Embedded->Printf ("\n\026\001\015You have no new mail in your mailbox\n\006\007\006\007");
+      Embedded->Printf ("\n\026\001\007Sorry, but you have no mail waiting.\n\006\007\006\007");
 }
 
 VOID TEMail::Delete (VOID)
@@ -469,14 +469,101 @@ VOID TEMail::Delete (VOID)
    "\026\001\013Who do you whish to send a copy f this message (cc:) to?\nYou may also type ? for help: "
 */
 
+VOID TEMail::BuildDate (PSZ format, PSZ dest, MDATE *date)
+{
+   CHAR Temp[16];
+
+   while (*format != '\0') {
+      if (*format == '%') {
+         format++;
+         switch (*format) {
+            case 'A':
+               if (date->Hour >= 12)
+                  strcpy (dest, "pm");
+               else
+                  strcpy (dest, "am");
+               dest += 2;
+               format++;
+               break;
+            case 'B':
+               sprintf (Temp, "%2d", date->Month);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'C':
+               sprintf (Temp, "%-3.3s", Language->Months[date->Month - 1]);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'D':
+               sprintf (Temp, "%2d", date->Day);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'E':
+               if (date->Hour > 12)
+                  sprintf (Temp, "%2d", date->Hour - 12);
+               else
+                  sprintf (Temp, "%2d", date->Hour);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'H':
+               sprintf (Temp, "%2d", date->Hour);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'M':
+               sprintf (Temp, "%02d", date->Minute);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'S':
+               sprintf (Temp, "%02d", date->Second);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'Y':
+               sprintf (Temp, "%2d", date->Year % 100);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            case 'Z':
+               sprintf (Temp, "%4d", date->Year);
+               strcpy (dest, Temp);
+               dest += strlen (Temp);
+               format++;
+               break;
+            default:
+               *dest++ = *format++;
+               break;
+         }
+      }
+      else
+         *dest++ = *format++;
+   }
+   *dest = '\0';
+}
+
 VOID TEMail::DisplayCurrent (VOID)
 {
+   USHORT InitialLine;
    USHORT Line, MaxLine, gotFrom = FALSE, gotTo = FALSE;
-   CHAR *Text, Temp[96], *p, *a, Display[32];
+   CHAR *Text, Temp[96], *p, Flags[96];
    ULONG Msgn;
 
    if (Msg != NULL) {
-      Msgn = Msg->Current;
+      Msgn = Msg->UidToMsgn (Msg->Current);
+      if (Log != NULL && Pause == FALSE)
+         Log->Write (":Display E-Mail Msg. #%lu (%lu)", Msgn, Msg->Current);
 
       if ((p = (CHAR *)Msg->Text.First ()) != NULL)
          do {
@@ -498,52 +585,169 @@ VOID TEMail::DisplayCurrent (VOID)
                break;
          } while ((p = (CHAR *)Msg->Text.Next ()) != NULL);
 
-      strcpy (Temp, "===============================================================================");
-      strcpy (Display, "Electronic Mail");
-      Temp[79 - strlen (Display) - 3] = '\0';
-      Embedded->BufferedPrintf ("\x0C\x16\x01\x09= \x16\x01\x0E%s \x16\x01\x09%s\n", Display, Temp);
+      Flags[0] = '\0';
+      if (Msg->Received == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_RCV));
+      if (Msg->Sent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_SNT));
+      if (Msg->Private == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_PVT));
+      if (Msg->Crash == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_CRA));
+      if (Msg->KillSent == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_KS));
+      if (Msg->Local == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_LOC));
+      if (Msg->Hold == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_HLD));
+      if (Msg->FileAttach == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_ATT));
+      if (Msg->FileRequest == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_FRQ));
+      if (Msg->Intransit == TRUE)
+         strcat (Flags, Language->Text (LNG_MSGFLAG_TRS));
 
-      Embedded->BufferedPrintf ("\x16\x01\x0A    Msg: \x16\x01\x0E%lu\n", Msgn);
-      sprintf (Temp, "%02d %3.3s %d %2d:%02d", Msg->Written.Day, Language->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute);
-      Embedded->BufferedPrintf ("\x16\x01\x0A   From: \x16\x01\x0E%-35.35s \x16\x01\x0F%-16.16s \x16\x01\x07%s\n", Msg->From, Msg->FromAddress, Temp);
-      sprintf (Temp, "%02d %3.3s %d %2d:%02d", Msg->Arrived.Day, Language->Months[Msg->Arrived.Month - 1], Msg->Arrived.Year, Msg->Arrived.Hour, Msg->Arrived.Minute);
-      Embedded->BufferedPrintf ("\x16\x01\x0A     To: \x16\x01\x0E%-35.35s \x16\x01\x0F%-16.16s \x16\x01\x07%s\n", Msg->To, Msg->ToAddress, Temp);
-      Embedded->BufferedPrintf ("\x16\x01\x0ASubject: \x16\x01\x0E%s\n", Msg->Subject);
-      Embedded->BufferedPrintf ("\x16\x01\x09===============================================================================\n");
-      Line = 6;
+      if (User->FullReader == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE)) {
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEHDR), "E-Mail", (CHAR)(80 - 6 - 3));
+         if (Msg->Original != 0L && Msg->Reply == 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER1), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Original));
+         else if (Msg->Original == 0L && Msg->Reply != 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER2), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Reply));
+         else if (Msg->Original != 0L && Msg->Reply != 0L)
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER3), Msgn, Msg->Number (), Msg->UidToMsgn (Msg->Original), Msg->UidToMsgn (Msg->Reply));
+         else
+            sprintf (Temp, Language->Text (LNG_MESSAGENUMBER), Msgn, Msg->Number ());
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFLAGS), Temp, Flags);
+
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFROM), Msg->From, Msg->FromAddress, Temp);
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Arrived);
+         Embedded->BufferedPrintf (Language->Text (LNG_MESSAGETO), Msg->To, Msg->ToAddress, Temp);
+         if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+            Embedded->BufferedPrintf (Language->Text (LNG_MESSAGEFILE), Msg->Subject);
+         else
+            Embedded->BufferedPrintf (Language->Text (LNG_MESSAGESUBJECT), Msg->Subject);
+         Embedded->BufferedPrintf ("\x16\x01\x13\031Ä\120");
+
+         InitialLine = Line = 6;
+      }
+      else {
+         Embedded->BufferedPrintf ("\x0C");
+         Embedded->BufferedPrintf ("\026\001\003From:    \026\001\016%-36.36s \026\001\017%-.33s\n", Msg->From, Flags);
+
+         BuildDate (Language->Text (LNG_MESSAGEDATE), Temp, &Msg->Written);
+         Embedded->BufferedPrintf ("\026\001\003To:      \026\001\016%-36.36s \026\001\012Msg #%lu, %-.23s\n", Msg->To, Msgn, Temp);
+
+         if (Msg->FileAttach == TRUE || Msg->FileRequest == TRUE)
+            Embedded->BufferedPrintf ("\026\001\003File(s): \026\001\016%-.70s\n", Msg->Subject);
+         else
+            Embedded->BufferedPrintf ("\026\001\003Subject: \026\001\016%-.70s\n\n", Msg->Subject);
+
+         InitialLine = Line = 4;
+      }
 
       if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
          do {
             if (ShowKludges == TRUE || (strncmp (Text, "SEEN-BY: ", 9) && Text[0] != 1)) {
-               if (strchr (Text, '>') != NULL)
-                  Embedded->BufferedPrintf (Language->MessageQuote, Text);
-               else if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1)
-                  Embedded->BufferedPrintf (Language->MessageKludge, Text);
+               if (!strncmp (Text, "SEEN-BY: ", 9) || Text[0] == 1) {
+                  if (Text[0] == 1)
+                     Text++;
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEKLUDGE), Text);
+               }
                else if (!strncmp (Text, " * Origin", 9) || !strncmp (Text, "---", 3))
-                  Embedded->BufferedPrintf (Language->MessageOrigin, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEORIGIN), Text);
+               else if (strchr (Text, '>') != NULL)
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGEQUOTE), Text);
                else
-                  Embedded->BufferedPrintf (Language->MessageText, Text);
+                  Embedded->BufferedPrintf (Language->Text(LNG_MESSAGETEXT), Text);
 
                MaxLine = Line;
                if ((Line = Embedded->MoreQuestion (Line)) == 1) {
                   MaxLine++;
-                  while (MaxLine > 6)
+                  while (MaxLine > InitialLine)
                      Embedded->BufferedPrintfAt (MaxLine--, 1, "\026\007");
-                  Line = 6;
+                  Line = InitialLine;
                }
             }
          } while ((Text = (CHAR *)Msg->Text.Next ()) != NULL && Embedded->AbortSession () == FALSE && Line != 0);
 
+      if (User->FullReader == FALSE || (Embedded->Ansi == FALSE && Embedded->Avatar == FALSE)) {
+         if (Msg->Original != 0L && Msg->Reply == 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** This is a reply to #%lu.\n", Msg->UidToMsgn (Msg->Original));
+         else if (Msg->Original == 0L && Msg->Reply != 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** See also #%lu.\n", Msg->UidToMsgn (Msg->Reply));
+         else if (Msg->Original != 0L && Msg->Reply != 0L)
+            Embedded->BufferedPrintf ("\n\026\001\017*** This is a reply to #%lu.  *** See also #%lu.\n", Msg->UidToMsgn (Msg->Original), Msg->UidToMsgn (Msg->Reply));
+         Line += 2;
+      }
+
       Embedded->UnbufferBytes ();
+
+      if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+         Msg->Received = TRUE;
+         Msg->WriteHeader (Msg->Current);
+      }
+
+      if (Line > InitialLine) {
+         MaxLine = Line;
+         Embedded->MoreQuestion (99);
+         MaxLine++;
+         while (MaxLine > InitialLine)
+            Embedded->BufferedPrintfAt (MaxLine--, 1, "\026\007");
+      }
+   }
+}
+
+VOID TEMail::Write (VOID)
+{
+   class TMailEditor *Editor;
+
+   if ((Editor = new TMailEditor) != NULL) {
+      Editor->Cfg = Cfg;
+      Editor->Embedded = Embedded;
+      Editor->Log = Log;
+      Editor->Language = Language;
+      Editor->Width = User->ScreenWidth;
+      Editor->Height = User->ScreenHeight;
+      strcpy (Editor->UserName, User->Name);
+      if (Cfg->MailAddress.First () == TRUE)
+         strcpy (Editor->Address, Cfg->MailAddress.String);
+      if (User->FullEd == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE))
+         Editor->UseFullScreen = TRUE;
+      if (Editor->Write () == TRUE)
+         Editor->Menu ();
+      delete Editor;
+   }
+}
+
+VOID TEMail::Reply (VOID)
+{
+   class TMailEditor *Editor;
+
+   if ((Editor = new TMailEditor) != NULL) {
+      Editor->Cfg = Cfg;
+      Editor->Embedded = Embedded;
+      Editor->Log = Log;
+      Editor->Language = Language;
+      Editor->Width = User->ScreenWidth;
+      Editor->Height = User->ScreenHeight;
+      strcpy (Editor->UserName, User->Name);
+      Editor->Msg = Msg;
+      if (Cfg->MailAddress.First () == TRUE)
+         strcpy (Editor->Address, Cfg->MailAddress.String);
+      if (User->FullEd == TRUE && (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE))
+         Editor->UseFullScreen = TRUE;
+      if (Editor->Reply () == TRUE)
+         Editor->Menu ();
+      delete Editor;
    }
 }
 
 VOID TEMail::ReadMessages (VOID)
 {
    USHORT Found;
-   CHAR Cmd, Which, Start, End, DoRead, Temp[40];
-   ULONG First, Last, Number;
-   class TMailEditor *Editor;
+   CHAR Cmd, DoRead, Temp[40];
+   ULONG Number;
 
    Msg = NULL;
    if (Storage == ST_JAM)
@@ -558,244 +762,100 @@ VOID TEMail::ReadMessages (VOID)
       Log->Write ("!Invalid e-mail storage type");
 
    if (Msg != NULL) {
-      First = Msg->Lowest ();
-      Last = Msg->Highest ();
-
-      if (Msg->Number () != 0L) {
-         do {
-            Embedded->Printf ("\n\026\001\013Read messages (F)rom you or (T)o you (? for help)? \026\001\007");
-            Embedded->Input (Temp, 10, INP_HOTKEY|INP_NUMERIC);
-            if ((Which = (CHAR)toupper (Temp[0])) == '\0')
-               Which = Language->NextMessage;
-         } while (Which != 'T' && Which != 'F' && Which != '\0' && Embedded->AbortSession () == FALSE);
-
-         if ((Which == 'T' || Which == 'F') && Embedded->AbortSession () == FALSE) {
-            Found = FALSE;
-            Number = Msg->Lowest ();
-            do {
-               if (Msg->ReadHeader (Number) == TRUE) {
-                  if (Which == 'T' && (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName))) {
-                     Found = TRUE;
-                     break;
-                  }
-                  else if (Which == 'F' && (!stricmp (Msg->From, User->Name) || !stricmp (Msg->From, User->RealName))) {
-                     Found = TRUE;
-                     break;
-                  }
-               }
-            } while (Msg->Next (Number) == TRUE);
-
-            if (Found == TRUE) {
-               Number = 0L;
-
-               do {
-                  Embedded->Printf (Language->StartWithMessage);
-                  Embedded->Printf (Language->NewMessages);
-                  Embedded->Printf (": ");
-                  Embedded->Input (Temp, 10, INP_HOTKEY|INP_NUMERIC);
-                  if ((Start = (CHAR)toupper (Temp[0])) == Language->Help)
-                     Embedded->DisplayFile ("MAILSTRT");
-               } while (Embedded->AbortSession () == FALSE && Start != 'F' && Start != 'L' && Start != '\0' && !isdigit (Start));
-
-               if (isdigit (Start)) {
-                  Start = 'F';
-                  Number = atol (Temp);
-               }
-               else if (Start == 'F' || Start == '\0')
-                  Number = First - 1L;
-               else if (Start == 'L')
-                  Number = Last + 1L;
-
-               do {
-                  End = TRUE;
-                  DoRead = FALSE;
-                  if (Start == 'F' || Start == '\0') {
-                     if (Msg->Next (Number) == TRUE) {
-                        Msg->ReadHeader (Number);
-                        if (Which == 'T') {
-                           if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To)) {
-                              if (Start == 'F' || (Start == '\0' && Msg->Received == FALSE))
-                                 DoRead = TRUE;
-                           }
-                        }
-                        else {
-                           if (!stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From))
-                              DoRead = TRUE;
-                        }
-                        End = FALSE;
-                     }
-                  }
-                  else {
-                     if (Msg->Previous (Number) == TRUE) {
-                        Msg->ReadHeader (Number);
-                        if (Which == 'T') {
-                           if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To))
-                              DoRead = TRUE;
-                        }
-                        else {
-                           if (!stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From))
-                              DoRead = TRUE;
-                        }
-                        End = FALSE;
-                     }
-                  }
-               } while (DoRead == FALSE && End == FALSE);
-
-               Cmd = '\0';
-               if (End == TRUE) {
-                  Embedded->Printf (Language->EndOfMessages);
-                  Cmd = Language->ExitReadMessage;
-               }
-
-               while (Embedded->AbortSession () == FALSE && Cmd != Language->ExitReadMessage) {
-                  if (End == FALSE && DoRead == TRUE) {
-                     if (Msg->Read (Number) == TRUE) {
-                        DisplayCurrent ();
-                        if (Msg->Received == FALSE) {
-                           Msg->Received = TRUE;
-                           Msg->WriteHeader (Number);
-                        }
-                     }
-                     DoRead = FALSE;
-                  }
-
-                  if (End == FALSE)
-                     Embedded->Printf (Language->ReadMenu);
-                  else
-                     Embedded->Printf (Language->EndReadMenu);
-                  Embedded->Input (Temp, 10, INP_HOTKEY|INP_NUMERIC);
-                  if ((Cmd = (CHAR)toupper (Temp[0])) == '\0')
-                     Cmd = Language->NextMessage;
-
-                  if (isdigit (Cmd)) {
-                     if (Msg->ReadHeader (atol (Temp)) == TRUE) {
-                        Number = atol (Temp);
-                        if (Which == 'T') {
-                           if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To))
-                              DoRead = TRUE;
-                        }
-                        else {
-                           if (!stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From))
-                              DoRead = TRUE;
-                        }
-                        End = FALSE;
-                     }
-                  }
-                  else if (Cmd == Language->NextMessage) {
-                     if (End == FALSE) {
-                        do {
-                           End = TRUE;
-                           DoRead = FALSE;
-                           if (Start == 'F' || Start == '\0') {
-                              if (Msg->Next (Number) == TRUE) {
-                                 Msg->ReadHeader (Number);
-                                 if (Which == 'T') {
-                                    if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To)) {
-                                       if (Start == 'F' || (Start == '\0' && Msg->Received == FALSE))
-                                          DoRead = TRUE;
-                                    }
-                                 }
-                                 else {
-                                    if (!stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From))
-                                       DoRead = TRUE;
-                                 }
-                                 End = FALSE;
-                              }
-                           }
-                           else {
-                              if (Msg->Previous (Number) == TRUE) {
-                                 Msg->ReadHeader (Number);
-                                 if (Which == 'T') {
-                                    if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To))
-                                       DoRead = TRUE;
-                                 }
-                                 else {
-                                    if (!stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From))
-                                       DoRead = TRUE;
-                                 }
-                                 End = FALSE;
-                              }
-                           }
-                        } while (DoRead == FALSE && End == FALSE);
-                     }
-
-                     if (End == TRUE)
-                        Embedded->Printf (Language->EndOfMessages);
-                  }
-                  else if (Cmd == Language->RereadMessage && End == TRUE) {
-                     DoRead = TRUE;
-                     End = FALSE;
-                  }
-                  else if (Cmd == Language->PreviousMessage) {
-                     do {
-                        End = TRUE;
-                        DoRead = FALSE;
-                        if (Start == 'F' || Start == '\0') {
-                           if (Msg->Next (Number) == TRUE) {
-                              Msg->ReadHeader (Number);
-                              if (Which == 'T') {
-                                 if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To))
-                                    DoRead = TRUE;
-                              }
-                              else {
-                                 if (!stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From))
-                                    DoRead = TRUE;
-                              }
-                              End = FALSE;
-                           }
-                        }
-                        else {
-                           if (Msg->Previous (Number) == TRUE) {
-                              Msg->ReadHeader (Number);
-                              if (Which == 'T') {
-                                 if (!stricmp (User->Name, Msg->To) || !stricmp (User->RealName, Msg->To))
-                                    DoRead = TRUE;
-                              }
-                              else {
-                                 if (!stricmp (User->Name, Msg->From) || !stricmp (User->RealName, Msg->From))
-                                    DoRead = TRUE;
-                              }
-                              End = FALSE;
-                           }
-                        }
-                     } while (DoRead == FALSE && End == FALSE);
-
-                     if (End == TRUE)
-                        Embedded->Printf (Language->EndOfMessages);
-                  }
-                  else if ((Cmd == Language->ReplyMessage || Cmd == Language->EMailReplyMessage) && End == FALSE) {
-                     if ((Editor = new TMailEditor) != NULL) {
-                        Editor->Cfg = Cfg;
-                        Editor->Embedded = Embedded;
-                        Editor->Log = Log;
-                        Editor->Msg = Msg;
-                        Editor->Lang = Language;
-                        Editor->ScreenWidth = User->ScreenWidth;
-                        strcpy (Editor->UserName, User->Name);
-                        if (Cfg->MailAddress.First () == TRUE)
-                           strcpy (Editor->Address, Cfg->MailAddress.String);
-                        if (Cmd == Language->ReplyMessage) {
-                           if (Editor->Reply () == TRUE)
-                              Editor->Menu ();
-                        }
-                        else {
-                           if (Editor->Write () == TRUE)
-                              Editor->Menu ();
-                        }
-                        Msg->Read (Number);
-                     }
-                     Last = Msg->Highest ();
-                  }
-               }
-            }
-            else {
-               if (Which == 'T')
-                  Embedded->Printf ("\n\026\001\015Sorry, there are no messages in your mailbox.\n\006\007\006\007");
-               else
-                  Embedded->Printf ("\n\026\001\015Sorry, there are no messages from you in the database.\n\006\007\006\007");
+      Found = FALSE;
+      Number = Msg->Lowest ();
+      do {
+         if (Msg->ReadHeader (Number) == TRUE) {
+            if (Msg->Received == FALSE && (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName))) {
+               Found = TRUE;
+               break;
             }
          }
+         if (Msg->Next (Number) == FALSE)
+            break;
+      } while (Found == FALSE);
+
+      if (Found == TRUE) {
+         DoRead = TRUE;
+         while (Embedded->AbortSession () == FALSE) {
+            if (DoRead == TRUE) {
+               if (Msg->Read (Number) == TRUE) {
+                  DisplayCurrent ();
+                  if (Msg->Received == FALSE) {
+                     Msg->Received = TRUE;
+                     Msg->WriteHeader (Number);
+                  }
+               }
+               DoRead = FALSE;
+            }
+            Embedded->Printf ("\n\026\001\017Next Msg [Y)es, N)o, A)gain, R)eply, K)ill, U)nreceive, !)Kludges]: ");
+            Embedded->Input (Temp, 10, INP_HOTKEY|INP_NUMERIC);
+            Cmd = (CHAR)toupper (Temp[0]);
+
+            if (Cmd == 'Y' || Cmd == '\0') {
+               Found = FALSE;
+               if (Msg->Next (Number) == TRUE)
+                  do {
+                     if (Msg->ReadHeader (Number) == TRUE) {
+                        if (Msg->Received == FALSE && (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName))) {
+                           Found = TRUE;
+                           DoRead = TRUE;
+                           break;
+                        }
+                     }
+                     if (Msg->Next (Number) == FALSE)
+                        break;
+                  } while (Found == FALSE);
+
+               if (Found == FALSE) {
+                  Embedded->Printf ("\n\026\001\014No more mail waiting.\n");
+                  break;
+               }
+            }
+            else if (Cmd == 'A')
+               DoRead = TRUE;
+            else if (Cmd == 'U') {
+               if (Msg->Received == TRUE) {
+                  Msg->Received = FALSE;
+                  Msg->WriteHeader (Number);
+                  Embedded->Printf ("\n\026\001\017Done!\n");
+               }
+            }
+            else if (Cmd == 'R')
+               Reply ();
+            else if (Cmd == '!') {
+               ShowKludges = (ShowKludges == TRUE) ? FALSE : TRUE;
+               DoRead = TRUE;
+            }
+            else if (Cmd == 'K') {
+               Embedded->Printf ("\n\026\001\014Message #%lu deleted.\n", Msg->UidToMsgn (Number));
+               Msg->Delete (Number);
+
+               Found = FALSE;
+               if (Msg->Next (Number) == TRUE)
+                  do {
+                     if (Msg->ReadHeader (Number) == TRUE) {
+                        if (Msg->Received == FALSE && (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName))) {
+                           Found = TRUE;
+                           DoRead = TRUE;
+                           break;
+                        }
+                     }
+                     if (Msg->Next (Number) == FALSE)
+                        break;
+                  } while (Found == FALSE);
+
+               if (Found == FALSE) {
+                  Embedded->Printf ("\n\026\001\014No more mail waiting.\n");
+                  break;
+               }
+            }
+            else if (Cmd == 'N')
+               break;
+         }
       }
+      else
+         Embedded->Printf ("\n\026\001\014Sorry, you have no mail waiting.\n");
 
       delete Msg;
       Msg = NULL;
@@ -807,8 +867,8 @@ VOID TEMail::StartMessageQuestion (ULONG ulFirst, ULONG ulLast, ULONG &ulMsg, US
    CHAR Cmd, Temp[20];
 
    do {
-      Embedded->Printf (Language->StartWithMessage);
-      Embedded->Printf (Language->NewMessages);
+      Embedded->Printf (Language->Text(LNG_STARTWITHMESSAGE));
+      Embedded->Printf (Language->Text(LNG_NEWMESSAGES));
       Embedded->Printf (": ");
       Embedded->Input (Temp, (USHORT)(sizeof (Temp) - 1), INP_HOTKEY|INP_NUMERIC);
       Cmd = (CHAR)toupper (Temp[0]);

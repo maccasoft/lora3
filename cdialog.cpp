@@ -10,7 +10,10 @@
 #include "_ldefs.h"
 #include "cpc.h"
 
-#if defined(__NT__)
+#if defined(__OS2__)
+extern HAB hab;
+HWND hwndHelpInstance = NULL;
+#elif defined(__NT__)
 extern HINSTANCE hinst;
 #endif
 
@@ -98,24 +101,51 @@ BOOL CALLBACK CDialogDlgProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
          LPNMHDR pnmh = (LPNMHDR)lParam;
          NM_LISTVIEW *pnmv = (NM_LISTVIEW *)lParam;
 
-         if (pnmh->code == LVN_ITEMCHANGED) {
+         if (pnmh->code == NM_DBLCLK)
+            dlgClass->OnOK ();
+         else if (pnmh->code == LVN_ITEMCHANGED) {
             if (!(pnmv->uNewState & LVIS_SELECTED) && (pnmv->uOldState & LVIS_SELECTED))
                dlgClass->lv_Selected = -1;
             if (pnmv->uNewState & LVIS_SELECTED)
                dlgClass->lv_Selected = (SHORT)pnmv->iItem;
          }
-
-         for (i = 0; msgMap[i].pfn != NULL; i++) {
-            if (msgMap[i].nMessage == msg && msgMap[i].nCode == pnmh->code) {
-               if (msgMap[i].nID >= pnmh->idFrom && msgMap[i].nLastID <= pnmh->idFrom) {
-                  (dlgClass->*msgMap[i].pfn) ();
-                  break;
+         else {
+            for (i = 0; msgMap[i].pfn != NULL; i++) {
+               if (msgMap[i].nMessage == msg && msgMap[i].nCode == pnmh->code) {
+                  if (msgMap[i].nID >= pnmh->idFrom && msgMap[i].nLastID <= pnmh->idFrom) {
+                     (dlgClass->*msgMap[i].pfn) ();
+                     break;
+                  }
                }
             }
          }
          return (0);
       }
 #endif
+
+#if defined(__OS2__)
+      case WM_CHAR:
+         if (SHORT1FROMMP (mp1) & KC_VIRTUALKEY && SHORT2FROMMP (mp2) == VK_F1)
+            dlgClass->OnHelp ();
+         break;
+#endif
+
+      case WM_HELP:
+         dlgClass->OnHelp ();
+         break;
+/*
+#if defined(__OS2__)
+      case WM_HELP: {
+         USHORT id;
+         HWND hwndHelpInstance;
+
+         id = WinQueryWindowUShort (hwnd, QWS_ID);
+         hwndHelpInstance = WinQueryHelpInstance (dlgClass->owner_hWnd);
+         WinSendMsg (hwndHelpInstance, HM_DISPLAY_HELP, MPFROM2SHORT (id, 0), MPFROMSHORT (HM_RESOURCEID));
+         break;
+      }
+#endif
+*/
 
       case WM_COMMAND:
 #if defined(__OS2__)
@@ -128,6 +158,9 @@ BOOL CALLBACK CDialogDlgProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                break;
             case IDCANCEL:
                dlgClass->OnCancel ();
+               break;
+            case IDHELP:
+               dlgClass->OnHelp ();
                break;
             default:
                for (i = 0; msgMap[i].pfn != NULL; i++) {
@@ -176,10 +209,20 @@ CDialog::CDialog (PSZ dialogTemplate, HWND p_hWnd)
 {
    strcpy (dlgTemplate, dialogTemplate);
    owner_hWnd = p_hWnd;
+   help_hWnd = NULL;
+#if defined(__OS2__)
+   WinSetPointer (HWND_DESKTOP, WinQuerySysPointer (HWND_DESKTOP, SPTR_WAIT, FALSE));
+#elif defined(__NT__)
+#endif
 }
 
 CDialog::~CDialog (void)
 {
+#if defined(__OS2__)
+   if (help_hWnd != NULL)
+      WinDestroyHelpInstance (help_hWnd);
+#elif defined(__NT__)
+#endif
 }
 
 VOID CDialog::Center (VOID)
@@ -212,6 +255,7 @@ LONG CDialog::DoModal (VOID)
    cDialog.Dlg = this;
 
 #if defined(__OS2__)
+   WinSetPointer (HWND_DESKTOP, WinQuerySysPointer (HWND_DESKTOP, SPTR_ARROW, FALSE));
    ulResult = WinDlgBox (HWND_DESKTOP, owner_hWnd, CDialogDlgProc, NULLHANDLE, atoi (dlgTemplate), &cDialog);
 #elif defined(__NT__)
    ulResult = DialogBoxParam (hinst, MAKEINTRESOURCE (atoi (dlgTemplate)), owner_hWnd, (DLGPROC)CDialogDlgProc, (LPARAM)&cDialog);
@@ -275,6 +319,46 @@ VOID CDialog::SetFocus (int id)
    WinSetFocus (HWND_DESKTOP, WinWindowFromID (m_hWnd, id));
 #elif defined(__NT__)
    ::SetFocus (GetDlgItem (m_hWnd, id));
+#endif
+}
+
+VOID CDialog::WinHelp (PSZ help_file, int topic_id, PSZ title)
+{
+   CHAR helpFile[128];
+
+   getcwd (helpFile, sizeof (helpFile) - 1);
+   if (helpFile[strlen (helpFile) - 1] != '\\')
+      strcat (helpFile, "\\");
+   strcat (helpFile, help_file);
+
+#if defined(__OS2__)
+   CHAR *p;
+   HELPINIT hini;
+
+   if ((p = strchr (helpFile, '>')) != NULL)
+      *p = '\0';
+
+   if (help_hWnd == NULL) {
+      hini.cb = sizeof (HELPINIT);
+      hini.ulReturnCode = 0L;
+      hini.pszTutorialName = NULL;
+      hini.phtHelpTable = (PHELPTABLE)MAKELONG (1, 0xFFFF);
+      hini.hmodHelpTableModule = NULL;
+      hini.hmodAccelActionBarModule = NULL;
+      hini.idAccelTable = 0;
+      hini.idActionBar = 0;
+      hini.pszHelpWindowTitle = title;
+      hini.fShowPanelId = CMIC_HIDE_PANEL_ID;
+      hini.pszHelpLibraryName = helpFile;
+      if ((help_hWnd = WinCreateHelpInstance (hab, &hini)) != NULL)
+         WinAssociateHelpInstance (help_hWnd, owner_hWnd);
+   }
+   if (help_hWnd != NULL)
+      WinSendMsg (help_hWnd, HM_DISPLAY_HELP, MPFROM2SHORT (topic_id, 0), MPFROMSHORT (HM_RESOURCEID));
+
+#elif defined(__NT__)
+   title = title;
+   ::WinHelp (owner_hWnd, helpFile, HELP_CONTEXT, topic_id);
 #endif
 }
 
@@ -342,6 +426,14 @@ VOID CDialog::LM_AddString (int id, PSZ value)
    WinSendDlgItemMsg (m_hWnd, id, LM_INSERTITEM, MPFROMSHORT (LIT_END), MPFROMP (value));
 #elif defined(__NT__)
    SendDlgItemMessage (m_hWnd, id, LB_ADDSTRING, 0, (LPARAM)value);
+#endif
+}
+
+VOID CDialog::LM_SetItemText (int id, USHORT value, PSZ text)
+{
+#if defined(__OS2__)
+   WinSendDlgItemMsg (m_hWnd, id, LM_SETITEMTEXT, MPFROMSHORT (value), MPFROMP (text));
+#elif defined(__NT__)
 #endif
 }
 
@@ -507,6 +599,16 @@ VOID CDialog::LVM_DeleteItem (int id, int item)
    }
 #elif defined(__NT__)
    ListView_DeleteItem (GetDlgItem (m_hWnd, id), item);
+#endif
+}
+
+VOID CDialog::LVM_DeleteAll (int id)
+{
+#if defined(__OS2__)
+   WinSendDlgItemMsg (m_hWnd, id, CM_REMOVERECORD, NULL, MPFROM2SHORT (0, CMA_FREE|CMA_INVALIDATE));
+   lv_Selected = -1;
+#elif defined(__NT__)
+   ListView_DeleteAllItems (GetDlgItem (m_hWnd, id));
 #endif
 }
 
@@ -687,9 +789,9 @@ VOID CDialog::LVM_InvalidateView (int id)
 #endif
 }
 
-USHORT CDialog::SPBM_QueryValue (int id)
+LONG CDialog::SPBM_QueryValue (int id)
 {
-   ULONG Value;
+   LONG Value;
 
 #if defined(__OS2__)
    WinSendDlgItemMsg (m_hWnd, id, SPBM_QUERYVALUE, MPFROMP (&Value), MPFROM2SHORT (0, SPBQ_DONOTUPDATE));
@@ -700,25 +802,25 @@ USHORT CDialog::SPBM_QueryValue (int id)
    Value = atol (Temp);
 #endif
 
-   return ((USHORT)Value);
+   return (Value);
 }
 
-VOID CDialog::SPBM_SetCurrentValue (int id, USHORT value)
+VOID CDialog::SPBM_SetCurrentValue (int id, LONG value)
 {
 #if defined(__OS2__)
-   WinSendDlgItemMsg (m_hWnd, id, SPBM_SETCURRENTVALUE, MPFROMSHORT (value), 0L);
+   WinSendDlgItemMsg (m_hWnd, id, SPBM_SETCURRENTVALUE, MPFROMLONG (value), 0L);
 #elif defined(__NT__)
    CHAR Temp[32];
 
-   sprintf (Temp, "%u", value);
+   sprintf (Temp, "%lu", value);
    SetDlgItemText (id, Temp);
 #endif
 }
 
-VOID CDialog::SPBM_SetLimits (int id, USHORT highest, USHORT lowest)
+VOID CDialog::SPBM_SetLimits (int id, LONG highest, LONG lowest)
 {
 #if defined(__OS2__)
-   WinSendDlgItemMsg (m_hWnd, id, SPBM_SETLIMITS, MPFROMSHORT (highest), MPFROMSHORT (lowest));
+   WinSendDlgItemMsg (m_hWnd, id, SPBM_SETLIMITS, MPFROMLONG (highest), MPFROMLONG (lowest));
 #elif defined(__NT__)
    id = id;
    highest = highest;
@@ -733,6 +835,10 @@ VOID CDialog::SPBM_SetLimits (int id, USHORT highest, USHORT lowest)
 VOID CDialog::OnCancel (VOID)
 {
    EndDialog (FALSE);
+}
+
+VOID CDialog::OnHelp (VOID)
+{
 }
 
 USHORT CDialog::OnInitDialog (VOID)

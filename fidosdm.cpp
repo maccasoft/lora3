@@ -17,6 +17,10 @@ PSZ fidoMonths[] = {
    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
+PSZ fidoDays[] = {
+   "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+};
+
 typedef struct {
    ULONG Number;
    CHAR  FileName[16];
@@ -75,6 +79,9 @@ USHORT FIDOSDM::Add (class TMsgBase *MsgBase)
    Arrived.Minute = MsgBase->Arrived.Minute;
    Arrived.Second = MsgBase->Arrived.Second;
 
+   Reply = MsgBase->Reply;
+   Original = MsgBase->Original;
+
    Crash = MsgBase->Crash;
    Direct = MsgBase->Direct;
    FileAttach = MsgBase->FileAttach;
@@ -99,9 +106,15 @@ USHORT FIDOSDM::Add (class TCollection &MsgText)
    CHAR Temp[128];
    MSGINDEX msgIndex;
 
-   memset (&msgIndex, 0, sizeof (MSGINDEX));
-
-   msgIndex.Number = Highest () + 1L;
+   if ((msgIndex.Number = Highest () + 1L) == 1L) {
+      if ((pszText = (PSZ)MsgText.First ()) != NULL)
+         do {
+            if (!strncmp (pszText, "\001PATH", 5) || !strncmp (pszText, "SEEN-BY:", 8)) {
+               msgIndex.Number++;
+               break;
+            }
+         } while ((pszText = (PSZ)MsgText.Next ()) != NULL);
+   }
    sprintf (msgIndex.FileName, "%lu.msg", msgIndex.Number);
 
    memset (&msgHdr, 0, sizeof (msgHdr));
@@ -144,6 +157,9 @@ USHORT FIDOSDM::Add (class TCollection &MsgText)
       msgHdr.Attrib |= MSGREAD;
    if (Sent == TRUE)
       msgHdr.Attrib |= MSGSENT;
+
+   msgHdr.Reply = (USHORT)Original;
+   msgHdr.Up = (USHORT)Reply;
 
    strcpy (msgHdr.From, From);
    strcpy (msgHdr.To, To);
@@ -263,6 +279,7 @@ VOID FIDOSDM::New (VOID)
    Written.Month = 1;
    memset (&Arrived, 0, sizeof (Arrived));
    Arrived.Month = 1;
+   Original = Reply = 0L;
    Text.Clear ();
 }
 
@@ -430,7 +447,18 @@ USHORT FIDOSDM::ReadHeader (ULONG ulMsg)
 
                sprintf (FromAddress, "%d/%d", msgHdr.OrigNet, msgHdr.OrigNode);
                sprintf (ToAddress, "%d/%d", msgHdr.DestNet, msgHdr.DestNode);
-               sscanf (msgHdr.Date, "%2d %3s %2d  %2d:%2d:%02d", &dd, mm, &yy, &hr, &mn, &sc);
+
+               for (i = 0; i < 7; i++) {
+                  if (!strncmp (fidoDays[i], msgHdr.Date, 3))
+                     break;
+               }
+
+               if (i < 7) {
+                  sscanf (&msgHdr.Date[4], "%2d %3s %2d %2d:%2d", &dd, mm, &yy, &hr, &mn);
+                  sc = 0;
+               }
+               else
+                  sscanf (msgHdr.Date, "%2d %3s %2d  %2d:%2d:%02d", &dd, mm, &yy, &hr, &mn, &sc);
 
                Written.Day = (UCHAR)dd;
                for (i = 0; i < 12; i++) {
@@ -471,6 +499,9 @@ USHORT FIDOSDM::ReadHeader (ULONG ulMsg)
                ReceiptRequest = (UCHAR)((msgHdr.Attrib & MSGRRQ) ? TRUE : FALSE);
                Received = (UCHAR)((msgHdr.Attrib & MSGREAD) ? TRUE : FALSE);
                Sent = (UCHAR)((msgHdr.Attrib & MSGSENT) ? TRUE : FALSE);
+
+               Original = msgHdr.Reply;
+               Reply = msgHdr.Up;
                break;
             }
          }
@@ -486,73 +517,163 @@ USHORT FIDOSDM::Read (ULONG ulMsg, SHORT nWidth)
 
 USHORT FIDOSDM::Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth)
 {
+   int fz, fn, fo, tz, tn, to, dd, yy, hr, mn, sc;
    USHORT RetVal = FALSE, SkipNext;
+   USHORT ToPoint, ToZone, FromPoint, FromZone;
+   CHAR mm[4];
    SHORT i, nReaded, nCol;
+   MSGINDEX *msgIndex;
+   struct dosdate_t date;
+   struct dostime_t time;
 
+   New ();
    MsgText.Clear ();
+   ToPoint = ToZone = FromPoint = FromZone = 0;
+   fp = NULL;
 
-   if ((RetVal = ReadHeader (ulMsg)) == TRUE) {
+   if ((msgIndex = (MSGINDEX *)Index.First ()) != NULL)
+      do {
+         if (msgIndex->Number == ulMsg) {
+            sprintf (LastFile, "%s%s", BasePath, msgIndex->FileName);
+            if ((fp = _fsopen (LastFile, "rb", SH_DENYNO)) != NULL) {
+               RetVal = TRUE;
+               Current = ulMsg;
+               break;
+            }
+         }
+      } while ((msgIndex = (MSGINDEX *)Index.Next ()) != NULL);
+
+   if (RetVal == TRUE && fp != NULL) {
+      memset (&msgHdr, 0, sizeof (msgHdr));
+      fread (&msgHdr, sizeof (msgHdr), 1, fp);
+
+      for (i = 0; i < 7; i++) {
+         if (!strncmp (fidoDays[i], msgHdr.Date, 3))
+            break;
+      }
+
+      if (i < 7) {
+         sscanf (&msgHdr.Date[4], "%2d %3s %2d %2d:%2d", &dd, mm, &yy, &hr, &mn);
+         sc = 0;
+      }
+      else
+         sscanf (msgHdr.Date, "%2d %3s %2d  %2d:%2d:%02d", &dd, mm, &yy, &hr, &mn, &sc);
+
+      Written.Day = (UCHAR)dd;
+      for (i = 0; i < 12; i++) {
+         if (!stricmp (fidoMonths[i], mm)) {
+            Written.Month = (UCHAR)(i + 1);
+            break;
+         }
+      }
+      if (Written.Month < 1 || Written.Month > 12)
+         Written.Month = 1;
+      if ((Written.Year = (USHORT)(yy + 1900)) < 1990)
+         Written.Year += 100;
+      Written.Hour = (UCHAR)hr;
+      Written.Minute = (UCHAR)mn;
+      Written.Second = (UCHAR)sc;
+
+      _dos_getdate (&date);
+      _dos_gettime (&time);
+
+      Arrived.Day = date.day;
+      Arrived.Month = date.month;
+      Arrived.Year = (USHORT)date.year;
+      Arrived.Hour = time.hour;
+      Arrived.Minute = time.minute;
+      Arrived.Second = time.second;
+
+      strcpy (From, msgHdr.From);
+      strcpy (To, msgHdr.To);
+      strcpy (Subject, msgHdr.Subject);
+
+      Crash = (UCHAR)((msgHdr.Attrib & MSGCRASH) ? TRUE : FALSE);
+      FileAttach = (UCHAR)((msgHdr.Attrib & MSGFILE) ? TRUE : FALSE);
+      FileRequest = (UCHAR)((msgHdr.Attrib & MSGFRQ) ? TRUE : FALSE);
+      Hold = (UCHAR)((msgHdr.Attrib & MSGHOLD) ? TRUE : FALSE);
+      KillSent = (UCHAR)((msgHdr.Attrib & MSGKILL) ? TRUE : FALSE);
+      Local = (UCHAR)((msgHdr.Attrib & MSGLOCAL) ? TRUE : FALSE);
+      Private = (UCHAR)((msgHdr.Attrib & MSGPRIVATE) ? TRUE : FALSE);
+      ReceiptRequest = (UCHAR)((msgHdr.Attrib & MSGRRQ) ? TRUE : FALSE);
+      Received = (UCHAR)((msgHdr.Attrib & MSGREAD) ? TRUE : FALSE);
+      Sent = (UCHAR)((msgHdr.Attrib & MSGSENT) ? TRUE : FALSE);
+
+      Original = msgHdr.Reply;
+      Reply = msgHdr.Up;
+
       pLine = szLine;
       nCol = 0;
       Current = ulMsg;
       SkipNext = FALSE;
 
-      if ((fp = _fsopen (LastFile, "rb", SH_DENYNO)) != NULL) {
-         fseek (fp, sizeof (FIDOMSG), SEEK_SET);
-         do {
-            nReaded = (SHORT)fread (szBuff, 1, sizeof (szBuff), fp);
+      do {
+         nReaded = (SHORT)fread (szBuff, 1, sizeof (szBuff), fp);
 
-            for (i = 0, pBuff = szBuff; i < nReaded && *pBuff != '\0'; i++, pBuff++) {
-               if (*pBuff == '\r') {
-                  *pLine = '\0';
-                  if (!strncmp (szLine, "\001FMPT ", 6))
-                     sprintf (FromAddress, "%d/%d.%d", msgHdr.OrigNet, msgHdr.OrigNode, atoi (&szLine[6]));
-                  else if (!strncmp (szLine, "\001TOPT ", 6))
-                     sprintf (ToAddress, "%d/%d.%d", msgHdr.DestNet, msgHdr.DestNode, atoi (&szLine[6]));
-                  if (pLine > szLine && SkipNext == TRUE) {
-                     pLine--;
-                     while (pLine > szLine && *pLine == ' ')
-                        *pLine-- = '\0';
-                     if (pLine > szLine)
-                        MsgText.Add (szLine);
-                  }
-                  else if (SkipNext == FALSE)
-                     MsgText.Add (szLine);
-                  SkipNext = FALSE;
-                  pLine = szLine;
-                  nCol = 0;
+         for (i = 0, pBuff = szBuff; i < nReaded && *pBuff != '\0'; i++, pBuff++) {
+            if (*pBuff == '\r') {
+               *pLine = '\0';
+               if (!strncmp (szLine, "\001FMPT ", 6))
+                  FromPoint = (USHORT)atoi (&szLine[6]);
+               else if (!strncmp (szLine, "\001TOPT ", 6))
+                  ToPoint = (USHORT)atoi (&szLine[6]);
+               else if (!strncmp (szLine, "\001INTL ", 6)) {
+                  sscanf (&szLine[6], "%d:%d/%d %d:%d/%d", &tz, &tn, &to, &fz, &fn, &fo);
+                  if (tn == msgHdr.DestNet && to == msgHdr.DestNode)
+                     ToZone = (USHORT)tz;
+                  if (fn == msgHdr.OrigNet && fo == msgHdr.OrigNode)
+                     FromZone = (USHORT)fz;
                }
-               else if (*pBuff != '\n') {
-                  *pLine++ = *pBuff;
-                  nCol++;
-                  if (nCol >= nWidth) {
-                     *pLine = '\0';
-                     if (strchr (szLine, ' ') != NULL) {
-                        while (nCol > 1 && *pLine != ' ') {
-                           nCol--;
-                           pLine--;
-                        }
-                        if (nCol > 0) {
-                           while (*pLine == ' ')
-                              pLine++;
-                           strcpy (szWrp, pLine);
-                        }
-                        *pLine = '\0';
-                     }
-                     else
-                        szWrp[0] = '\0';
+               else if (!strncmp (szLine, "\001FLAGS ", 7)) {
+                  if (strstr (szLine, "DIR"))
+                     Direct = TRUE;
+               }
+               if (pLine > szLine && SkipNext == TRUE) {
+                  pLine--;
+                  while (pLine > szLine && *pLine == ' ')
+                     *pLine-- = '\0';
+                  if (pLine > szLine)
                      MsgText.Add (szLine);
-                     strcpy (szLine, szWrp);
-                     pLine = strchr (szLine, '\0');
-                     nCol = (SHORT)strlen (szLine);
-                     SkipNext = TRUE;
+               }
+               else if (SkipNext == FALSE)
+                  MsgText.Add (szLine);
+               SkipNext = FALSE;
+               pLine = szLine;
+               nCol = 0;
+            }
+            else if (*pBuff != '\n') {
+               *pLine++ = *pBuff;
+               nCol++;
+               if (nCol >= nWidth) {
+                  *pLine = '\0';
+                  if (strchr (szLine, ' ') != NULL) {
+                     while (nCol > 1 && *pLine != ' ') {
+                        nCol--;
+                        pLine--;
+                     }
+                     if (nCol > 0) {
+                        while (*pLine == ' ')
+                           pLine++;
+                        strcpy (szWrp, pLine);
+                     }
+                     *pLine = '\0';
                   }
+                  else
+                     szWrp[0] = '\0';
+                  MsgText.Add (szLine);
+                  strcpy (szLine, szWrp);
+                  pLine = strchr (szLine, '\0');
+                  nCol = (SHORT)strlen (szLine);
+                  SkipNext = TRUE;
                }
             }
-         } while (nReaded != 0 && i >= nReaded);
+         }
+      } while (nReaded != 0 && i >= nReaded);
 
-         fclose (fp);
-      }
+      sprintf (FromAddress, "%u:%u/%u.%u", FromZone, msgHdr.OrigNet, msgHdr.OrigNode, FromPoint);
+      sprintf (ToAddress, "%u:%u/%u.%u", ToZone, msgHdr.DestNet, msgHdr.DestNode, ToPoint);
+
+      fclose (fp);
    }
 
    return (RetVal);
@@ -641,6 +762,9 @@ USHORT FIDOSDM::WriteHeader (ULONG ulMsg)
                   msgHdr.Attrib |= MSGREAD;
                if (Sent == TRUE)
                   msgHdr.Attrib |= MSGSENT;
+
+               msgHdr.Reply = (USHORT)Original;
+               msgHdr.Up = (USHORT)Reply;
 
                fseek (fp, 0L, SEEK_SET);
                fwrite (&msgHdr, sizeof (msgHdr), 1, fp);

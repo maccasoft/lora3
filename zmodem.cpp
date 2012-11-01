@@ -60,11 +60,6 @@ SHORT TZModem::TimedRead (LONG hSec)
          do {
             if (Com->BytesReady () == TRUE)
                break;
-#if defined(__OS2__)
-            DosSleep (5L);
-#elif defined(__NT__)
-            Sleep (5L);
-#endif
          } while (!TimeUp (tout) && AbortSession () == FALSE);
       }
       if (Com->BytesReady () == TRUE) {
@@ -94,11 +89,6 @@ SHORT TZModem::TimedRead (LONG hSec)
             RetVal = Com->ReadByte ();
             break;
          }
-#if defined(__OS2__)
-         DosSleep (1L);
-#elif defined(__NT__)
-         Sleep (1L);
-#endif
       } while (!TimeUp (tout) && AbortSession () == FALSE);
    }
    else
@@ -184,12 +174,6 @@ SHORT TZModem::ZReceiveData (char *buf, short length)
    char *endpos;
    unsigned short crc;
    unsigned long ulCrc;
-
-#if defined(__OS2__)
-   DosSleep (1L);
-#elif defined(__NT__)
-   Sleep (1L);
-#endif
 
    Rxcount = 0;
    endpos = buf + length;
@@ -406,11 +390,6 @@ void TZModem::ZSendData (char *buf, short length, short frameend)
 //         if (frameend == ZCRCW)
 //            Com->SendByte (XON);
       }
-#if defined(__OS2__)
-      DosSleep (1L);
-#elif defined(__NT__)
-      Sleep (1L);
-#endif
    }
 }
 
@@ -460,12 +439,6 @@ short TZModem::ZReceiveHexHeader (char *hdr)
    short n, c;
    unsigned short crc;
 
-#if defined(__OS2__)
-   DosSleep (1L);
-#elif defined(__NT__)
-   Sleep (1L);
-#endif
-
    if ((c = ZGetHex ()) < 0)
       return (c);
    Rxtype = c;
@@ -495,12 +468,6 @@ short TZModem::ZReceiveBinaryHeader (char *hdr)
    short c, n;
    unsigned short crc;
 
-#if defined(__OS2__)
-   DosSleep (1L);
-#elif defined(__NT__)
-   Sleep (1L);
-#endif
-
    if ((c = ZDLRead ()) & ~0377)
       return (c);
    Rxtype = c;
@@ -527,12 +494,6 @@ short TZModem::ZReceiveBinaryHeader32 (char *hdr)
 {
    short c, n;
    unsigned long crc;
-
-#if defined(__OS2__)
-   DosSleep (1L);
-#elif defined(__NT__)
-   Sleep (1L);
-#endif
 
    if ((c = ZDLRead ()) & ~0377)
       return (c);
@@ -1134,7 +1095,7 @@ short TZModem::ZSendFile (char *file, char *name)
          strcpy (Progress->TxFileName, name);
       else
          strcpy (Progress->TxFileName, file);
-      Progress->TxBlockSize = Rxbuflen;
+      Progress->TxBlockSize = 0;
       Progress->TxSize = f.st_size;
       Progress->Begin ();
       Progress->Update ();
@@ -1192,7 +1153,7 @@ short TZModem::ZSendFile (char *file, char *name)
 
    if (Progress != NULL) {
       Progress->TxPosition = Txpos;
-      Progress->TxBlockSize = Rxbuflen;
+      Progress->TxBlockSize = 0;
       Progress->Update ();
    }
 
@@ -1285,9 +1246,15 @@ short TZModem::ZSendFile (char *file, char *name)
 
 void TZModem::ZEndSender (void)
 {
+   ULONG TimeOut;
+
    FileSent = 0;
 
-   while (AbortSession () == FALSE) {
+//   ZPutLong (Txhdr, 0L);
+//   ZSendBinaryHeader (ZFIN, Txhdr);
+
+   TimeOut = TimerSet (200L);
+   while (AbortSession () == FALSE && !TimeUp (TimeOut)) {
       ZPutLong (Txhdr, 0L);
       ZSendBinaryHeader (ZFIN, Txhdr);
 
@@ -1303,7 +1270,7 @@ void TZModem::ZEndSender (void)
       }
    }
 
-   Pause (2);
+//   Pause (2);
    Com->ClearInbound ();
 }
 

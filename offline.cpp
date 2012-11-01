@@ -14,6 +14,7 @@ class TMsgAreaSelect : public TListings
 {
 public:
    class  TConfig *Cfg;
+   class  TLanguage *Language;
 
    VOID   Begin (VOID);
    VOID   PrintCursor (USHORT y);
@@ -34,7 +35,7 @@ TOffline::TOffline (void)
    Log = NULL;
    Embedded = NULL;
    User = NULL;
-   Lang = NULL;
+   Language = NULL;
    Progress = NULL;
 
    CarrierSpeed = 19200L;
@@ -57,6 +58,106 @@ TOffline::~TOffline (void)
    }
 }
 
+VOID TOffline::ManageTagged (VOID)
+{
+   USHORT Line, Tagged;
+   CHAR Areas[32], *p;
+   class TMsgData *Data;
+   class TMsgTag *MsgTag = User->MsgTag;
+   class TMsgAreaSelect *List;
+
+   Embedded->BufferedPrintf ("\n\026\001\017Please enter the area numbers to tag/untag.\n");
+
+   while (Embedded->AbortSession () == FALSE) {
+      Embedded->BufferedPrintf ("\026\001\013[Enter area(s) to tag, \"?\"=list areas, \"-\"=delete all, <enter>=Quit]\n");
+      Embedded->BufferedPrintf ("\026\001\017Tag area: ");
+      Embedded->Input (Areas, (USHORT)(sizeof (Areas) - 1), 0);
+
+      if (Areas[0] == '-') {
+         if (MsgTag->First () == TRUE)
+            do {
+               MsgTag->Tagged = FALSE;
+               MsgTag->Update ();
+            } while (MsgTag->Next () == TRUE);
+         Embedded->Printf ("\026\001\017Done!\n");
+      }
+      else if (Areas[0] == '?') {
+         if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE) {
+            if ((List = new TMsgAreaSelect) != NULL) {
+               List->Cfg = Cfg;
+               List->Embedded = Embedded;
+               List->Log = Log;
+               List->User = User;
+               List->Language = Language;
+               List->Run ();
+               delete List;
+            }
+         }
+         else {
+            if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+               if (Data->First () == TRUE) {
+                  Embedded->BufferedPrintf ("\x0C");
+                  Embedded->BufferedPrintf ("\n\026\001\017 Area             Msgs   Description\n \031Ф\017  \031Ф\005  \031Ф\066\n");
+                  Line = 4;
+
+                  do {
+                     Tagged = FALSE;
+                     if (User->MsgTag->Read (Data->Key) == TRUE)
+                        Tagged = User->MsgTag->Tagged;
+
+                     if (Tagged == FALSE)
+                        Embedded->BufferedPrintf ("\026\001\015 %-15.15s  \026\001\002%5ld  \026\001\003%.54s\n", Data->Key, Data->ActiveMsgs, Data->Display);
+                     else
+                        Embedded->BufferedPrintf ("\026\001\016*\026\001\015%-15.15s\026\001\016* \026\001\002%5ld  \026\001\003%.54s\n", Data->Key, Data->ActiveMsgs, Data->Display);
+                     if ((Line = Embedded->MoreQuestion (Line)) == 1) {
+                        Embedded->BufferedPrintf ("\x0C");
+                        Embedded->BufferedPrintf ("\n\026\001\017 Area             Msgs   Description\n \031Ф\017  \031Ф\005  \031Ф\066\n");
+                        Line = 4;
+                     }
+                  } while (Data->Next () == TRUE && Line != 0);
+
+                  if (Line > 4)
+                     Embedded->MoreQuestion (99);
+               }
+               delete Data;
+            }
+            Embedded->Printf ("\n\026\001\016Areas marked with an \"*\" are currently tagged.\n");
+         }
+      }
+      else if (Areas[0] == '\0')
+         break;
+      else if ((p = strtok (Areas, " ")) != NULL)
+         do {
+            if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+               if (Data->Read (p) == TRUE) {
+                  if (User->Level >= Data->Level) {
+                     if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
+                        if (MsgTag->Read (Data->Key) == FALSE) {
+                           MsgTag->New ();
+                           strcpy (MsgTag->Area, Data->Key);
+                           MsgTag->Tagged = TRUE;
+                           MsgTag->Add ();
+                           Embedded->Printf ("\026\001\016Area \026\001\012%s \026\001\016tagged.\n", MsgTag->Area);
+                        }
+                        else {
+                           MsgTag->Tagged = (MsgTag->Tagged == TRUE) ? FALSE : TRUE;
+                           MsgTag->Update ();
+                           if (MsgTag->Tagged == FALSE)
+                              Embedded->Printf ("\026\001\016Area \026\001\012%s \026\001\016untagged.\n", MsgTag->Area);
+                           else
+                              Embedded->Printf ("\026\001\016Area \026\001\012%s \026\001\016tagged.\n", MsgTag->Area);
+                        }
+                     }
+                  }
+               }
+               else
+                  Embedded->Printf ("\026\001\014That area doesn't exist!.\n");
+               delete Data;
+            }
+         } while ((p = strtok (NULL, " ")) != NULL);
+   }
+}
+
 VOID TOffline::AddConference (VOID)
 {
    USHORT Found = FALSE, Line;
@@ -70,7 +171,7 @@ VOID TOffline::AddConference (VOID)
          List->Embedded = Embedded;
          List->Log = Log;
          List->User = User;
-//         List->Language = Language;
+         List->Language = Language;
          List->Run ();
          delete List;
       }
@@ -165,6 +266,19 @@ USHORT TOffline::Compress (PSZ pszPacket)
       delete Packer;
    }
 
+   if (RetVal == TRUE) {
+      MsgTag = User->MsgTag;
+      if (NewMsgTag.First () == TRUE)
+         do {
+            if (MsgTag->Read (NewMsgTag.Area) == TRUE) {
+               MsgTag->LastRead = NewMsgTag.LastRead;
+               MsgTag->Update ();
+            }
+         } while (NewMsgTag.Next () == TRUE);
+
+      MsgTag->Save ();
+   }
+
    return (RetVal);
 }
 
@@ -198,11 +312,11 @@ VOID TOffline::Display (VOID)
 VOID TOffline::Download (PSZ pszFile, PSZ pszName)
 {
    USHORT RetVal = FALSE, SelectOK, Loop;
+   USHORT WasTagged = FALSE;
    CHAR Cmd[10];
    ULONG DlTime;
    struct stat statbuf;
    class TTransfer *Transfer;
-   class TMsgTag *MsgTag = User->MsgTag;
 
    if (stat (pszFile, &statbuf) == 0) {
       DlTime = (statbuf.st_size / (CarrierSpeed / 10L) + 30L) / 60L;
@@ -274,19 +388,7 @@ VOID TOffline::Download (PSZ pszFile, PSZ pszName)
                if (Log != NULL)
                   Log->Write (":Tagged file %s, library %s", pszName, User->FileTag->Area);
                RetVal = TRUE;
-            }
-
-            if (RetVal == TRUE) {
-               if (NewMsgTag.First () == TRUE)
-                  do {
-                     if (MsgTag->Read (NewMsgTag.Area) == TRUE) {
-                        MsgTag->LastRead = NewMsgTag.LastRead;
-                        MsgTag->LastPacked = NewMsgTag.LastRead;
-                        MsgTag->Update ();
-                     }
-                  } while (NewMsgTag.Next () == TRUE);
-
-               MsgTag->Save ();
+               WasTagged = TRUE;
             }
 
             if (Cmd[0] != 'T' && Embedded->AbortSession () == FALSE) {
@@ -296,15 +398,16 @@ VOID TOffline::Download (PSZ pszFile, PSZ pszName)
                   if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_NO)
                      Loop = FALSE;
                }
-               else {
+               else
                   Embedded->Printf ("\n\n\x16\x01\016*** DOWNLOAD COMPLETE ***\n\006\007\006\007");
-                  unlink (pszFile);
-               }
             }
          }
 
          delete Transfer;
       }
+
+      if (WasTagged == FALSE)
+         unlink (pszFile);
    }
 }
 
@@ -354,6 +457,8 @@ USHORT TOffline::Prescan (VOID)
                      Msg = new FIDOSDM (MsgArea->Path);
                   else if (MsgArea->Storage == ST_ADEPT)
                      Msg = new ADEPT (MsgArea->Path);
+                  else if (MsgArea->Storage == ST_HUDSON)
+                     Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
 
                   Areas++;
                   Current = Personal = 0L;
@@ -364,12 +469,27 @@ USHORT TOffline::Prescan (VOID)
                      if (Msg->Next (Number) == TRUE) {
                         do {
                            Msg->ReadHeader (Number);
-                           Current++;
-                           Total++;
-                           if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                           if (TooOld (MsgTag->OlderMsg, Msg) == FALSE) {
+                              Current++;
+                              Total++;
+                              if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                                 Personal++;
+                                 TotalPersonal++;
+                              }
+                           }
+                           else if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                              Current++;
+                              Total++;
                               Personal++;
                               TotalPersonal++;
                            }
+#if defined(__OS2__)
+                           if ((Total % 16L) == 0L)
+                              DosSleep (1L);
+#elif defined(__NT__)
+                           if ((Total % 16L) == 0L)
+                              Sleep (1L);
+#endif
                         } while (Msg->Next (Number) == TRUE);
                      }
                   }
@@ -428,6 +548,57 @@ VOID TOffline::RemoveArea (VOID)
    }
 }
 
+VOID TOffline::RestrictDate (VOID)
+{
+   int dd, mm, yy;
+   CHAR Temp[32];
+   ULONG Restrict;
+   struct tm ltm;
+   class TMsgTag *MsgTag = User->MsgTag;
+
+   memcpy (&ltm, localtime ((time_t *)&User->LastCall), sizeof (struct tm));
+   Embedded->Printf ("\n\026\001\017Enter date of oldest message to pack, or press <enter> for %d-%02d-%d: ", ltm.tm_mday, ltm.tm_mon + 1, ltm.tm_year % 100);
+   Embedded->Input (Temp, 10);
+
+   if (Embedded->AbortSession () == FALSE) {
+      Restrict = User->LastCall;
+      if (Temp[0] != '\0') {
+         sscanf (Temp, "%d-%d-%d", &dd, &mm, &yy);
+         if (yy < 90)
+            yy += 100;
+         memset (&ltm, 0, sizeof (struct tm));
+         ltm.tm_mday = dd;
+         ltm.tm_mon = mm - 1;
+         ltm.tm_year = yy;
+         Restrict = mktime (&ltm);
+      }
+
+      if (MsgTag->First () == TRUE)
+         do {
+            if (MsgTag->Tagged == TRUE) {
+               MsgTag->LastRead = 0L;
+               MsgTag->OlderMsg = Restrict;
+               MsgTag->Update ();
+            }
+         } while (MsgTag->Next () == TRUE);
+   }
+}
+
+USHORT TOffline::TooOld (ULONG Restrict, class TMsgBase *Msg)
+{
+   USHORT RetVal = FALSE;
+   struct tm ltm;
+
+   memset (&ltm, 0, sizeof (struct tm));
+   ltm.tm_mday = Msg->Written.Day;
+   ltm.tm_mon = Msg->Written.Month - 1;
+   ltm.tm_year = Msg->Written.Year - 1900;
+   if (mktime (&ltm) < Restrict)
+      RetVal = TRUE;
+
+   return (RetVal);
+}
+
 VOID TOffline::Scan (PSZ pszKey, ULONG ulLast)
 {
    class TMsgData *MsgArea;
@@ -445,6 +616,8 @@ VOID TOffline::Scan (PSZ pszKey, ULONG ulLast)
             Msg = new FIDOSDM (MsgArea->Path);
          else if (MsgArea->Storage == ST_ADEPT)
             Msg = new ADEPT (MsgArea->Path);
+         else if (MsgArea->Storage == ST_HUDSON)
+            Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
 
          if (Msg != NULL) {
             if (Msg->Next (ulLast) == TRUE) {
@@ -626,25 +799,21 @@ VOID TMsgAreaSelect::Begin (VOID)
       do {
          List.Add (pld->Key, (USHORT)(strlen (pld->Key) + 1));
          i++;
-         if (i >= (User->ScreenHeight - 6)) {
-            if (Found == TRUE)
-               break;
-            List.Clear ();
-            i = 0;
-         }
+         if (i >= (User->ScreenHeight - 6))
+            break;
       } while ((pld = (LISTDATA *)Data.Next ()) != NULL);
    }
 }
 
 VOID TMsgAreaSelect::PrintTitles (VOID)
 {
-   Embedded->Printf ("\x0C\n");
-   Embedded->Printf ("\026\001\012 Conference        Msgs   Description\n\026\001\017 \031=\017   \031=\005  \031=\065\n");
+   Embedded->Printf ("\x0C");
+   Embedded->Printf ("\n\026\001\017 Area             Msgs   Description\n \031Ф\017  \031Ф\005  \031Ф\066\n");
 
-   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "\026\001\017\031=\017  \031=\005  \031=\067\n");
+   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, " \031Ф\017  \031Ф\005  \031Ф\066\n");
 
-   Embedded->Printf ("\026\001\012Hit \026\001\013CTRL-V \026\001\012for next page, \026\001\013CTRL-Y \026\001\012for previous page, \026\001\013? \026\001\012for help, or \026\001\013X \026\001\012to exit.\n");
-   Embedded->Printf ("\026\001\012To highlight an area, use your \026\001\013arrow keys\026\001\012, \026\001\013SPACE \026\001\012selects it.");
+   Embedded->Printf (Language->Text (LNG_FILEAREADESCRIPTION1));
+   Embedded->Printf (Language->Text (LNG_FILEAREADESCRIPTION2));
 
    Embedded->PrintfAt (4, 1, "");
 }
@@ -657,19 +826,19 @@ VOID TMsgAreaSelect::PrintLine (VOID)
       Tagged = User->MsgTag->Tagged;
 
    if (Tagged == FALSE)
-      Embedded->Printf ("\026\001\013 %-15.15s   \026\001\016%5ld  %.53s\n", pld->Key, pld->ActiveMsgs, pld->Display);
+      Embedded->Printf ("\026\001\015 %-15.15s  \026\001\002%5ld  \026\001\003%.54s\n", pld->Key, pld->ActiveMsgs, pld->Display);
    else
-      Embedded->Printf ("\026\001\013*%-15.15s   \026\001\016%5ld  %.53s\n", pld->Key, pld->ActiveMsgs, pld->Display);
+      Embedded->Printf ("\026\001\016*\026\001\015%-15.15s\026\001\016* \026\001\002%5ld  \026\001\003%.54s\n", pld->Key, pld->ActiveMsgs, pld->Display);
 }
 
 VOID TMsgAreaSelect::PrintCursor (USHORT y)
 {
-   Embedded->PrintfAt (y, 2, "\x16\x01\x70%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
+   Embedded->PrintfAt (y, 2, Language->Text (LNG_MESSAGEAREACURSOR), (PSZ)List.Value ());
 }
 
 VOID TMsgAreaSelect::RemoveCursor (USHORT y)
 {
-   Embedded->PrintfAt (y, 2, "\x16\x01\x0B%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
+   Embedded->PrintfAt (y, 2, Language->Text (LNG_MESSAGEAREAKEY), (PSZ)List.Value ());
 }
 
 VOID TMsgAreaSelect::Select (VOID)
@@ -694,9 +863,9 @@ VOID TMsgAreaSelect::Tag (VOID)
    }
 
    if (User->MsgTag->Tagged == TRUE)
-      Embedded->PrintfAt (y, 1, "*\x16\x01\x70%-15.15s\x16\x01\x0E*", (PSZ)List.Value ());
+      Embedded->PrintfAt (y, 1, "\026\001\016*\x16\x01\x70%-15.15s\x16\x01\x0E*", (PSZ)List.Value ());
    else
-      Embedded->PrintfAt (y, 1, " \x16\x01\x70%-15.15s\x16\x01\x0E ", (PSZ)List.Value ());
+      Embedded->PrintfAt (y, 1, "\026\001\016 \x16\x01\x70%-15.15s\x16\x01\x0E ", (PSZ)List.Value ());
 }
 
 // ----------------------------------------------------------------------
@@ -719,7 +888,6 @@ USHORT TBlueWave::Create (VOID)
    USHORT RetVal = FALSE;
    CHAR Temp[128], PktName[32];
    struct dosdate_t date;
-   class TMsgTag *MsgTag;
 
    Log->Write ("+Preparing BlueWave packet");
    MsgTag = User->MsgTag;
@@ -809,7 +977,6 @@ USHORT TBlueWave::Create (VOID)
                            if (Log != NULL)
                               Log->Write (":  Area %s, %ld msgs. (%ld personal)", NewMsgTag.Area, Current, Personal);
 
-                           NewMsgTag.LastPacked = time (NULL);
                            NewMsgTag.Update ();
                         }
                      } while (MsgTag->Next () == TRUE);
@@ -867,6 +1034,9 @@ USHORT TBlueWave::FetchReply (VOID)
                Msg = new FIDOSDM (MsgArea->Path);
             else if (MsgArea->Storage == ST_ADEPT)
                Msg = new ADEPT (MsgArea->Path);
+            else if (MsgArea->Storage == ST_HUDSON)
+               Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
+
             if (Msg != NULL) {
                Msg->New ();
                if (!stricmp ((PSZ)Uplr.from, User->Name) || !stricmp ((PSZ)Uplr.from, User->RealName))
@@ -948,6 +1118,8 @@ VOID TBlueWave::PackArea (ULONG &ulLast)
          Msg = new FIDOSDM (MsgArea->Path);
       else if (MsgArea->Storage == ST_ADEPT)
          Msg = new ADEPT (MsgArea->Path);
+      else if (MsgArea->Storage == ST_HUDSON)
+         Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
 
       sprintf (Temp, "%s%s.fti", Work, Id);
       fdfti = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_APPEND, SH_DENYNO, S_IREAD|S_IWRITE);
@@ -969,50 +1141,57 @@ VOID TBlueWave::PackArea (ULONG &ulLast)
          Msg->Lock (0L);
          if (Msg->Next (Number) == TRUE) {
             do {
-               Msg->Read (Number);
+               Msg->ReadHeader (Number);
+               if (TooOld (MsgTag->OlderMsg, Msg) == FALSE || !stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                  Msg->Read (Number);
 
-               Current++;
-               Total++;
-               if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
-                  Personal++;
-                  TotalPersonal++;
+                  Current++;
+                  Total++;
+                  if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                     Personal++;
+                     TotalPersonal++;
+                  }
+
+                  memset (&Fti, 0, sizeof (FTI_REC));
+
+                  Msg->From[sizeof (Fti.from) - 1] = '\0';
+                  strcpy ((PSZ)Fti.from, Msg->From);
+                  Msg->To[sizeof (Fti.to) - 1] = '\0';
+                  strcpy ((PSZ)Fti.to, Msg->To);
+                  Msg->Subject[sizeof (Fti.subject) - 1] = '\0';
+                  strcpy ((PSZ)Fti.subject, Msg->Subject);
+                  sprintf ((PSZ)Fti.date, "%2d %.3s %2d %2d:%02d:%02d", Msg->Written.Day, Language->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute, Msg->Written.Second);
+                  Fti.msgnum = (tWORD)Msg->UidToMsgn (Number);
+                  Fti.msgptr = tell (fdm);
+                  if (Cfg->MailAddress.First () == TRUE) {
+                     Fti.orig_zone = Cfg->MailAddress.Zone;
+                     Fti.orig_net = Cfg->MailAddress.Net;
+                     Fti.orig_node = Cfg->MailAddress.Node;
+                  }
+
+                  Fti.msglength += write (fdm, " ", 1);
+
+                  if ((Text = (PSZ)Msg->Text.First ()) != NULL)
+                     do {
+                        if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9)) {
+                           Fti.msglength += write (fdm, Text, strlen (Text));
+                           Fti.msglength += write (fdm, "\r\n", 2);
+                        }
+                     } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
+
+                  write (fdfti, &Fti, sizeof (Fti));
+#if defined(__OS2__)
+                  if ((Total % 16L) == 0L)
+                     DosSleep (1L);
+#elif defined(__NT__)
+                  if ((Total % 16L) == 0L)
+                     Sleep (1L);
+#endif
+                  if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
+                     BarWidth = (USHORT)((Total * 61L) / TotalPack);
+                     Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
+                  }
                }
-
-               memset (&Fti, 0, sizeof (FTI_REC));
-
-               Msg->From[sizeof (Fti.from) - 1] = '\0';
-               strcpy ((PSZ)Fti.from, Msg->From);
-               Msg->To[sizeof (Fti.to) - 1] = '\0';
-               strcpy ((PSZ)Fti.to, Msg->To);
-               Msg->Subject[sizeof (Fti.subject) - 1] = '\0';
-               strcpy ((PSZ)Fti.subject, Msg->Subject);
-               sprintf ((PSZ)Fti.date, "%2d %.3s %2d %2d:%02d:%02d", Msg->Written.Day, Lang->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute, Msg->Written.Second);
-               Fti.msgnum = (tWORD)Number;
-               Fti.msgptr = tell (fdm);
-               if (Cfg->MailAddress.First () == TRUE) {
-                  Fti.orig_zone = Cfg->MailAddress.Zone;
-                  Fti.orig_net = Cfg->MailAddress.Net;
-                  Fti.orig_node = Cfg->MailAddress.Node;
-               }
-
-               Fti.msglength += write (fdm, " ", 1);
-
-               if ((Text = (PSZ)Msg->Text.First ()) != NULL)
-                  do {
-                     if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9)) {
-                        Fti.msglength += write (fdm, Text, strlen (Text));
-                        Fti.msglength += write (fdm, "\r\n", 2);
-                     }
-                  } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
-
-               write (fdfti, &Fti, sizeof (Fti));
-
-               if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
-                  BarWidth = (USHORT)((Total * 61L) / TotalPack);
-                  Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
-               }
-
-               Embedded->Idle ();
             } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
          }
          Msg->UnLock ();
@@ -1055,7 +1234,6 @@ USHORT TQWK::Create (VOID)
    CHAR Temp[128], PktName[32];
    struct dosdate_t date;
    struct dostime_t dtime;
-   class TMsgTag *MsgTag;
 
    if (Log != NULL)
       Log->Write ("+Preparing QWK packet");
@@ -1096,7 +1274,6 @@ USHORT TQWK::Create (VOID)
                         if (Log != NULL)
                            Log->Write (":  Area %s, %ld msgs. (%ld personal)", NewMsgTag.Area, Current, Personal);
 
-                        NewMsgTag.LastPacked = time (NULL);
                         NewMsgTag.Update ();
                      }
                      Area++;
@@ -1215,6 +1392,8 @@ USHORT TQWK::FetchReply (VOID)
                         Msg = new FIDOSDM (MsgArea->Path);
                      else if (MsgArea->Storage == ST_ADEPT)
                         Msg = new ADEPT (MsgArea->Path);
+                     else if (MsgArea->Storage == ST_HUDSON)
+                        Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
                   }
                   break;
                }
@@ -1362,6 +1541,8 @@ VOID TQWK::PackArea (ULONG &ulLast)
          Msg = new FIDOSDM (MsgArea->Path);
       else if (MsgArea->Storage == ST_ADEPT)
          Msg = new ADEPT (MsgArea->Path);
+      else if (MsgArea->Storage == ST_HUDSON)
+         Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
 
       sprintf (Temp, "%s%03d.NDX", Work, Area);
       fdi = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
@@ -1391,69 +1572,76 @@ VOID TQWK::PackArea (ULONG &ulLast)
          Msg->Lock (0L);
          if (Msg->Next (Number) == TRUE) {
             do {
-               Msg->Read (Number);
+               Msg->ReadHeader (Number);
+               if (TooOld (MsgTag->OlderMsg, Msg) == FALSE || !stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                  Msg->Read (Number);
 
-               Current++;
-               Total++;
-               sprintf (Temp, "%lu", Blocks);
-               in = atof (Temp);
-               out = IEEToMSBIN (in);
-               write (fdi, &out, sizeof (float));
-               write (fdi, "", 1);
-               if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
-                  Personal++;
-                  TotalPersonal++;
-                  write (fdp, &out, sizeof (float));
-                  write (fdp, "", 1);
+                  Current++;
+                  Total++;
+                  sprintf (Temp, "%lu", Blocks);
+                  in = atof (Temp);
+                  out = IEEToMSBIN (in);
+                  write (fdi, &out, sizeof (float));
+                  write (fdi, "", 1);
+                  if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                     Personal++;
+                     TotalPersonal++;
+                     write (fdp, &out, sizeof (float));
+                     write (fdp, "", 1);
+                  }
+
+                  memset (&Qwk, ' ', sizeof (Qwk));
+                  sprintf (Temp, "%-*lu", sizeof (Qwk.Msgnum), Msg->UidToMsgn (Number));
+                  memcpy (Qwk.Msgnum, Temp, sizeof (Qwk.Msgnum));
+                  sprintf (Temp, "%02d-%02d-%02d", Msg->Written.Month, Msg->Written.Day, Msg->Written.Year % 100);
+                  memcpy (Qwk.Msgdate, Temp, sizeof (Qwk.Msgdate));
+                  sprintf (Temp, "%02d:%02d", Msg->Written.Hour, Msg->Written.Minute);
+                  memcpy (Qwk.Msgtime, Temp, sizeof (Qwk.Msgtime));
+                  Msg->From[sizeof (Qwk.MsgFrom) - 1] = '\0';
+                  memcpy (Qwk.MsgFrom, Msg->From, strlen (Msg->From));
+                  Msg->To[sizeof (Qwk.MsgTo) - 1] = '\0';
+                  memcpy (Qwk.MsgTo, Msg->To, strlen (Msg->To));
+                  Msg->Subject[sizeof (Qwk.MsgSubj) - 1] = '\0';
+                  memcpy (Qwk.MsgSubj, Msg->Subject, strlen (Msg->Subject));
+                  Qwk.Msglive = 0xE1;
+                  Qwk.Msgarealo = (UCHAR)(Area & 0xFF);
+                  Qwk.Msgareahi = (UCHAR)((Area & 0xFF00) >> 8);
+
+                  Pos = tell (fdm);
+                  write (fdm, &Qwk, sizeof (Qwk));
+
+                  Size = 128L;
+                  if ((Text = (PSZ)Msg->Text.First ()) != NULL)
+                     do {
+                        if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9)) {
+                           Size += (ULONG)write (fdm, Text, strlen (Text));
+                           Size += (ULONG)write (fdm, "\xE3", 1);
+                        }
+                     } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
+
+                  if ((Size % 128L) != 0) {
+                     memset (Temp, ' ', 128);
+                     Size += (ULONG)write (fdm, Temp, (int)(128L - (Size % 128L)));
+                  }
+
+                  Blocks += (Size / 128L);
+                  sprintf (Temp, "%-*lu", sizeof (Qwk.Msgrecs), Size / 128L);
+                  memcpy (Qwk.Msgrecs, Temp, sizeof (Qwk.Msgrecs));
+                  lseek (fdm, Pos, SEEK_SET);
+                  write (fdm, &Qwk, sizeof (Qwk));
+                  lseek (fdm, 0L, SEEK_END);
+#if defined(__OS2__)
+                  if ((Total % 16L) == 0L)
+                     DosSleep (1L);
+#elif defined(__NT__)
+                  if ((Total % 16L) == 0L)
+                     Sleep (1L);
+#endif
+                  if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
+                     BarWidth = (USHORT)((Total * 61L) / TotalPack);
+                     Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
+                  }
                }
-
-               memset (&Qwk, ' ', sizeof (Qwk));
-               sprintf (Temp, "%-*lu", sizeof (Qwk.Msgnum), Number);
-               memcpy (Qwk.Msgnum, Temp, sizeof (Qwk.Msgnum));
-               sprintf (Temp, "%02d-%02d-%02d", Msg->Written.Month, Msg->Written.Day, Msg->Written.Year % 100);
-               memcpy (Qwk.Msgdate, Temp, sizeof (Qwk.Msgdate));
-               sprintf (Temp, "%02d:%02d", Msg->Written.Hour, Msg->Written.Minute);
-               memcpy (Qwk.Msgtime, Temp, sizeof (Qwk.Msgtime));
-               Msg->From[sizeof (Qwk.MsgFrom) - 1] = '\0';
-               memcpy (Qwk.MsgFrom, Msg->From, strlen (Msg->From));
-               Msg->To[sizeof (Qwk.MsgTo) - 1] = '\0';
-               memcpy (Qwk.MsgTo, Msg->To, strlen (Msg->To));
-               Msg->Subject[sizeof (Qwk.MsgSubj) - 1] = '\0';
-               memcpy (Qwk.MsgSubj, Msg->Subject, strlen (Msg->Subject));
-               Qwk.Msglive = 0xE1;
-               Qwk.Msgarealo = (UCHAR)(Area & 0xFF);
-               Qwk.Msgareahi = (UCHAR)((Area & 0xFF00) >> 8);
-
-               Pos = tell (fdm);
-               write (fdm, &Qwk, sizeof (Qwk));
-
-               Size = 128L;
-               if ((Text = (PSZ)Msg->Text.First ()) != NULL)
-                  do {
-                     if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9)) {
-                        Size += (ULONG)write (fdm, Text, strlen (Text));
-                        Size += (ULONG)write (fdm, "\xE3", 1);
-                     }
-                  } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
-
-               if ((Size % 128L) != 0) {
-                  memset (Temp, ' ', 128);
-                  Size += (ULONG)write (fdm, Temp, (int)(128L - (Size % 128L)));
-               }
-
-               Blocks += (Size / 128L);
-               sprintf (Temp, "%-*lu", sizeof (Qwk.Msgrecs), Size / 128L);
-               memcpy (Qwk.Msgrecs, Temp, sizeof (Qwk.Msgrecs));
-               lseek (fdm, Pos, SEEK_SET);
-               write (fdm, &Qwk, sizeof (Qwk));
-               lseek (fdm, 0L, SEEK_END);
-
-               if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
-                  BarWidth = (USHORT)((Total * 61L) / TotalPack);
-                  Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
-               }
-
-               Embedded->Idle ();
             } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
          }
          Msg->UnLock ();
@@ -1502,7 +1690,6 @@ USHORT TAscii::Create (VOID)
 {
    USHORT RetVal = FALSE;
    CHAR Temp[128], PktName[32];
-   class TMsgTag *MsgTag;
 
    if (Log != NULL)
       Log->Write ("+Preparing Ascii packet");
@@ -1542,7 +1729,6 @@ USHORT TAscii::Create (VOID)
                         if (Log != NULL)
                            Log->Write (":  Area %s, %ld msgs. (%ld personal)", NewMsgTag.Area, Current, Personal);
 
-                        NewMsgTag.LastPacked = time (NULL);
                         NewMsgTag.Update ();
                         Area++;
                      }
@@ -1588,6 +1774,8 @@ VOID TAscii::PackArea (ULONG &ulLast)
          Msg = new FIDOSDM (MsgArea->Path);
       else if (MsgArea->Storage == ST_ADEPT)
          Msg = new ADEPT (MsgArea->Path);
+      else if (MsgArea->Storage == ST_HUDSON)
+         Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
 
       sprintf (Temp, "%s%03d.TXT", Work, Area);
       fp = _fsopen (Temp, "wt", SH_DENYNO);
@@ -1596,34 +1784,41 @@ VOID TAscii::PackArea (ULONG &ulLast)
          Msg->Lock (0L);
          if (Msg->Next (Number) == TRUE) {
             do {
-               Msg->Read (Number);
+               Msg->ReadHeader (Number);
+               if (TooOld (MsgTag->OlderMsg, Msg) == FALSE || !stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                  Msg->Read (Number);
 
-               fprintf (fp, "\n==============================================\n    Msg. #%ld of %ld (%s)\n", Number, Msg->Highest (), MsgArea->Display);
-               fprintf (fp, "   Date: %d %s %d %2d:%02d\n", Msg->Written.Day, Lang->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute);
-               fprintf (fp, "   From: %s\n", Msg->From);
-               if (Msg->To[0])
-                  fprintf (fp, "     To: %s\n", Msg->To);
-               fprintf (fp, "Subject: %s\n----------------------------------------------\n", Msg->Subject);
+                  fprintf (fp, "\n==============================================\n    Msg. #%ld of %ld (%s)\n", Msg->UidToMsgn (Number), Msg->Number (), MsgArea->Display);
+                  fprintf (fp, "   Date: %d %s %d %2d:%02d\n", Msg->Written.Day, Language->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute);
+                  fprintf (fp, "   From: %s\n", Msg->From);
+                  if (Msg->To[0])
+                     fprintf (fp, "     To: %s\n", Msg->To);
+                  fprintf (fp, "Subject: %s\n----------------------------------------------\n", Msg->Subject);
 
-               Current++;
-               Total++;
-               if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
-                  Personal++;
-                  TotalPersonal++;
+                  Current++;
+                  Total++;
+                  if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                     Personal++;
+                     TotalPersonal++;
+                  }
+
+                  if ((Text = (PSZ)Msg->Text.First ()) != NULL)
+                     do {
+                        if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9))
+                           fprintf (fp, "%s\n", Text);
+                     } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
+#if defined(__OS2__)
+                  if ((Total % 16L) == 0L)
+                     DosSleep (1L);
+#elif defined(__NT__)
+                  if ((Total % 16L) == 0L)
+                     Sleep (1L);
+#endif
+                  if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
+                     BarWidth = (USHORT)((Total * 61L) / TotalPack);
+                     Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
+                  }
                }
-
-               if ((Text = (PSZ)Msg->Text.First ()) != NULL)
-                  do {
-                     if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9))
-                        fprintf (fp, "%s\n", Text);
-                  } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
-
-               if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
-                  BarWidth = (USHORT)((Total * 61L) / TotalPack);
-                  Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
-               }
-
-               Embedded->Idle ();
             } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
          }
          Msg->UnLock ();
@@ -1655,7 +1850,6 @@ USHORT TPoint::Create (VOID)
    USHORT RetVal = FALSE;
    CHAR Temp[128], PktName[32];
    struct dosdate_t date;
-   class TMsgTag *MsgTag;
 
    if (Log != NULL)
       Log->Write ("+Preparing PointMail packet");
@@ -1696,7 +1890,6 @@ USHORT TPoint::Create (VOID)
                         if (Log != NULL)
                            Log->Write (":  Area %s, %ld msgs. (%ld personal)", NewMsgTag.Area, Current, Personal);
 
-                        NewMsgTag.LastPacked = time (NULL);
                         NewMsgTag.Update ();
                         Area++;
                      }
@@ -1742,6 +1935,8 @@ VOID TPoint::PackArea (ULONG &ulLast)
          Msg = new FIDOSDM (MsgArea->Path);
       else if (MsgArea->Storage == ST_ADEPT)
          Msg = new ADEPT (MsgArea->Path);
+      else if (MsgArea->Storage == ST_HUDSON)
+         Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
 
       if ((Packet = new PACKET) != NULL) {
          if (Cfg->MailAddress.First () == TRUE) {
@@ -1756,7 +1951,10 @@ VOID TPoint::PackArea (ULONG &ulLast)
          Msg->Lock (0L);
          if (Msg->Next (Number) == TRUE) {
             do {
-               if (Msg->Read (Number) == TRUE) {
+               Msg->ReadHeader (Number);
+               if (TooOld (MsgTag->OlderMsg, Msg) == FALSE || !stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                  Msg->Read (Number);
+
                   Current++;
                   Total++;
                   if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
@@ -1793,14 +1991,18 @@ VOID TPoint::PackArea (ULONG &ulLast)
                   }
 
                   Packet->Add (Msg);
+#if defined(__OS2__)
+                  if ((Total % 16L) == 0L)
+                     DosSleep (1L);
+#elif defined(__NT__)
+                  if ((Total % 16L) == 0L)
+                     Sleep (1L);
+#endif
+                  if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
+                     BarWidth = (USHORT)((Total * 61L) / TotalPack);
+                     Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
+                  }
                }
-
-               if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
-                  BarWidth = (USHORT)((Total * 61L) / TotalPack);
-                  Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
-               }
-
-               Embedded->Idle ();
             } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
          }
          Msg->UnLock ();
@@ -1878,6 +2080,8 @@ USHORT TPoint::FetchReply (VOID)
                                        Msg = new FIDOSDM (MsgArea->Path);
                                     else if (MsgArea->Storage == ST_ADEPT)
                                        Msg = new ADEPT (MsgArea->Path);
+                                    else if (MsgArea->Storage == ST_HUDSON)
+                                       Msg = new HUDSON (MsgArea->Path, (UCHAR)MsgArea->Board);
                                  }
                               }
 

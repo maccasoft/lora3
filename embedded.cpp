@@ -11,6 +11,99 @@
 #include "lora.h"
 #include <errno.h>
 
+typedef struct {
+   PSZ    Key;
+   PSZ    Text;
+   USHORT Len;
+} KEYWORDS;
+
+KEYWORDS MeccaKeywords[] = {
+   // Color Tokens
+   { "black",        "\026\001\000", 3 },
+   { "blue",         "\026\001\001", 3 },
+   { "green",        "\026\001\002", 3 },
+   { "cyan",         "\026\001\003", 3 },
+   { "red",          "\026\001\004", 3 },
+   { "magenta",      "\026\001\005", 3 },
+   { "brown",        "\026\001\006", 3 },
+   { "gray",         "\026\001\007", 3 },
+   { "darkgray",     "\026\001\010", 3 },
+   { "lightblue",    "\026\001\011", 3 },
+   { "lightgreen",   "\026\001\012", 3 },
+   { "lightcyan",    "\026\001\013", 3 },
+   { "lightred",     "\026\001\014", 3 },
+   { "lightmagenta", "\026\001\015", 3 },
+   { "yellow",       "\026\001\016", 3 },
+   { "white",        "\026\001\017", 3 },
+
+   // Cursor Control and Video Tokens
+   { "bell",         "\007",         1 },
+   { "bs",           "\010",         1 },
+   { "clreol",       "\026\007",     2 },
+   { "cls",          "\014",         1 },
+   { "cr",           "\015",         1 },
+   { "down",         "\026\004",     2 },
+   { "left",         "\026\005",     2 },
+   { "locate",       "\026\008",     2 },
+   { "lf",           "\012",         1 },
+   { "tab",          "\011",         1 },
+   { "right",        "\026\006",     2 },
+   { "up",           "\026\003",     2 },
+
+   // Informational Tokens
+   { "age",          "\0062",        2 },
+   { "city",         "\006\003",     2 },
+   { "date",         "\006\004",     2 },
+   { "dl",           "\006\030",     2 },
+   { "fname",        "\006\006",     2 },
+   { "file_carea",   "\027\006A",    3 },
+   { "file_cname",   "\027\006N",    3 },
+   { "first",        "\006\006",     2 },
+   { "length",       "\006\014",     2 },
+   { "minutes",      "\006\013",     2 },
+   { "msg_carea",    "\027\015A",    3 },
+   { "msg_cmsg",     "\027\015L",    3 },
+   { "msg_cname",    "\027\015N",    3 },
+   { "msg_hmsg",     "\027\015H",    3 },
+   { "msg_nummsg",   "\027\015#",    3 },
+   { "node_num",     "\027jN",       3 },
+   { "phone",        "\027P",        2 },
+   { "ratio",        "\006\031",     2 },
+   { "realname",     "\027R",        2 },
+   { "remain",       "\006\017",     2 },
+   { "syscall",      "\006\021",     2 },
+   { "sys_name",     "\022\003",     2 },
+   { "sysop_name",   "\022\004",     2 },
+   { "time",         "\006\024",     2 },
+   { "timeoff",      "\006\020",     2 },
+   { "ul",           "\006R",        2 },
+   { "user",         "\006\002",     2 },
+   { "usercall",     "\006\005",     2 },
+
+   // Questionnaire Tokens
+   { "choice",       "\017U",        2 },
+   { "menu",         "\017R",        2 },
+   { "open",         "\017O",        2 },
+
+   // Flow control
+   { "color",        "\017E",        2 },
+   { "colour",       "\017E",        2 },
+   { "endcolor",     "\017e",        2 },
+   { "endcolour",    "\017e",        2 },
+   { "endrip",       "\017I",        2 },
+   { "iftask",       "\027b",        2 },
+   { "rip",          "\017G",        2 },
+
+   { "enter",        "\001",         1 },
+   { "pause",        "\006\007",     2 },
+   { "quit",         "\017Q",        2 },
+   { "quote",        "\006\001",     2 },
+   { "repeat",       "\031",         1 },
+   { "repeatseq",    "\026\031",     2 },
+
+   { NULL, NULL }
+};
+
 #define NO_DROPFILE        0
 #define DOOR_SYS           1
 #define DOORX_SYS          2
@@ -41,12 +134,20 @@ TEmbedded::TEmbedded (void)
    ScreenHeight = 24;
    TimeLimit = 0;
    StartCall = 0L;
+   last_time = 0L;
+   IsDown = FALSE;
 
    fp = NULL;
+   AnswerFile = NULL;
    Position = NULL;
    StopNested = Stop = FALSE;
    Nested = 0;
    Response = '\0';
+   Traslate[0] = '\0';
+   TrasPtr = Traslate;
+   TrasLen = 0;
+   IsMec = FALSE;
+   Required = FALSE;
 }
 
 TEmbedded::~TEmbedded (void)
@@ -58,39 +159,35 @@ TEmbedded::~TEmbedded (void)
 USHORT TEmbedded::AbortSession (VOID)
 {
    USHORT RetVal = FALSE;
-   ULONG Len;
-//   ULONG Timeout, Len;
+   ULONG Len, Timeout;
 
    if (Com != NULL) {
       if (Com->Carrier () == FALSE)
          RetVal = TRUE;
+
+      if (RetVal == TRUE && IsDown == FALSE) {
+         Timeout = TimerSet (Cfg->CarrierDropTimeout * 100L);
+         do {
+            if (Com != NULL) {
+               if (Com->Carrier () == TRUE)
+                  RetVal = FALSE;
+            }
+         } while (TimeUp (Timeout) == FALSE && RetVal == TRUE);
+      }
    }
+
    if (Snoop != NULL) {
       if (Snoop->Carrier () == FALSE)
          RetVal = TRUE;
    }
-
-/*
-   if (RetVal == TRUE && (Com != NULL || Snoop != NULL)) {
-      Timeout = TimerSet (Cfg->CarrierDropTimeout * 100L);
-      do {
-         if (Com != NULL) {
-            if (Com->Carrier () == FALSE)
-               RetVal = TRUE;
-         }
-         if (Snoop != NULL) {
-            if (Snoop->Carrier () == FALSE)
-               RetVal = TRUE;
-         }
-      } while (TimeUp (Timeout) == FALSE && RetVal == TRUE);
-   }
-*/
 
    if (RetVal == FALSE && TimeLimit != 0) {
       Len = (time (NULL) - StartCall) / 60L;
       if (Len >= TimeLimit)
          RetVal = TRUE;
    }
+
+   IsDown = RetVal;
 
    return (RetVal);
 }
@@ -114,12 +211,18 @@ USHORT TEmbedded::DisplayFile (PSZ pszFile)
 {
    SHORT c;
    USHORT RetVal = FALSE;
+   CHAR TempName[128];
 
    LastChar = EOF;
    Line = 1;
+   strcpy (TempName, pszFile);
+   OnExit[0] = '\0';
+   IsMec = FALSE;
 
-   if ((fp = OpenFile (pszFile)) != NULL) {
+   if ((fp = OpenFile (TempName)) != NULL) {
       RetVal = TRUE;
+      if (Log != NULL)
+         Log->Write (":Display File %s", TempName);
       while ((c = GetNextChar ()) != EOF && AbortSession () == FALSE) {
          if (c < 32)
             ProcessControl ((UCHAR)c);
@@ -135,10 +238,20 @@ USHORT TEmbedded::DisplayFile (PSZ pszFile)
       fp = NULL;
    }
 
+   if (AnswerFile != NULL) {
+      fclose (AnswerFile);
+      AnswerFile = NULL;
+      if (Log != NULL)
+         Log->Write (":Answer file closed");
+   }
+
    if (Com != NULL)
       Com->UnbufferBytes ();
    if (Snoop != NULL)
       Snoop->UnbufferBytes ();
+
+   if (OnExit[0] != '\0')
+      DisplayFile (OnExit);
 
    Stop = FALSE;
    if (Nested == 0)
@@ -155,6 +268,7 @@ USHORT TEmbedded::DisplayPrompt (PSZ pszString, USHORT usColor, USHORT usHilight
 
    LastChar = EOF;
    Line = 1;
+   IsMec = FALSE;
 
    if (LastColor != usColor)
       SetColor (usColor);
@@ -185,7 +299,7 @@ USHORT TEmbedded::DisplayPrompt (PSZ pszString, USHORT usColor, USHORT usHilight
             }
          }
          else if (c == '\x7E') {
-            sprintf (Temp, "%u", TimeRemain ());
+            sprintf (Temp, "%lu", TimeRemain ());
             if (Com != NULL)
                Com->BufferBytes ((UCHAR *)Temp, (USHORT)strlen (Temp));
             if (Snoop != NULL)
@@ -198,6 +312,13 @@ USHORT TEmbedded::DisplayPrompt (PSZ pszString, USHORT usColor, USHORT usHilight
                Snoop->BufferByte ((unsigned char)c);
          }
       }
+   }
+
+   if (AnswerFile != NULL) {
+      fclose (AnswerFile);
+      AnswerFile = NULL;
+      if (Log != NULL)
+         Log->Write (":Answer file closed");
    }
 
    if (usUnbuffer == TRUE) {
@@ -217,6 +338,7 @@ USHORT TEmbedded::DisplayString (PSZ pszString)
 
    LastChar = EOF;
    Line = 1;
+   IsMec = FALSE;
 
    if ((Position = pszString) != NULL) {
       RetVal = TRUE;
@@ -239,6 +361,13 @@ USHORT TEmbedded::DisplayString (PSZ pszString)
       }
    }
 
+   if (AnswerFile != NULL) {
+      fclose (AnswerFile);
+      AnswerFile = NULL;
+      if (Log != NULL)
+         Log->Write (":Answer file closed");
+   }
+
    if (Com != NULL)
       Com->UnbufferBytes ();
    if (Snoop != NULL)
@@ -253,15 +382,15 @@ USHORT TEmbedded::GetAnswer (USHORT flQuestion)
 
    if (flQuestion & ASK_HELP) {
       if (flQuestion & ASK_DEFYES)
-         Printf (" (Y,n,?)? \x16\x01\x1E");
+         Printf (Language->Text (LNG_DEFYESNOHELP));
       else if (flQuestion & ASK_DEFNO)
-         Printf (" (y,N,?)? \x16\x01\x1E");
+         Printf (Language->Text (LNG_YESDEFNOHELP));
    }
    else {
       if (flQuestion & ASK_DEFYES)
-         Printf (" (Y/N)? \x16\x01\x1E");
+         Printf (Language->Text (LNG_DEFYESNO));
       else if (flQuestion & ASK_DEFNO)
-         Printf (" (Y/N)? \x16\x01\x1E");
+         Printf (Language->Text (LNG_YESDEFNO));
    }
 
    while (AbortSession () == FALSE) {
@@ -277,19 +406,18 @@ USHORT TEmbedded::GetAnswer (USHORT flQuestion)
          }
 
          answer[0] = (CHAR)toupper (answer[0]);
-
-         if (answer[0] == 'Y') {
+         if (answer[0] == Language->Yes) {
             Printf ("\n");
             return (ANSWER_YES);
          }
-         if (answer[0] == 'N') {
+         if (answer[0] == Language->No) {
             Printf ("\n");
             return (ANSWER_NO);
          }
-         if (answer[0] == '?') {
+         if (answer[0] == Language->Help) {
             if (flQuestion & ASK_HELP) {
                Printf ("\n");
-               return (ANSWER_YES);
+               return (ANSWER_HELP);
             }
          }
 
@@ -306,10 +434,14 @@ USHORT TEmbedded::Getch (VOID)
 
    if (Com != NULL || Snoop != NULL) {
       while (AbortSession () == FALSE && RetVal == 0) {
-         if (Com != NULL && Com->BytesReady () == TRUE)
-            RetVal = Com->ReadByte ();
-         else if (Snoop != NULL && Snoop->BytesReady () == TRUE)
-            RetVal = Snoop->ReadByte ();
+         if (Com != NULL) {
+            if (Com->BytesReady () == TRUE)
+               RetVal = Com->ReadByte ();
+         }
+         else if (Snoop != NULL) {
+            if (Snoop->BytesReady () == TRUE)
+               RetVal = Snoop->ReadByte ();
+         }
       }
    }
 
@@ -318,11 +450,19 @@ USHORT TEmbedded::Getch (VOID)
 
 VOID TEmbedded::Idle (VOID)
 {
-#if defined(__OS2__)
-   DosSleep (5L);
-#elif defined(__NT__)
-   Sleep (5L);
-#endif
+   time_t t;
+
+   if ((t = time (NULL)) != last_time) {
+      last_time = t;
+      if (Snoop != NULL) {
+         Snoop->SetTime (t);
+         Snoop->SetTimeLeft (TimeRemain (TRUE));
+      }
+      else if (Com != NULL) {
+         Com->SetTime (t);
+         Com->SetTimeLeft (TimeRemain (TRUE));
+      }
+   }
 }
 
 // ----------------------------------------------------------------------
@@ -406,36 +546,10 @@ PSZ TEmbedded::Input (PSZ pszBuffer, USHORT usMaxlen, USHORT flAttrib)
                   Snoop->SendBytes ((UCHAR *)"\x08 \x08", 3);
                p--;
                Len--;
-/*
-               if (flAttrib & INP_FANCY) {
-                  if (Len == 0)
-                     DoFancy = TRUE;
-                  else if (Len > 0) {
-                     if (*(p - 1) == ' ' || *(p - 1) == '_' || *(p - 1) == '-' || *(p - 1) == '.')
-                        DoFancy = TRUE;
-                  }
-               }
-*/
             }
          }
          else if (c >= 32 && c < 127) {
             if (Len < usMaxlen) {
-/*
-               if (flAttrib & INP_FANCY) {
-                  if (DoFancy == TRUE) {
-                     if (c == ' ' || c == '_' || c == '-' || c == '.')
-                        continue;
-                     c = (USHORT)toupper (c);
-                     DoFancy = FALSE;
-                  }
-                  else {
-                     if (c == ' ' || c == '_' || c == '-' || c == '.')
-                        DoFancy = TRUE;
-                     else
-                        c = (USHORT)tolower (c);
-                  }
-               }
-*/
                *p++ = (CHAR)c;
                Len++;
                if (flAttrib & INP_PWD)
@@ -502,7 +616,11 @@ SHORT TEmbedded::GetNextChar (VOID)
    UCHAR Byte;
 
    if (Stop == FALSE && (Nested == 0 || StopNested == FALSE)) {
-      if (fp != NULL) {
+      if (TrasLen != 0) {
+         RetVal = *TrasPtr++;
+         TrasLen--;
+      }
+      else if (fp != NULL) {
          if (LastChar == EOF) {
             if (fp != NULL)
                RetVal = (SHORT)fgetc (fp);
@@ -523,6 +641,20 @@ SHORT TEmbedded::GetNextChar (VOID)
             RetVal = LastChar;
             LastChar = EOF;
          }
+      }
+
+      if (RetVal == '[' && IsMec == TRUE) {
+         if (PeekNextChar () != '[') {
+            TranslateKeyword ();
+            if (TrasLen != 0) {
+               RetVal = *TrasPtr++;
+               TrasLen--;
+            }
+            else
+               RetVal = GetNextChar ();
+         }
+         else
+            RetVal = GetNextChar ();
       }
 
       if (RetVal == '\\') {
@@ -607,10 +739,14 @@ USHORT TEmbedded::KBHit (VOID)
 {
    USHORT RetVal = FALSE;
 
-   if (Com != NULL && Com->BytesReady () == TRUE)
-      RetVal = TRUE;
-   else if (Snoop != NULL && Snoop->BytesReady () == TRUE)
-      RetVal = TRUE;
+   if (Com != NULL) {
+      if (Com->BytesReady () == TRUE)
+         RetVal = TRUE;
+   }
+   else if (Snoop != NULL) {
+      if (Snoop->BytesReady () == TRUE)
+         RetVal = TRUE;
+   }
 
    return (RetVal);
 }
@@ -626,20 +762,20 @@ SHORT TEmbedded::MoreQuestion (SHORT nLine)
    if (++nLine >= (SHORT)(ScreenHeight - 1)) {
       SaveColor = LastColor;
       while (AbortSession () == FALSE) {
-         OutString (Language->MoreQuestion);
+         OutString (Language->Text(LNG_MOREQUESTION));
          GetString (Temp, 1, INP_NOCRLF|INP_NOCOLOR|INP_HOTKEY);
-         if (toupper (Temp[0]) == Language->Quit) {
-            OutString (Language->DeleteMoreQuestion);
+         if (toupper (Temp[0]) == Language->Text(LNG_QUIT)[0]) {
+            OutString (Language->Text(LNG_DELETEMOREQUESTION));
             SetColor (SaveColor);
             return (0);
          }
-         else if (toupper (Temp[0]) == Language->NonStop) {
-            OutString (Language->DeleteMoreQuestion);
+         else if (toupper (Temp[0]) == Language->Text(LNG_NONSTOP)[0]) {
+            OutString (Language->Text(LNG_DELETEMOREQUESTION));
             SetColor (SaveColor);
             return (-1);
          }
-         else if (toupper (Temp[0]) == Language->Continue || Temp[0] == '\0') {
-            OutString (Language->DeleteMoreQuestion);
+         else if (toupper (Temp[0]) == Language->Text(LNG_CONTINUE)[0] || Temp[0] == '\0') {
+            OutString (Language->Text(LNG_DELETEMOREQUESTION));
             SetColor (SaveColor);
             return (1);
          }
@@ -658,6 +794,7 @@ FILE *TEmbedded::OpenFile (PSZ pszName, PSZ pszAccess)
 
    strcpy (Temp, pszName);
    strlwr (Temp);
+   IsMec = FALSE;
 
    if ((fp = _fsopen (AdjustPath (Temp), pszAccess, SH_DENYNO)) == NULL) {
       if ((p = strchr (Temp, '.')) != NULL)
@@ -681,6 +818,13 @@ FILE *TEmbedded::OpenFile (PSZ pszName, PSZ pszAccess)
                *p = '\0';
             strcat (Temp, ".ans");
             fp = _fsopen (Temp, pszAccess, SH_DENYNO);
+         }
+         if (fp == NULL) {
+            if ((p = strchr (Temp, '.')) != NULL)
+               *p = '\0';
+            strcat (Temp, ".mec");
+            if ((fp = _fsopen (Temp, pszAccess, SH_DENYNO)) != NULL)
+               IsMec = TRUE;
          }
       }
       if (fp == NULL && AltPath[0] != '\0') {
@@ -709,6 +853,13 @@ FILE *TEmbedded::OpenFile (PSZ pszName, PSZ pszAccess)
                      *p = '\0';
                   strcat (Temp, ".ans");
                   fp = _fsopen (Temp, pszAccess, SH_DENYNO);
+               }
+               if (fp == NULL) {
+                  if ((p = strchr (Temp, '.')) != NULL)
+                     *p = '\0';
+                  strcat (Temp, ".mec");
+                  if ((fp = _fsopen (Temp, pszAccess, SH_DENYNO)) != NULL)
+                     IsMec = TRUE;
                }
             }
          }
@@ -740,6 +891,13 @@ FILE *TEmbedded::OpenFile (PSZ pszName, PSZ pszAccess)
                   strcat (Temp, ".ans");
                   fp = _fsopen (Temp, pszAccess, SH_DENYNO);
                }
+               if (fp == NULL) {
+                  if ((p = strchr (Temp, '.')) != NULL)
+                     *p = '\0';
+                  strcat (Temp, ".mec");
+                  if ((fp = _fsopen (Temp, pszAccess, SH_DENYNO)) != NULL)
+                     IsMec = TRUE;
+               }
             }
          }
       }
@@ -751,15 +909,26 @@ FILE *TEmbedded::OpenFile (PSZ pszName, PSZ pszAccess)
 VOID TEmbedded::OutString (PSZ pszFormat, ...)
 {
    va_list arglist;
+   PSZ p;
 
    va_start (arglist, pszFormat);
    vsprintf (Temp2, pszFormat, arglist);
    va_end (arglist);
 
-   if (Com != NULL)
-      Com->BufferBytes ((UCHAR *)Temp2, (USHORT)strlen (Temp2));
-   if (Snoop != NULL)
-      Snoop->BufferBytes ((UCHAR *)Temp2, (USHORT)strlen (Temp2));
+   p = Temp2;
+   while (*p != '\0') {
+      if (*p == CTRLV && p[1] == CTRLA) {
+         SetColor (p[2]);
+         p += 3;
+      }
+      else {
+         if (Com != NULL)
+            Com->BufferByte ((UCHAR)*p);
+         if (Snoop != NULL)
+            Snoop->BufferByte ((UCHAR)*p);
+         p++;
+      }
+   }
 }
 
 SHORT TEmbedded::PeekNextChar (VOID)
@@ -874,7 +1043,7 @@ VOID TEmbedded::PressEnter (VOID)
 
    if (Language != NULL) {
       SaveColor = LastColor;
-      OutString (Language->PressEnter);
+      OutString (Language->Text(LNG_PRESSENTER));
       GetString (Temp, 1, INP_NOCRLF|INP_NOCOLOR|INP_HOTKEY);
       OutString ("\r                             \r");
       SetColor (SaveColor);
@@ -943,14 +1112,16 @@ VOID TEmbedded::BufferedPrintfAt (USHORT usRow, USHORT usColumn, PSZ pszFormat, 
    vsprintf (Temp, pszFormat, arglist);
    va_end (arglist);
 
-   if (Avatar == TRUE)
-      sprintf (Position, "\026\010%c%c", usRow, usColumn);
-   else if (Ansi == TRUE)
-      sprintf (Position, "\x1B[%d;%df", usRow, usColumn);
-   if (Com != NULL)
-      Com->BufferBytes ((UCHAR *)Position, (USHORT)strlen (Position));
-   if (Snoop != NULL)
-      Snoop->BufferBytes ((UCHAR *)Position, (USHORT)strlen (Position));
+   if (Avatar == TRUE || Ansi == TRUE) {
+      if (Avatar == TRUE)
+         sprintf (Position, "\026\010%c%c", usRow, usColumn);
+      else if (Ansi == TRUE)
+         sprintf (Position, "\x1B[%d;%df", usRow, usColumn);
+      if (Com != NULL)
+         Com->BufferBytes ((UCHAR *)Position, (USHORT)strlen (Position));
+      if (Snoop != NULL)
+         Snoop->BufferBytes ((UCHAR *)Position, (USHORT)strlen (Position));
+   }
 
    DisplayString (Temp);
 }
@@ -962,12 +1133,12 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
 
    switch (ucControl) {
       case CTRLA:             // ^A = Premi enter per continuare
-         if (PeekNextChar () == CTRLA) {
-            GetNextChar ();
+         if (PeekNextChar () != CTRLA)
             GetString (Temp, 1, INP_HOTKEY);
-         }
-         else
+         else {
+            GetNextChar ();
             PressEnter ();
+         }
          break;
       case CTRLD:             // ^D = Abilita la pausa a fine pagina
          More = TRUE;
@@ -1023,16 +1194,45 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   if (User != NULL)
                      OutString ("%s", User->Name);
                   break;
-               case 'B':      // ^FB
+               case 'B':      // ^FB = New files check
+                  OutString ("%s", (User->NewFileCheck == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
                case CTRLC:    // ^F^C = City
                   if (User != NULL)
                      OutString ("%s", User->City);
                   break;
+               case CTRLD: {  // ^F^D = Today's date (dd mmm yy)
+                  time_t t;
+                  struct tm *ltm;
+
+                  t = time (NULL);
+                  ltm = localtime (&t);
+                  OutString ("%d %3.3s %d", ltm->tm_mday, Language->Months[ltm->tm_mon], ltm->tm_year + 1900);
+                  break;
+               }
                case 'P':      // ^FP
                case CTRLE:    // ^F^E = Numero di chiamate fatte dall'utente
                   if (User != NULL)
                      OutString ("%ld", User->TotalCalls);
                   break;
+               case CTRLP: {  // ^F^P = Time off (hh:mm:ss)
+                  time_t t;
+                  struct tm *ltm;
+
+                  t = time (NULL) + TimeRemain (TRUE);
+                  ltm = localtime (&t);
+                  OutString ("%2d:%02d:%02d", ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+                  break;
+               }
+               case CTRLT: {  // ^F^T = Current time (hh:mm:ss)
+                  time_t t;
+                  struct tm *ltm;
+
+                  t = time (NULL);
+                  ltm = localtime (&t);
+                  OutString ("%2d:%02d:%02d", ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+                  break;
+               }
                case 'W':      // ^FW
                case CTRLF: {  // ^F^F = Solo il nome dell'utente
                   PSZ Temp, p;
@@ -1046,6 +1246,16 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   }
                   break;
                }
+               case '?':      // ^F? = Video mode
+                  if (Rip == TRUE)
+                     OutString ("%s", "RIP   ");
+                  else if (Avatar == TRUE)
+                     OutString ("%s", "AVATAR");
+                  else if (Ansi == TRUE)
+                     OutString ("%s", "ANSI  ");
+                  else
+                     OutString ("%s", "TTY   ");
+                  break;
                case CTRLG:    // ^F^G = Pausa di 1 secondo
                   if (Com != NULL)
                      Com->UnbufferBytes ();
@@ -1062,7 +1272,7 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   OutString ("%lu", (time (NULL) - StartCall) / 60L);
                   break;
                case CTRLO:    // ^F^O = Tempo rimasto
-                  OutString ("%u", TimeRemain ());
+                  OutString ("%lu", TimeRemain ());
                   break;
                case CTRLQ: {  // ^F^Q = Total calls
                   class TStatistics *Stats;
@@ -1074,6 +1284,12 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   }
                   break;
                }
+               case CTRLU:    // ^F^U = Answers are required
+                  Required = TRUE;
+                  break;
+               case CTRLV:    // ^F^V = Answers are not required
+                  Required = FALSE;
+                  break;
                case CTRLW:    // ^F^W = Upload KBytes
                   if (User != NULL)
                      OutString ("%lu", (User->UploadBytes + 1023L) / 1024L);
@@ -1082,7 +1298,9 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   if (User != NULL)
                      OutString ("%lu", (User->DownloadBytes + 1023L) / 1024L);
                   break;
-               case ':':      // ^F:  = DL/UL Bytes Ratio
+               case ':':    // ^F:  = Fullscreen enhancements
+                  OutString ("%s", (User->FullScreen == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
                case CTRLY:    // ^F^Y = DL/UL Bytes Ratio
                   if (User != NULL) {
                      if (User->UploadBytes != 0)
@@ -1091,11 +1309,24 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                         OutString ("%lu:0", (User->DownloadBytes + 1023L) / 1024L);
                   }
                   break;
+               case '0':    // ^F0 = Full Screen Editor YES/NO
+                  OutString ("%s", (User->FullEd == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
+               case '2':    // ^F2 = User's age
+                  if (User != NULL)
+                     OutString ("%u", User->Age ());
+                  break;
                case '3':    // ^F3 = Hotkey YES/NO
-                  OutString ("%s", (HotKey == TRUE) ? "Yes" : "No");
+                  OutString ("%s", (HotKey == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
+               case '5':    // ^F5 = Birthdate
+                  OutString ("%d-%02d-%04d", User->BirthDay, User->BirthMonth, User->BirthYear);
+                  break;
+               case '6':    // ^F6 = Mailcheck YES/NO
+                  OutString ("%s", (User->MailCheck == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
                   break;
                case '8':    // ^F8 = Avatar YES/NO
-                  OutString ("%s", (Avatar == TRUE) ? "Yes" : "No");
+                  OutString ("%s", (Avatar == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
                   break;
                case '9':      // ^F9  = DL/UL Files Ratio
                   if (User != NULL) {
@@ -1106,7 +1337,13 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   }
                   break;
                case '!':    // ^F! = Color YES/NO
-                  OutString ("%s", (Color == TRUE) ? "Yes" : "No");
+                  OutString ("%s", (Color == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
+               case '=':    // ^F= = Rip graphics YES/NO
+                  OutString ("%s", (Rip == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
+               case '$':    // ^F$ = In User list YES/NO
+                  OutString ("%s", (User->InUserList == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
                   break;
                case 'D':    // ^FD = E-Mail address
                   if (User != NULL)
@@ -1117,12 +1354,14 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                      OutString ("%s", User->DayPhone);
                   break;
                case 'N':    // ^FN = Last message read
-                  if (User != NULL && MsgArea != NULL) {
-                     if (User->MsgTag->Read (MsgArea->Key) == TRUE)
-                        OutString ("%lu", User->MsgTag->LastRead);
-                     else
-                        OutString ("%lu", 0L);
-                  }
+                  if (User != NULL && MsgArea != NULL)
+                     OutString ("%lu", MsgArea->LastReaded);
+                  break;
+               case 'I':    // ^FI = IBM characters YES/NO
+                  OutString ("%s", (User->IBMChars == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
+               case 'K':    // ^F0 = Full Screen Editor YES/NO
+                  OutString ("%s", (User->Kludges == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
                   break;
                case 'Q':    // ^FR = Upload Files
                   if (User != NULL)
@@ -1145,11 +1384,20 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                      OutString ("%u", User->ScreenHeight);
                   break;
                case 'X':    // ^FX = Ansi YES/NO
-                  OutString ("%s", (Ansi == TRUE) ? "Yes" : "No");
+                  OutString ("%s", (Ansi == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
+               case 'Y':    // ^FY = More? YES/NO
+                  OutString ("%s", (User->MorePrompt == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
+                  break;
+               case 'Z':    // ^FZ = Screen Clear YES/NO
+                  OutString ("%s", (User->ScreenClear == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
                   break;
                case '\\':  // ^F\ = Language Name
                   if (Language != NULL)
                      OutString ("%s", Language->Comment);
+                  break;
+               case ';':    // ^F; = Full Screen Reader YES/NO
+                  OutString ("%s", (User->FullReader == TRUE) ? Language->Text (LNG_YES) : Language->Text (LNG_NO));
                   break;
                default:
                   ProcessControlF ((UCHAR)c);
@@ -1215,10 +1463,12 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
          }
          break;
       case CTRLL:             // ^L = Cancella lo schermo
-         if (Avatar == TRUE)
-            OutString ("\x0C");
-         else if (Ansi == TRUE)
-            OutString ("\x1B[2J\x1B[1;1f");
+         if (Ansi == TRUE || Avatar == TRUE) {
+            if (Ansi == TRUE && User->ScreenClear == FALSE)
+               OutString ("\x1B[2J\x1B[1;1f");
+            else
+               OutString ("\x0C");
+         }
          else
             OutString ("\n");
          Line = 1;
@@ -1255,6 +1505,17 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   break;
                case 'e':      // ^Oe = End of ANSI/Avatar only text
                   break;
+               case 'F':      // ^OF = Set On Exit filename
+                  p = OnExit;
+                  while ((c = GetNextChar ()) != EOF) {
+                     if (c <= ' ')
+                        break;
+                     *p++ = (CHAR)c;
+                  }
+                  *p = '\0';
+                  if (c == '\r' && PeekNextChar () == '\n')
+                     GetNextChar ();
+                  break;
                case 'G':      // ^OG = Display only if RIPscript enabled
                   if (Rip == FALSE) {
                      while ((c = GetNextChar ()) != EOF) {
@@ -1285,6 +1546,70 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   strcpy (AltPath, Language->TextFiles);
                   break;
                }
+               case 'M': {    // ^OM[comment] = Memorizza l'ultima risposta al ^OR
+                  CHAR Comment[64], *p;
+
+                  p = Comment;
+                  do {
+                     if ((c = GetNextChar ()) > ' ')
+                        *p++ = (CHAR)c;
+                  } while (c != EOF && c > ' ');
+                  *p = '\0';
+                  if (c == 0x0D && PeekNextChar () == 0x0A)
+                     GetNextChar ();
+
+                  if (AnswerFile != NULL)
+                     fprintf (AnswerFile, "  %s: %c\n", Comment, Response);
+                  break;
+               }
+               case 'N': {    // ^ON[comment] = Attende una stringa dall'utente e la memorizza
+                  CHAR Comment[64], Answer[64], *p;
+
+                  p = Comment;
+                  do {
+                     if ((c = GetNextChar ()) > ' ')
+                        *p++ = (CHAR)c;
+                  } while (c != EOF && c > ' ');
+                  *p = '\0';
+                  if (c == 0x0D && PeekNextChar () == 0x0A)
+                     GetNextChar ();
+
+                  do {
+                     GetString (Answer, (USHORT)(sizeof (Answer) - 1), 0);
+                  } while (AbortSession () == FALSE && Answer[0] == '\0' && Required == TRUE);
+                  if (AnswerFile != NULL)
+                     fprintf (AnswerFile, "  %s: %s\n", Comment, Answer);
+                  break;
+               }
+               case 'O': {    // ^OO[file] = Open answer file
+                  CHAR File[64], *p;
+
+                  p = File;
+                  while ((c = GetNextChar ()) != EOF) {
+                     if (c <= ' ')
+                        break;
+                     *p++ = (CHAR)c;
+                  }
+                  *p = '\0';
+                  if (c == '\r' && PeekNextChar () == '\n')
+                     GetNextChar ();
+
+                  if (AnswerFile != NULL)
+                     fclose (AnswerFile);
+                  if ((AnswerFile = fopen (File, "at")) != NULL) {
+                     if (Log != NULL)
+                        Log->Write ("+Answer file %s opened", File);
+                  }
+                  else {
+                     if (Log != NULL)
+                        Log->Write ("!Failed to open answer file %s", File);
+                  }
+                  break;
+               }
+               case 'P':      // ^OP = Write user's data to answer file
+                  if (AnswerFile != NULL)
+                     fprintf (AnswerFile, "* %s\t%s\t%s\t\n", User->Name, User->City, "");
+                  break;
                case 'Q':      // ^OQ = Fine immediata del file
                   Stop = TRUE;
                   break;
@@ -1393,6 +1718,20 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                break;
          }
          break;
+      case CTRLR:
+         if ((c = GetNextChar ()) != EOF) {
+            switch (c) {
+               case CTRLC:    // ^R^C = System Name
+                  if (Cfg != NULL)
+                     OutString ("%s", Cfg->SystemName);
+                  break;
+               case CTRLD:    // ^R^D = Sysop Name
+                  if (Cfg != NULL)
+                     OutString ("%s", Cfg->SysopName);
+                  break;
+            }
+         }
+         break;
       case CTRLV:
          if ((c = GetNextChar ()) != EOF) {
             switch (c) {
@@ -1431,12 +1770,56 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                      }
                   }
                   break;
+               case CTRLY:    // ^V^Y[len][s][n] = Ripete la sequenza
+                  c = GetNextChar ();
+                  p = Temp;
+                  for (i = 0; i < c; i++)
+                     *p++ = (CHAR)GetNextChar ();
+                  *p = '\0';
+                  c = GetNextChar ();
+                  for (i = 0; i < c; i++)
+                     OutString ("%s", Temp);
+                  break;
             }
          }
          break;
       case CTRLW:
          if ((c = GetNextChar ()) != EOF) {
             switch (c) {
+               case 'b': {    // ^Wb[n] = If Task == [n]
+                  CHAR Temp[64], *p;
+
+                  p = Temp;
+                  while ((c = GetNextChar ()) != EOF) {
+                     if (c <= ' ')
+                        break;
+                     *p++ = (CHAR)c;
+                  }
+                  *p = '\0';
+
+                  if (c == '\r' && PeekNextChar () == '\n')
+                     GetNextChar ();
+
+                  if (Task != atoi (Temp))
+                     do {
+                        if ((c = GetNextChar ()) == 0x0D) {
+                           if (PeekNextChar () == 0x0A)
+                              GetNextChar ();
+                           else
+                              c = 0;
+                        }
+                     } while (c != EOF && c != 0x0D);
+                  break;
+               }
+               case CTRLA: {  // ^W^A = User's last call date (dd mmm yy)
+                  struct tm *ltm;
+
+                  if (User != NULL) {
+                     ltm = localtime ((time_t *)&User->LastCall);
+                     OutString ("%d %3.3s %d", ltm->tm_mday, Language->Months[ltm->tm_mon], ltm->tm_year + 1900);
+                  }
+                  break;
+               }
                case CTRLC:    // ^W^C = System Name
                   if (Cfg != NULL)
                      OutString ("%s", Cfg->SystemName);
@@ -1447,6 +1830,26 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                   break;
                case 'E':
                   StopNested = TRUE;
+                  break;
+               case CTRLF:
+               case 'G':
+                  switch (c = GetNextChar ()) {
+                     case 'A':      // ^W^FA = Name of current file area
+                        if (FileArea != NULL)
+                           OutString ("%s", FileArea->Key);
+                        break;
+                     case 'N':      // ^W^FN = Description of current file area
+                        if (FileArea != NULL)
+                           OutString ("%s", FileArea->Display);
+                        break;
+                  }
+                  break;
+               case 'j':
+                  switch (c = GetNextChar ()) {
+                     case 'N':      // ^WjN = Node number
+                        OutString ("%d", Task);
+                        break;
+                  }
                   break;
                case 'L': {    // ^WL = Link con un'altro file
                   FILE *SaveFP;
@@ -1485,6 +1888,51 @@ VOID TEmbedded::ProcessControl (UCHAR ucControl)
                      Response = SaveResponse;
                      fp = SaveFP;
                   }
+                  break;
+               }
+               case CTRLM: {
+                  switch (c = GetNextChar ()) {
+                     case '#':      // ^W^M# = Number of messages in current area
+                        if (MsgArea != NULL)
+                           OutString ("%lu", MsgArea->ActiveMsgs);
+                        break;
+                     case 'A':      // ^W^MA = Name of current message area
+                        if (MsgArea != NULL)
+                           OutString ("%s", MsgArea->Key);
+                        break;
+                     case 'L':      // ^W^MH = Highest message in area
+                        if (MsgArea != NULL)
+                           OutString ("%lu", MsgArea->LastMessage);
+                        break;
+                     case 'N':      // ^W^MN = Description of current message area
+                        if (MsgArea != NULL)
+                           OutString ("%s", MsgArea->Display);
+                        break;
+                  }
+                  break;
+               }
+               case 'P':
+                  if (User != NULL)
+                     OutString ("%s", User->DayPhone);
+                  break;
+               case 'R':
+                  if (User != NULL)
+                     OutString ("%s", User->RealName);
+                  break;
+               case 'W': {    // ^WW[comment] = Scrive la stringa nell'answer file
+                  CHAR Comment[64], *p;
+
+                  p = Comment;
+                  do {
+                     if ((c = GetNextChar ()) > ' ')
+                        *p++ = (CHAR)c;
+                  } while (c != EOF && c > ' ');
+                  *p = '\0';
+                  if (c == 0x0D && PeekNextChar () == 0x0A)
+                     GetNextChar ();
+
+                  if (AnswerFile != NULL)
+                     fprintf (AnswerFile, "  %s\n", Comment);
                   break;
                }
                default:
@@ -1595,11 +2043,11 @@ VOID TEmbedded::RunExternal (PSZ Command)
                a += strlen (a);
                break;
             case 'T':      // Time left (seconds)
-               sprintf (a, "%lu", TimeRemain () * 60L);
+               sprintf (a, "%lu", TimeRemain (TRUE));
                a += strlen (a);
                break;
             case 't':      // Time left (minutes)
-               sprintf (a, "%u", TimeRemain ());
+               sprintf (a, "%lu", TimeRemain ());
                a += strlen (a);
                break;
             case 'U':
@@ -1655,7 +2103,7 @@ VOID TEmbedded::RunExternal (PSZ Command)
                a += strlen (a);
                break;
             case 'T':      // Time left
-               sprintf (a, "%u", TimeRemain ());
+               sprintf (a, "%lu", TimeRemain ());
                a += strlen (a);
                break;
             default:
@@ -1696,8 +2144,8 @@ VOID TEmbedded::RunExternal (PSZ Command)
             fprintf (fp, "%lu\n", User->TotalCalls);
             ltm = localtime ((time_t *)&User->LastCall);
             fprintf (fp, "%02d/%02d/%04d\n", ltm->tm_mon + 1, ltm->tm_mday, ltm->tm_year);
-            fprintf (fp, "%lu\n", TimeRemain () * 60L);
-            fprintf (fp, "%u\n", TimeRemain ());
+            fprintf (fp, "%lu\n", TimeRemain (TRUE));
+            fprintf (fp, "%lu\n", TimeRemain ());
             fprintf (fp, "%s\n", (Ansi == TRUE || Avatar == TRUE) ? "GR" : "NG");
             fprintf (fp, "%u\n", ScreenHeight);
             fprintf (fp, "Y\n");
@@ -1756,21 +2204,25 @@ VOID TEmbedded::RunExternal (PSZ Command)
             fprintf (fp, "%s\n", User->City);
             fprintf (fp, "%s\n", (Ansi == TRUE || Avatar == TRUE) ? "1" : "0");
             fprintf (fp, "%u\n", User->Level);
-            fprintf (fp, "%u\n", TimeRemain ());
+            fprintf (fp, "%lu\n", TimeRemain ());
             fprintf (fp, "-1\n");
             fclose (fp);
          }
          break;
    }
 
-   if (Log != NULL)
-      Log->Write (":Running: %s", Cmd);
    DisplayFile ("leaving");
+   if (Log != NULL) {
+      Log->Write (":Running: %s", Cmd);
+      Log->Suspend ();
+   }
 
    ::RunExternal (Cmd);
 
-   if (Log != NULL)
+   if (Log != NULL) {
+      Log->Resume ();
       Log->Write (":Returned from door");
+   }
    DisplayFile ("return");
 }
 
@@ -1970,15 +2422,17 @@ VOID TEmbedded::Putch (UCHAR ucByte)
       Snoop->SendByte (ucByte);
 }
 
-USHORT TEmbedded::TimeRemain (VOID)
+ULONG TEmbedded::TimeRemain (USHORT seconds)
 {
-   USHORT RetVal = 1440;
-   ULONG Len;
+   ULONG RetVal = 1440L * 60L, Len;
 
    if (TimeLimit != 0) {
-      Len = (time (NULL) - StartCall) / 60L;
-      RetVal = (USHORT)(TimeLimit - Len);
+      Len = time (NULL) - StartCall;
+      RetVal = (TimeLimit * 60L) - Len;
    }
+
+   if (seconds == FALSE)
+      RetVal /= 60L;
 
    return (RetVal);
 }
@@ -1989,5 +2443,72 @@ VOID TEmbedded::UnbufferBytes (VOID)
       Com->UnbufferBytes ();
    if (Snoop != NULL)
       Snoop->UnbufferBytes ();
+}
+
+VOID TEmbedded::TranslateKeyword (VOID)
+{
+   USHORT Len;
+   SHORT i, c, PutOn = FALSE, WasColor = FALSE;
+   CHAR Key[64], *p, Color = 0;
+
+   Traslate[0] = '\0';
+   TrasPtr = Traslate;
+   TrasLen = Len = 0;
+
+   while ((c = GetNextChar ()) != EOF) {
+      if (c > ' ')
+         break;
+   }
+
+   for (;;) {
+      p = Key;
+      if (c != EOF) {
+         *p++ = (CHAR)c;
+         while ((c = GetNextChar ()) != EOF) {
+            if (c == ']' || c <= ' ')
+               break;
+            *p++ = (CHAR)c;
+         }
+         *p++ = '\0';
+
+         if (!stricmp (Key, "on"))
+            PutOn = TRUE;
+         else if (WasColor == TRUE && !stricmp (Key, "blink"))
+            Traslate[Len - 1] |= 0x80;
+         else if (isdigit (Key[0]))
+            Traslate[Len++] = (CHAR)atoi (Key);
+         else {
+            for (i = 0; MeccaKeywords[i].Key != NULL; i++) {
+               if (!stricmp (Key, MeccaKeywords[i].Key)) {
+                  if (PutOn == FALSE) {
+                     memcpy (&Traslate[Len], MeccaKeywords[i].Text, MeccaKeywords[i].Len);
+                     Len += MeccaKeywords[i].Len;
+                  }
+                  WasColor = FALSE;
+                  if (MeccaKeywords[i].Text[0] == '\026' && MeccaKeywords[i].Text[1] == '\001') {
+                     WasColor = TRUE;
+                     if (PutOn == TRUE) {
+                        Color = (CHAR)(MeccaKeywords[i].Text[2] << 4);
+                        Traslate[Len - 1] |= Color;
+                        PutOn = FALSE;
+                     }
+                  }
+                  break;
+               }
+            }
+         }
+
+         if (c != ']' && c != EOF) {
+            while ((c = GetNextChar ()) != EOF && c != ']') {
+               if (c > ' ')
+                  break;
+            }
+         }
+      }
+      if (c == ']' || c == EOF)
+         break;
+   }
+
+   TrasLen = Len;
 }
 
