@@ -1,7 +1,7 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.10
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// Lora BBS Professional Edition - Version 3.00.1
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
@@ -25,20 +25,21 @@ typedef struct {
    CHAR  cbFiller[87];
 } ZEROBLK;
 
-TTransfer::TTransfer (class TBbs *bbs) : TZModem (bbs)
+TTransfer::TTransfer (void)
 {
-   Bbs = bbs;
-   Cfg = bbs->Cfg;
-   Com = bbs->Com;
-   Lang = bbs->Lang;
-   Log = bbs->Log;
+   Com = NULL;
+   Log = NULL;
+   EndRun = Hangup = FALSE;
+   Progress = NULL;
+   Device[0] = '\0';
 
-   pktSize = 128;
+   PktSize = 128;
    Soh = 0x01;
    DoCrc = FALSE;
    UseAck = TRUE;
    FinalName[0] = '\0';
-   pktNumber = 0;
+   PktNumber = 0;
+   Task = 1;
 }
 
 TTransfer::~TTransfer (void)
@@ -51,7 +52,7 @@ PSZ TTransfer::Receive1kXModem (PSZ pszPath)
    return (ReceiveXFile (pszPath));
 }
 
-SHORT TTransfer::ReceivePacket (UCHAR *lpBuffer)
+USHORT TTransfer::ReceivePacket (UCHAR *lpBuffer)
 {
    SHORT c;
    USHORT i, crc, recvcrc;
@@ -60,13 +61,13 @@ SHORT TTransfer::ReceivePacket (UCHAR *lpBuffer)
    checksum = 0;
    crc = 0;
 
-   if ((c = TimedRead (100)) == -1 || c != pktNumber)
+   if ((c = TimedRead (100)) == -1 || c != PktNumber)
       return (FALSE);
-   if ((c = TimedRead (100)) == -1 || c != (UCHAR)(pktNumber ^ 0xFF))
+   if ((c = TimedRead (100)) == -1 || c != (UCHAR)(PktNumber ^ 0xFF))
       return (FALSE);
 
    if (DoCrc == TRUE) {
-      for (i = 0; i < pktSize; i++, lpBuffer++) {
+      for (i = 0; i < PktSize; i++, lpBuffer++) {
          if ((c = TimedRead (100)) == -1)
             return (FALSE);
          *lpBuffer = (UCHAR)c;
@@ -82,7 +83,7 @@ SHORT TTransfer::ReceivePacket (UCHAR *lpBuffer)
          return (FALSE);
    }
    else {
-      for (i = 0; i < pktSize; i++, lpBuffer++) {
+      for (i = 0; i < PktSize; i++, lpBuffer++) {
          if ((c = TimedRead (100)) == -1)
             return (FALSE);
          *lpBuffer = (UCHAR)c;
@@ -102,26 +103,26 @@ PSZ TTransfer::ReceiveXFile (PSZ pszFile)
    UCHAR *buffer;
    PSZ pszReturn = NULL;
 
-   if ((fd = open (pszFile, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) == -1)
+   if ((fd = sopen (pszFile, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE)) == -1)
       return (NULL);
 
    if ((buffer = (UCHAR *)malloc (1024)) != NULL) {
       errs = 0;
       DoCrc = TRUE;
-      pktNumber = 1;
+      PktNumber = 1;
 
-      while (Bbs->AbortSession () == FALSE && fStop == FALSE) {
+      while (AbortSession () == FALSE && fStop == FALSE) {
          if ((c = TimedRead (1000)) != -1) {
             switch (c) {
                case SOH:
-                  pktSize = 128;
+                  PktSize = 128;
                   if (ReceivePacket (buffer) == TRUE) {
                      if (UseAck == TRUE)
                         Com->BufferByte (ACK);
-                     write (fd, buffer, pktSize);
+                     write (fd, buffer, PktSize);
                      errs = 0;
                      fStart = TRUE;
-                     pktNumber++;
+                     PktNumber++;
                   }
                   else {
                      Com->BufferByte (NAK);
@@ -133,14 +134,14 @@ PSZ TTransfer::ReceiveXFile (PSZ pszFile)
                   break;
 
                case STX:
-                  pktSize = 1024;
+                  PktSize = 1024;
                   if (ReceivePacket (buffer) == TRUE) {
                      if (UseAck == TRUE)
                         Com->BufferByte (ACK);
-                     write (fd, buffer, pktSize);
+                     write (fd, buffer, PktSize);
                      errs = 0;
                      fStart = TRUE;
-                     pktNumber++;
+                     PktNumber++;
                   }
                   else {
                      Com->BufferByte (NAK);
@@ -211,8 +212,8 @@ PSZ TTransfer::ReceiveZModem (PSZ pszPath)
 USHORT TTransfer::Send1kXModem (PSZ pszFile)
 {
    Soh = STX;
-   pktSize = 1024;
-   pktNumber = 1;
+   PktSize = 1024;
+   PktNumber = 1;
    UseAck = TRUE;
 
    return (SendXFile (pszFile));
@@ -227,8 +228,10 @@ USHORT TTransfer::SendASCIIDump (PSZ pszFile)
    fRet = FALSE;
    nChars = 0;
 
-   if ((fp = fopen (pszFile, "rb")) != NULL) {
-      while (Bbs->AbortSession () == FALSE) {
+   if ((fp = _fsopen (pszFile, "rb", SH_DENYNO)) != NULL) {
+      Com->BufferBytes ((UCHAR *)"\r\n", 2);
+
+      while (AbortSession () == FALSE) {
          if (nChars == 0) {
             if ((c = fgetc (fp)) == EOF) {
                fRet = TRUE;
@@ -268,11 +271,11 @@ SHORT TTransfer::SendPacket (UCHAR *lpBuffer)
 
    Com->BufferByte (Soh);
 
-   Com->BufferByte (pktNumber);
-   Com->BufferByte ((UCHAR)(pktNumber ^ 0xFF));
+   Com->BufferByte (PktNumber);
+   Com->BufferByte ((UCHAR)(PktNumber ^ 0xFF));
 
    if (DoCrc == TRUE) {
-      for (i = 0; i < pktSize; i++, lpBuffer++) {
+      for (i = 0; i < PktSize; i++, lpBuffer++) {
          crc = Crc16 (*lpBuffer, crc);
          Com->BufferByte (*lpBuffer);
       }
@@ -280,7 +283,7 @@ SHORT TTransfer::SendPacket (UCHAR *lpBuffer)
       Com->BufferByte ((UCHAR)(crc & 0xFF));
    }
    else {
-      for (i = 0; i < pktSize; i++, lpBuffer++) {
+      for (i = 0; i < PktSize; i++, lpBuffer++) {
          checksum += *lpBuffer;
          Com->BufferByte (*lpBuffer);
       }
@@ -288,8 +291,13 @@ SHORT TTransfer::SendPacket (UCHAR *lpBuffer)
    }
 
    Com->UnbufferBytes ();
+#if defined(__OS2__)
+   DosSleep (1L);
+#elif defined(__NT__)
+   Sleep (1L);
+#endif
 
-   return (Bbs->AbortSession ());
+   return (AbortSession ());
 }
 
 USHORT TTransfer::SendXFile (PSZ pszFile)
@@ -304,18 +312,25 @@ USHORT TTransfer::SendXFile (PSZ pszFile)
    fRet = FALSE;
    fStarted = FALSE;
 
-   if ((buffer = (UCHAR *)malloc (pktSize)) == NULL)
+   if ((buffer = (UCHAR *)malloc (PktSize)) == NULL)
       return (FALSE);
 
-   if ((fd = open (pszFile, O_RDONLY|O_BINARY)) == -1) {
+   if ((fd = sopen (pszFile, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) == -1) {
       free (buffer);
       return (FALSE);
    }
 
-   memset (buffer, 26, pktSize);
-   read (fd, buffer, pktSize);
+   memset (buffer, 26, PktSize);
+   read (fd, buffer, PktSize);
 
-   while (Bbs->AbortSession () == FALSE) {
+   if (Progress != NULL) {
+      strcpy (Progress->TxFileName, pszFile);
+      Progress->TxBlockSize = PktSize;
+      Progress->TxSize = filelength (fd);
+      Progress->Begin ();
+   }
+
+   while (AbortSession () == FALSE) {
       if ((c = TimedRead (1000)) != -1) {
          if (c == 'C' || c == NAK) {
             if (c == 'C')
@@ -325,12 +340,16 @@ USHORT TTransfer::SendXFile (PSZ pszFile)
             fStarted = TRUE;
          }
          if (c == ACK || UseAck == FALSE) {
-            pktNumber++;
+            PktNumber++;
+            if (Progress != NULL) {
+               Progress->TxPosition += Progress->TxBlockSize;
+               Progress->Update ();
+            }
             errs = 0;
-            memset (buffer, 26, pktSize);
-            if (read (fd, buffer, pktSize) == 0) {
+            memset (buffer, 26, PktSize);
+            if (read (fd, buffer, PktSize) == 0) {
                Com->SendByte ((UCHAR)EOT);
-               while (Bbs->AbortSession () == FALSE) {
+               while (AbortSession () == FALSE) {
                   if ((c = TimedRead (100)) != -1) {
                      if (c == ACK) {
                         fRet = TRUE;
@@ -365,6 +384,11 @@ USHORT TTransfer::SendXFile (PSZ pszFile)
       }
    }
 
+   if (Progress != NULL) {
+      Progress->End ();
+      delete Progress;
+   }
+
    free (buffer);
    close (fd);
 
@@ -374,8 +398,8 @@ USHORT TTransfer::SendXFile (PSZ pszFile)
 USHORT TTransfer::SendXModem (PSZ pszFile)
 {
    Soh = SOH;
-   pktSize = 128;
-   pktNumber = 1;
+   PktSize = 128;
+   PktNumber = 1;
    UseAck = TRUE;
 
    return (SendXFile (pszFile));
@@ -387,11 +411,11 @@ USHORT TTransfer::SendYModem (PSZ pszFile)
    USHORT fZeroSent, fDone, fRet, errs;
    CHAR ZeroBlock[128];
    PSZ p;
-   struct find_t blk;
+   struct stat statbuf;
 
    Soh = SOH;
-   pktSize = 128;
-   pktNumber = 0;
+   PktSize = 128;
+   PktNumber = 0;
    fZeroSent = FALSE;
    fDone = FALSE;
    fRet = FALSE;
@@ -402,12 +426,12 @@ USHORT TTransfer::SendYModem (PSZ pszFile)
       p--;
    if (*p == ':' || *p == '\\' || *p == '/')
       p++;
-   _dos_findfirst (pszFile, 0, &blk);
+   stat (pszFile, &statbuf);
 
    memset (ZeroBlock, 0, sizeof (ZeroBlock));
-   sprintf (ZeroBlock, "%s%c%ld %ld", p, '\0', blk.size, (ULONG)((ULONG)blk.wr_date << 16) | blk.wr_time);
+   sprintf (ZeroBlock, "%s%c%ld %ld", p, '\0', statbuf.st_size, statbuf.st_mtime);
 
-   while (fDone == FALSE && Bbs->AbortSession () == FALSE) {
+   while (fDone == FALSE && AbortSession () == FALSE) {
       if ((c = TimedRead (1000)) != -1) {
          if (c == 'C' || c == NAK) {
             if (c == 'C')
@@ -417,8 +441,8 @@ USHORT TTransfer::SendYModem (PSZ pszFile)
          }
          if (c == ACK && fZeroSent == TRUE) {
             Soh = STX;
-            pktSize = 1024;
-            pktNumber = 1;
+            PktSize = 1024;
+            PktNumber = 1;
             UseAck = TRUE;
             fRet = SendXFile (pszFile);
             fDone = TRUE;
@@ -437,11 +461,11 @@ USHORT TTransfer::SendYModemG (PSZ pszFile)
    USHORT fZeroSent, fDone, fRet, errs;
    CHAR ZeroBlock[128];
    PSZ p;
-   struct find_t blk;
+   struct stat statbuf;
 
    Soh = SOH;
-   pktSize = 128;
-   pktNumber = 0;
+   PktSize = 128;
+   PktNumber = 0;
    fZeroSent = FALSE;
    fDone = FALSE;
    fRet = FALSE;
@@ -452,12 +476,12 @@ USHORT TTransfer::SendYModemG (PSZ pszFile)
       p--;
    if (*p == ':' || *p == '\\' || *p == '/')
       p++;
-   _dos_findfirst (pszFile, 0, &blk);
+   stat (pszFile, &statbuf);
 
    memset (ZeroBlock, 0, sizeof (ZeroBlock));
-   sprintf (ZeroBlock, "%s%c%ld %ld", p, '\0', blk.size, (ULONG)((ULONG)blk.wr_date << 16) | blk.wr_time);
+   sprintf (ZeroBlock, "%s%c%ld %ld", p, '\0', statbuf.st_size, statbuf.st_mtime);
 
-   while (fDone == FALSE && Bbs->AbortSession () == FALSE) {
+   while (fDone == FALSE && AbortSession () == FALSE) {
       if ((c = TimedRead (1000)) != -1) {
          if (c == 'C' || c == NAK) {
             if (fZeroSent == TRUE)
@@ -471,8 +495,8 @@ USHORT TTransfer::SendYModemG (PSZ pszFile)
          }
          if (c == ACK && fZeroSent == TRUE) {
             Soh = STX;
-            pktSize = 1024;
-            pktNumber = 1;
+            PktSize = 1024;
+            PktNumber = 1;
             UseAck = TRUE;
             fRet = SendXFile (pszFile);
             fDone = TRUE;
@@ -485,16 +509,17 @@ USHORT TTransfer::SendYModemG (PSZ pszFile)
    return (fRet);
 }
 
-USHORT TTransfer::SendZModem (PSZ pszFile)
+USHORT TTransfer::SendZModem (PSZ pszFile, PSZ pszName)
 {
    USHORT RetVal = FALSE, i;
 
+   Maxblklen = 1024;
    if (FileSent == 0 && pszFile == NULL)
       ZInitSender (TRUE);
    else
       ZInitSender (FALSE);
    if (pszFile != NULL) {
-      if ((i = ZSendFile (pszFile)) == 0 || i == 5) {
+      if ((i = ZSendFile (pszFile, pszName)) == OK || i == ZSKIP) {
          RetVal = TRUE;
          FileSent++;
       }
@@ -505,20 +530,197 @@ USHORT TTransfer::SendZModem (PSZ pszFile)
    return (RetVal);
 }
 
-SHORT TTransfer::TimedRead (SHORT hSec)
+USHORT TTransfer::SendZModem8K (PSZ pszFile, PSZ pszName)
 {
-   LONG Tout = TimerSet (hSec);
+   USHORT RetVal = FALSE, i;
 
-   while (!TimeUp (Tout)) {
-      if (Com->Carrier () == FALSE)
-         break;
-      if (Com->BytesReady () == TRUE)
-         return (Com->ReadByte ());
-      Bbs->ReleaseTimeSlice ();
+   Maxblklen = KSIZE;
+   if (FileSent == 0 && pszFile == NULL)
+      ZInitSender (TRUE);
+   else
+      ZInitSender (FALSE);
+   if (pszFile != NULL) {
+      if ((i = ZSendFile (pszFile, pszName)) == OK || i == ZSKIP) {
+         RetVal = TRUE;
+         FileSent++;
+      }
    }
+   else
+      ZEndSender ();
 
-   return (-1);
+   return (RetVal);
 }
 
+VOID TTransfer::Janus (PSZ pszPath)
+{
+#if !defined(__LINUX__)
+   class TJanus *Jan;
+
+   if ((Jan = new TJanus) != NULL) {
+      strcpy (Jan->RxPath, pszPath);
+      Jan->Com = Com;
+      Jan->Log = Log;
+      Jan->TxQueue = &TxQueue;
+      Jan->RxQueue = &RxQueue;
+      Jan->Transfer ();
+      delete Jan;
+   }
+#endif
+}
+
+VOID TTransfer::RunExternalProtocol (USHORT Download, PSZ Cmd, class TProtocol *Protocol)
+{
+   FILE *fp;
+   USHORT i, Batch = FALSE, Found = FALSE;
+   CHAR Command[128], Temp[128], Control[128], *p;
+   ULONG Cps;
+
+   if (TxQueue.TotalFiles > 1L)
+      Batch = TRUE;
+
+   if (Protocol != NULL) {
+      if (Protocol->First () == TRUE)
+         do {
+            if (Protocol->Active == TRUE && (Batch == FALSE || Protocol->Batch == TRUE)) {
+               if (!stricmp (Protocol->Key, Cmd)) {
+                  Found = TRUE;
+                  break;
+               }
+            }
+         } while (Protocol->Next () == TRUE);
+   }
+   if (Found == TRUE) {
+      if (Protocol->LogFileName[0] != '\0') {
+         strcpy (Command, Protocol->LogFileName);
+         if (strstr (Command, "%k") != NULL) {
+            sprintf (Temp, "%u", Task);
+            strsrep (Command, "%k", Temp);
+         }
+         unlink (Command);
+      }
+      if (Protocol->CtlFileName[0] != '\0') {
+         strcpy (Control, Protocol->CtlFileName);
+         if (strstr (Control, "%k") != NULL) {
+            sprintf (Temp, "%u", Task);
+            strsrep (Control, "%k", Temp);
+         }
+
+         if ((fp = fopen (Control, "wt")) != NULL) {
+            if (TxQueue.First () == TRUE)
+               do {
+                  strcpy (Command, Protocol->DownloadCtlString);
+                  if (strstr (Command, "%1") != NULL)
+                     strsrep (Command, "%1", TxQueue.Complete);
+                  fprintf (fp, "%s\n", Command);
+               } while (TxQueue.Next () == TRUE);
+            fclose (fp);
+         }
+      }
+      if (Download == TRUE) {
+         strcpy (Command, Protocol->DownloadCmd);
+         if (strstr (Command, "%k") != NULL) {
+            sprintf (Temp, "%u", Task);
+            strsrep (Command, "%k", Temp);
+         }
+         if (strstr (Command, "%P") != NULL) {
+#if defined(__LINUX__)
+            strsrep (Command, "%P", Device);
+#else
+            sprintf (Temp, "%u", atoi (&Device[3]));
+            strsrep (Command, "%P", Temp);
+#endif
+         }
+         if (strstr (Command, "%b") != NULL) {
+            sprintf (Temp, "%lu", Speed);
+            strsrep (Command, "%b", Temp);
+         }
+         if (strstr (Command, "%1") != NULL) {
+            if (TxQueue.First () == TRUE)
+               strsrep (Command, "%1", TxQueue.Complete);
+            else
+               strsrep (Command, "%1", "");
+         }
+         if (strstr (Command, "%2") != NULL)
+            strsrep (Command, "%2", Control);
+         if (Log != NULL)
+            Log->Write (":Running %s", Command);
+         RunExternal (Command, 0);
+         if (Log != NULL)
+            Log->Write (":Returned from external protocol");
+      }
+      if (Protocol->CtlFileName[0] != '\0')
+         unlink (Control);
+      if (Protocol->LogFileName[0] != '\0') {
+         strcpy (Command, Protocol->LogFileName);
+         if (strstr (Command, "%k") != NULL) {
+            sprintf (Temp, "%u", Task);
+            strsrep (Command, "%k", Temp);
+         }
+
+         if ((fp = fopen (Command, "rt")) != NULL) {
+            while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+               if (Temp[strlen (Temp) - 1] == '\n')
+                  Temp[strlen (Temp) - 1] = '\0';
+               if ((p = strtok (Temp, " ")) != NULL) {
+                  if (!strcmp (p, Protocol->DownloadKeyword)) {
+                     i = 1;
+                     Found = FALSE;
+                     while ((p = strtok (NULL, " ")) != NULL) {
+                        i++;
+                        if (Protocol->FileNamePos == i) {
+                           if (TxQueue.First () == TRUE)
+                              do {
+                                 if (!stricmp (p, TxQueue.Complete) || !stricmp (p, TxQueue.Name)) {
+                                    Found = TRUE;
+                                    break;
+                                 }
+                              } while (TxQueue.Next () == TRUE);
+                        }
+                        if (Protocol->CpsPos == i)
+                           Cps = (ULONG)atoi (p);
+                     }
+                     if (Found == TRUE) {
+                        Log->Write ("+CPS: %lu (%lu bytes)  Efficiency: %d%%", Cps, TxQueue.Size, (Cps * 100L) / (Speed / 10));
+                        Log->Write ("+Sent-%s %s", Protocol->Key, strupr (TxQueue.Complete));
+                        TxQueue.Sent = TRUE;
+                        TxQueue.Update ();
+                     }
+                  }
+               }
+            }
+            fclose (fp);
+         }
+
+         unlink (Command);
+      }
+   }
+}
+
+// ----------------------------------------------------------------------
+
+TProgress::TProgress (void)
+{
+   Type = 0;
+   RxBlockSize = TxBlockSize = 0;
+   RxFileName[0] = TxFileName[0] = '\0';
+   RxSize = RxPosition = 0L;
+   TxSize = TxPosition = 0L;
+}
+
+TProgress::~TProgress (void)
+{
+}
+
+VOID TProgress::Begin (VOID)
+{
+}
+
+VOID TProgress::End (VOID)
+{
+}
+
+VOID TProgress::Update (VOID)
+{
+}
 
 

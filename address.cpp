@@ -1,14 +1,14 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.06
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// Lora BBS Professional Edition - Version 2.99.20
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/21/95 - Initial coding.
 // ----------------------------------------------------------------------
 
 #include "_ldefs.h"
-#include "tools.h"
+#include "lora_api.h"
 
 TAddress::TAddress (void)
 {
@@ -60,17 +60,27 @@ SHORT TAddress::Add (PSZ pszAddress)
 
 SHORT TAddress::Add (USHORT usZone, USHORT usNet, USHORT usNode, USHORT usPoint, PSZ pszDomain)
 {
-   ADDR Addr;
+   SHORT RetVal = TRUE;
+   MAILADDRESS Addr, *Check;
 
-   memset (&Addr, 0, sizeof (Addr));
-   Addr.Zone = usZone;
-   Addr.Net= usNet;
-   Addr.Node = usNode;
-   Addr.Point = usPoint;
-   if (pszDomain != NULL)
-      strcpy (Addr.Domain, pszDomain);
+   if ((Check = (MAILADDRESS *)List.First ()) != NULL)
+      do {
+         if (Check->Zone == usZone && Check->Node == usNode && Check->Net == usNet && Check->Point == usPoint)
+            RetVal = FALSE;
+      } while ((Check = (MAILADDRESS *)List.Next ()) != NULL);
 
-   return (List.Add (&Addr, sizeof (Addr)));
+   if (RetVal == TRUE) {
+      memset (&Addr, 0, sizeof (Addr));
+      Addr.Zone = usZone;
+      Addr.Net= usNet;
+      Addr.Node = usNode;
+      Addr.Point = usPoint;
+      if (pszDomain != NULL)
+         strcpy (Addr.Domain, pszDomain);
+      RetVal = List.Add (&Addr, sizeof (Addr));
+   }
+
+   return (RetVal);
 }
 
 VOID TAddress::Clear (VOID)
@@ -78,15 +88,20 @@ VOID TAddress::Clear (VOID)
    List.Clear ();
 }
 
+VOID TAddress::Delete (VOID)
+{
+   List.Remove ();
+}
+
 SHORT TAddress::First (VOID)
 {
    SHORT RetVal = FALSE;
-   ADDR *Addr;
+   MAILADDRESS *Addr;
 
    Zone = Net = Node = Point = 0;
    Domain[0] = String[0] = '\0';
 
-   if ((Addr = (ADDR *)List.First ()) != NULL) {
+   if ((Addr = (MAILADDRESS *)List.First ()) != NULL) {
       Zone = Addr->Zone;
       Net = Addr->Net;
       Node = Addr->Node;
@@ -106,12 +121,46 @@ SHORT TAddress::First (VOID)
    return (RetVal);
 }
 
+USHORT TAddress::Load (PSZ File)
+{
+   List.Clear ();
+   return (Merge (File));
+}
+
+USHORT TAddress::Merge (PSZ File)
+{
+   int fd;
+   USHORT RetVal = FALSE;
+   CHAR Temp[128];
+   MAILADDRESS Addr;
+
+   strcpy (Temp, File);
+   if (Temp[0] != '\0') {
+#if defined(__LINUX__)
+      if (Temp[strlen (Temp) - 1] != '/')
+         strcat (Temp, "/");
+#else
+      if (Temp[strlen (Temp) - 1] != '\\')
+         strcat (Temp, "\\");
+#endif
+   }
+   strcat (Temp, "address.dat");
+   if ((fd = sopen (Temp, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+      RetVal = TRUE;
+      while (read (fd, &Addr, sizeof (MAILADDRESS)) == sizeof (MAILADDRESS))
+         List.Add (&Addr, sizeof (MAILADDRESS));
+      close (fd);
+   }
+
+   return (RetVal);
+}
+
 SHORT TAddress::Next (VOID)
 {
    SHORT RetVal = FALSE;
-   ADDR *Addr;
+   MAILADDRESS *Addr;
 
-   if ((Addr = (ADDR *)List.Next ()) != NULL) {
+   if ((Addr = (MAILADDRESS *)List.Next ()) != NULL) {
       Zone = Addr->Zone;
       Net = Addr->Net;
       Node = Addr->Node;
@@ -144,17 +193,29 @@ VOID TAddress::Parse (PSZ pszAddress)
          pszAddress = strchr (pszAddress, ':') + 1;
       }
       if (strchr (pszAddress, '/') != NULL) {
-         Net = (USHORT)atoi (pszAddress);
+         if (!stricmp (pszAddress, "all") || !strcmp (pszAddress, "*"))
+            Net = 65535U;
+         else
+            Net = (USHORT)atoi (pszAddress);
          pszAddress = strchr (pszAddress, '/') + 1;
       }
-      Node = (USHORT)atoi (pszAddress);
+      if (!stricmp (pszAddress, "all") || !strcmp (pszAddress, "*")) {
+         Node = 65535U;
+         if (Net == 0)
+            Net = Node;
+      }
+      else
+         Node = (USHORT)atoi (pszAddress);
       if ((p = strchr (pszAddress, '@')) != NULL) {
          *p++ = '\0';
          strcpy (Domain, p);
       }
       if (strchr (pszAddress, '.') != NULL) {
          pszAddress = strchr (pszAddress, '.') + 1;
-         Point = (USHORT)atoi (pszAddress);
+         if (!stricmp (pszAddress, "all") || !strcmp (pszAddress, "*"))
+            Point = 65535U;
+         else
+            Point = (USHORT)atoi (pszAddress);
       }
 
       if (Point != 0)
@@ -166,6 +227,36 @@ VOID TAddress::Parse (PSZ pszAddress)
          strcat (String, Domain);
       }
    }
+}
+
+USHORT TAddress::Save (PSZ File)
+{
+   int fd;
+   USHORT RetVal = FALSE;
+   CHAR Temp[128];
+   MAILADDRESS *Addr;
+
+   strcpy (Temp, File);
+   if (Temp[0] != '\0') {
+#if defined(__LINUX__)
+      if (Temp[strlen (Temp) - 1] != '/')
+         strcat (Temp, "/");
+#else
+      if (Temp[strlen (Temp) - 1] != '\\')
+         strcat (Temp, "\\");
+#endif
+   }
+   strcat (Temp, "address.dat");
+   if ((fd = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+      RetVal = TRUE;
+      if ((Addr = (MAILADDRESS *)List.First ()) != NULL)
+         do {
+            write (fd, Addr, sizeof (MAILADDRESS));
+         } while ((Addr = (MAILADDRESS *)List.Next ()) != NULL);
+      close (fd);
+   }
+
+   return (RetVal);
 }
 
 

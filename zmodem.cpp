@@ -1,7 +1,7 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.20
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// Lora BBS Professional Edition - Version 3.00.6
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
@@ -10,12 +10,14 @@
 #include "_ldefs.h"
 #include "ftrans.h"
 
-TZModem::TZModem (class TBbs *bbs)
+TZModem::TZModem (void)
 {
-   Com = bbs->Com;
-   Log = bbs->Log;
-   Bbs = bbs;
+   Com = NULL;
+   Log = NULL;
+   Progress = NULL;
+   EndRun = Hangup = FALSE;
 
+   TxBuffer = RxBuffer;
    FileSent = 0;
    Wantfcs32 = TRUE;
    Txfcs32 = FALSE;
@@ -24,35 +26,85 @@ TZModem::TZModem (class TBbs *bbs)
    lastsent = -1;
    Rxtimeout = 200;
    Tframlen = 1024;
-   TxBuffer = RxBuffer = (char *)malloc (KSIZE);
    TryZHdrType = ZRINIT;
+   Maxblklen = 1024;
+   RxTempSize = 0;
+   Telnet = FALSE;
 }
 
 TZModem::~TZModem (void)
 {
-   if (TxBuffer == RxBuffer) {
-      if (TxBuffer != NULL)
-         free (TxBuffer);
-   }
-   else {
-      if (TxBuffer != NULL)
-         free (TxBuffer);
-      if (TxBuffer != NULL)
-         free (RxBuffer);
-   }
 }
 
-SHORT TZModem::TimedRead (SHORT hSec)
+USHORT TZModem::AbortSession (VOID)
 {
-   LONG Tout = TimerSet (hSec);
+   USHORT RetVal = FALSE;
 
-   while (!TimeUp (Tout) && Bbs->AbortSession () == FALSE) {
-      if (Com->BytesReady () == TRUE)
-         return (Com->ReadByte ());
-      Bbs->ReleaseTimeSlice ();
+   if (EndRun == TRUE || Hangup == TRUE)
+      RetVal = TRUE;
+   else if (Com != NULL && Com->Carrier () == FALSE)
+      RetVal = TRUE;
+
+   return (RetVal);
+}
+
+/*
+SHORT TZModem::TimedRead (LONG hSec)
+{
+   SHORT RetVal = -1;
+   ULONG tout;
+
+   if (RxTempSize == 0) {
+      if (Com->BytesReady () == FALSE) {
+         tout = TimerSet (hSec);
+         do {
+            if (Com->BytesReady () == TRUE)
+               break;
+#if defined(__OS2__)
+            DosSleep (5L);
+#elif defined(__NT__)
+            Sleep (5L);
+#endif
+         } while (!TimeUp (tout) && AbortSession () == FALSE);
+      }
+      if (Com->BytesReady () == TRUE) {
+         RxTempSize = (SHORT)Com->ReadBytes ((UCHAR *)RxTemp, sizeof (RxTemp));
+         RxTempPos = RxTemp;
+      }
    }
 
-   return ((Bbs->AbortSession () == TRUE) ? RCDO : TIMEOUT);
+   if (RxTempSize > 0) {
+      RetVal = *RxTempPos++;
+      RxTempSize--;
+   }
+
+   return (RetVal);
+}
+*/
+
+SHORT TZModem::TimedRead (LONG hSec)
+{
+   SHORT RetVal = -1;
+   ULONG tout;
+
+   if (Com->BytesReady () == FALSE) {
+      tout = TimerSet (hSec);
+      do {
+         if (Com->BytesReady () == TRUE) {
+            RetVal = Com->ReadByte ();
+            break;
+         }
+#if defined(__OS2__)
+         DosSleep (1L);
+#elif defined(__NT__)
+         Sleep (1L);
+#endif
+      } while (!TimeUp (tout) && AbortSession () == FALSE);
+   }
+   else
+      RetVal = Com->ReadByte ();
+
+   return (RetVal);
 }
 
 VOID TZModem::ZAckBiBi (VOID)
@@ -61,17 +113,15 @@ VOID TZModem::ZAckBiBi (VOID)
 
    ZPutLong (Txhdr, 0L);
 
-   for (n = 4; --n >= 0; ) {
+   for (n = 4; --n >= 0 && AbortSession () == FALSE; ) {
       ZSendHexHeader (ZFIN, Txhdr);
-      for (;;) {
-         switch (TimedRead ((SHORT)Rxtimeout)) {
-            case 'O':
-               TimedRead ((SHORT)Rxtimeout);
-            /* ***** FALL THRU TO ***** */
-            case TIMEOUT:
-            case RCDO:
-               return;
-         }
+      switch (TimedRead (100)) {
+         case 'O':
+            TimedRead (1);
+         /* ***** FALL THRU TO ***** */
+         case TIMEOUT:
+         case RCDO:
+            return;
       }
    }
 }
@@ -84,12 +134,18 @@ short TZModem::ZDLRead (void)
       return (c);
    if ((c = TimedRead ((SHORT)Rxtimeout)) < 0)
       return (c);
-   if (c == CAN && (c = TimedRead ((SHORT)Rxtimeout)) < 0)
-      return (c);
-   if (c == CAN && (c = TimedRead ((SHORT)Rxtimeout)) < 0)
-      return (c);
-   if (c == CAN && (c = TimedRead ((SHORT)Rxtimeout)) < 0)
-      return (c);
+   if (c == CAN) {
+      if ((c = TimedRead ((SHORT)Rxtimeout)) < 0)
+         return (c);
+   }
+   if (c == CAN) {
+      if ((c = TimedRead ((SHORT)Rxtimeout)) < 0)
+         return (c);
+   }
+   if (c == CAN) {
+      if ((c = TimedRead ((SHORT)Rxtimeout)) < 0)
+         return (c);
+   }
    switch (c) {
       case CAN:
          return (GOTCAN);
@@ -125,13 +181,22 @@ LONG TZModem::ZGetLong (char *hdr)
 SHORT TZModem::ZReceiveData (char *buf, short length)
 {
    short d, c;
+   char *endpos;
    unsigned short crc;
    unsigned long ulCrc;
 
+#if defined(__OS2__)
+   DosSleep (1L);
+#elif defined(__NT__)
+   Sleep (1L);
+#endif
+
+   Rxcount = 0;
+   endpos = buf + length;
+
    if (Rxframeind == ZBIN32) {
       ulCrc = 0xFFFFFFFFL;
-      Rxcount = 0;
-      for (;;) {
+      while (buf <= endpos) {
          if ((c = ZDLRead()) & ~0377) {
 crcfoo2:
             switch (c) {
@@ -165,16 +230,15 @@ crcfoo2:
                   return (c);
             }
          }
-         if (--length < 0)
-            return (ZERROR);
          ++Rxcount;
-         *buf++ = (char)c;
+         if (buf < endpos)
+            *buf++ = (char)c;
          ulCrc = Crc32 ((UCHAR)c, ulCrc);
       }
    }
    else {
-      crc = Rxcount = 0;
-      for (;;) {
+      crc = 0;
+      while (buf <= endpos) {
          if ((c = ZDLRead()) & ~0377) {
 crcfoo1:
             switch (c) {
@@ -202,21 +266,34 @@ crcfoo1:
                   return (c);
             }
          }
-         if (--length < 0)
-            return (ZERROR);
          ++Rxcount;
-         *buf++ = (char)c;
+         if (buf < endpos)
+            *buf++ = (char)c;
          crc = Crc16 ((UCHAR)c, crc);
       }
    }
+
+   return (ZERROR);
 }
 
-void TZModem::ZSendLine (short c)
+void TZModem::ZSendLine (unsigned char c)
 {
-   switch (c &= 0377) {
-      case ZDLE:
-         Com->BufferByte (ZDLE);
-         Com->BufferByte ((UCHAR)(lastsent = (SHORT)(c ^= 0100)));
+   switch (c) {
+      case 0177:
+         if (Telnet == TRUE) {
+            Com->BufferByte (ZDLE);
+            Com->BufferByte ((UCHAR)(lastsent = ZRUB0));
+         }
+         else
+            Com->BufferByte ((UCHAR)(lastsent = c));
+         break;
+      case 0377:
+         if (Telnet == TRUE) {
+            Com->BufferByte (ZDLE);
+            Com->BufferByte ((UCHAR)(lastsent = ZRUB1));
+         }
+         else
+            Com->BufferByte ((UCHAR)(lastsent = c));
          break;
       case 015:
       case 0215:
@@ -229,17 +306,11 @@ void TZModem::ZSendLine (short c)
       case 0220:
       case 0221:
       case 0223:
-      case 0377:
+      case ZDLE:
          Com->BufferByte (ZDLE);
-         c ^= 0100;
-sendit:
-         Com->BufferByte ((UCHAR)(lastsent = c));
-         break;
+         c ^= 0x40;
       default:
-         if (ZCtlesc && !(c & 0140)) {
-            Com->BufferByte (ZDLE);
-            c ^= 0100;
-         }
+sendit:
          Com->BufferByte ((UCHAR)(lastsent = c));
          break;
    }
@@ -252,7 +323,7 @@ void TZModem::ZSendBinaryHeader (short type, char *hdr)
    unsigned short crc;
    unsigned long  ulCrc;
 
-   if (Bbs->AbortSession () == FALSE) {
+   if (AbortSession () == FALSE) {
       if (type == ZDATA) {
          for (n = Znulls; --n >= 0; )
             Com->BufferByte ((char)0);
@@ -263,30 +334,30 @@ void TZModem::ZSendBinaryHeader (short type, char *hdr)
 
       if (Txfcs32 == TRUE) {
          Com->BufferByte (ZBIN32);
-         ZSendLine (type);
+         ZSendLine ((unsigned char)type);
          ulCrc = Crc32 ((unsigned char)type, 0xFFFFFFFFL);
 
-         for (n = 4; --n >= 0; ) {
-            ZSendLine (*hdr);
-            ulCrc = Crc32 ((unsigned char)((0377& *hdr++)), ulCrc);
+         for (n = 4; --n >= 0; hdr++) {
+            ZSendLine ((unsigned char)*hdr);
+            ulCrc = Crc32 ((unsigned char)*hdr, ulCrc);
          }
          ulCrc = ~ulCrc;
          for (n = 4; --n >= 0;) {
-            ZSendLine ((short)ulCrc);
+            ZSendLine ((unsigned char)ulCrc);
             ulCrc >>= 8;
          }
       }
       else {
          Com->BufferByte (ZBIN);
-         ZSendLine (type);
+         ZSendLine ((unsigned char)type);
          crc = Crc16 ((unsigned char)type, 0);
 
-         for (n = 4; --n >= 0; ) {
-            ZSendLine (*hdr);
-            crc = Crc16 ((unsigned char)((0377& *hdr++)), crc);
+         for (n = 4; --n >= 0; hdr++) {
+            ZSendLine ((unsigned char)*hdr);
+            crc = Crc16 ((unsigned char)*hdr, crc);
          }
-         ZSendLine ((char)(crc >> 8));
-         ZSendLine (crc);
+         ZSendLine ((unsigned char)(crc >> 8));
+         ZSendLine ((unsigned char)crc);
       }
 
       Com->UnbufferBytes ();
@@ -299,19 +370,19 @@ void TZModem::ZSendData (char *buf, short length, short frameend)
    unsigned short crc;
    unsigned long  ulCrc;
 
-   if (Bbs->AbortSession () == FALSE) {
+   if (AbortSession () == FALSE) {
       if (Txfcs32 == TRUE) {
          ulCrc = 0xFFFFFFFFL;
-         for ( ; --length >= 0; ) {
-            ZSendLine (*buf);
-            ulCrc = Crc32 ((char)((0377 & *buf++)), ulCrc);
+         for ( ; --length >= 0; buf++) {
+            ZSendLine ((unsigned char)*buf);
+            ulCrc = Crc32 ((unsigned char)*buf, ulCrc);
          }
          Com->BufferByte (ZDLE);
-         Com->BufferByte ((char)frameend);
-         ulCrc = Crc32 ((char)frameend, ulCrc);
+         Com->BufferByte ((unsigned char)frameend);
+         ulCrc = Crc32 ((unsigned char)frameend, ulCrc);
          ulCrc = ~ulCrc;
          for (n = 4; --n >= 0;) {
-            ZSendLine ((short)ulCrc);
+            ZSendLine ((unsigned char)ulCrc);
             ulCrc >>= 8;
          }
 
@@ -319,22 +390,27 @@ void TZModem::ZSendData (char *buf, short length, short frameend)
       }
       else {
          crc = 0;
-         for ( ; --length >= 0; ) {
-            ZSendLine (*buf);
-            crc = Crc16 ((char)((0377 & *buf++)), crc);
+         for ( ; --length >= 0; buf++) {
+            ZSendLine ((unsigned char)*buf);
+            crc = Crc16 ((unsigned char)*buf++, crc);
          }
          Com->BufferByte (ZDLE);
-         Com->BufferByte ((char)frameend);
-         crc = Crc16 ((char)frameend, crc);
+         Com->BufferByte ((unsigned char)frameend);
+         crc = Crc16 ((unsigned char)frameend, crc);
 
-         ZSendLine ((char)(crc >> 8));
-         ZSendLine (crc);
+         ZSendLine ((unsigned char)(crc >> 8));
+         ZSendLine ((unsigned char)(crc & 0xFF));
 
          Com->UnbufferBytes ();
 
-         if (frameend == ZCRCW)
-            Com->SendByte (XON);
+//         if (frameend == ZCRCW)
+//            Com->SendByte (XON);
       }
+#if defined(__OS2__)
+      DosSleep (1L);
+#elif defined(__NT__)
+      Sleep (1L);
+#endif
    }
 }
 
@@ -342,7 +418,7 @@ short TZModem::ZGetByte (void)
 {
    short c;
 
-   while (Bbs->AbortSession () == FALSE) {
+   while (AbortSession () == FALSE) {
       if ((c = TimedRead ((SHORT)Rxtimeout)) < 0)
          return (TIMEOUT);
       switch (c &= 0177) {
@@ -384,6 +460,12 @@ short TZModem::ZReceiveHexHeader (char *hdr)
    short n, c;
    unsigned short crc;
 
+#if defined(__OS2__)
+   DosSleep (1L);
+#elif defined(__NT__)
+   Sleep (1L);
+#endif
+
    if ((c = ZGetHex ()) < 0)
       return (c);
    Rxtype = c;
@@ -413,6 +495,12 @@ short TZModem::ZReceiveBinaryHeader (char *hdr)
    short c, n;
    unsigned short crc;
 
+#if defined(__OS2__)
+   DosSleep (1L);
+#elif defined(__NT__)
+   Sleep (1L);
+#endif
+
    if ((c = ZDLRead ()) & ~0377)
       return (c);
    Rxtype = c;
@@ -439,6 +527,12 @@ short TZModem::ZReceiveBinaryHeader32 (char *hdr)
 {
    short c, n;
    unsigned long crc;
+
+#if defined(__OS2__)
+   DosSleep (1L);
+#elif defined(__NT__)
+   Sleep (1L);
+#endif
 
    if ((c = ZDLRead ()) & ~0377)
       return (c);
@@ -556,7 +650,7 @@ void TZModem::ZSendHexHeader (short type, char *hdr)
    short n;
    unsigned short crc;
 
-   if (Bbs->AbortSession () == FALSE) {
+   if (AbortSession () == FALSE) {
       Com->BufferByte (ZPAD);
       Com->BufferByte (ZPAD);
       Com->BufferByte (ZDLE);
@@ -591,20 +685,21 @@ void TZModem::ZPutLong (char *hdr, long pos)
 
 SHORT TZModem::ZInitReceiver (VOID)
 {
-   short i, n, cmdzack1flg, errors;
+   short n, errors;
 
    FileSent = 0;
    Txfcs32 = TRUE;
    errors = 0;
    Com->ClearInbound ();
+   RxTempSize = 0;
 
-   for (n = 10; --n >= 0 && Bbs->AbortSession () == FALSE; ) {
+   for (n = 10; --n >= 0 && AbortSession () == FALSE; ) {
       ZPutLong (Txhdr, 0L);
       Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO;
       ZSendHexHeader (TryZHdrType, Txhdr);
 
 again:
-      switch ((i = ZGetHeader (Rxhdr))) {
+      switch (ZGetHeader (Rxhdr)) {
          case ZRQINIT:
             break;
 
@@ -630,19 +725,17 @@ again:
             goto again;
 
          case ZCOMMAND:
-            cmdzack1flg = Rxhdr[ZF0];
+//            cmdzack1flg = Rxhdr[ZF0];
             if (ZReceiveData (RxBuffer, KSIZE) == GOTCRCW) {
-               if (cmdzack1flg & ZCACK1)
-                  ZPutLong (Txhdr, 0);
-               else
-                  ZPutLong (Txhdr, 0);
+               ZPutLong (Txhdr, 0L);
                do {
                   ZSendHexHeader (ZCOMPL, Txhdr);
                } while (++errors < 10 && ZGetHeader (Rxhdr) != ZFIN);
                ZAckBiBi();
                return (ZCOMPL);
             }
-            ZSendHexHeader (ZNAK, Txhdr);
+            else
+               ZSendHexHeader (ZNAK, Txhdr);
             goto again;
 
          case ZCOMPL:
@@ -655,6 +748,9 @@ again:
          case RCDO:
          case ZCAN:
             return (ZERROR);
+
+         default:
+            break;
       }
    }
 
@@ -672,7 +768,7 @@ short TZModem::ZInitSender (short nothing_to_do)
    }
 
    if (nothing_to_do == TRUE || (nothing_to_do == FALSE && FileSent == 0)) {
-      for (i = 0; i < 10 && Bbs->AbortSession () == FALSE; i++) {
+      for (i = 0; i < 10 && AbortSession () == FALSE; i++) {
          switch (ZGetHeader (Rxhdr)) {
             case ZCHALLENGE:                 /* Echo receiver's challenge numbr */
                ZPutLong (Txhdr, Rxpos);
@@ -724,7 +820,7 @@ SHORT TZModem::ZReceiveFile (PSZ pszPath)
 {
    FILE *fout;
    SHORT c, n, gota;
-   CHAR *p, *q, *fileinfo;
+   CHAR *p, *q, *fileinfo, *name;
    long length, filesize, filetime;
    struct utimbuf utimes;
    struct stat f;
@@ -734,17 +830,19 @@ SHORT TZModem::ZReceiveFile (PSZ pszPath)
          q = p + 1;
    }
 
+   name = q;
    sprintf (Pathname, "%s%s", pszPath, q);
-   strupr (Pathname);
+   strlwr (Pathname);
 
    filesize = filetime = 0L;
    fileinfo = RxBuffer + strlen (RxBuffer) + 1;
    if (*fileinfo)
       sscanf (fileinfo, "%ld %lo", &filesize, &filetime);
 
-	Log->Write (" Receiving %s; %ldb, %d min.", q, filesize, (int)((filesize * 10 / Bbs->CarrierSpeed + 53) / 54));
+   Log->Write (" Receiving %s; %ldb, %d min.", q, filesize, (int)((filesize * 10 / Speed + 53) / 54));
 
-   if ((fout = fopen (Pathname, "rb")) != NULL) {
+   Rxbytes = 0L;
+   if ((fout = _fsopen (Pathname, "rb", SH_DENYNO)) != NULL) {
       // If the file already exists, it's date and size are verified in order to
       // prevent other end to send us a file that we have already received.
       fstat (fileno (fout), &f);
@@ -753,6 +851,10 @@ SHORT TZModem::ZReceiveFile (PSZ pszPath)
          Log->Write ("+Already have %s", Pathname);
          ZSendHexHeader (ZSKIP, Txhdr);
          return (ZEOF);
+      }
+      else if (filesize > f.st_size) {
+         Rxbytes = f.st_size;
+         Log->Write ("+Synchronizing to offset %lu", Rxbytes);
       }
       else {
          if ((p = strchr (Pathname, '\0')) != NULL) {
@@ -769,22 +871,34 @@ SHORT TZModem::ZReceiveFile (PSZ pszPath)
                }
                else
                   *p = '0';
-               fout = fopen (Pathname, "rb");
-               fclose (fout);
+               if ((fout = _fsopen (Pathname, "rb", SH_DENYNO)) != NULL)
+                  fclose (fout);
             } while (fout != NULL);
-	         Log->Write ("+Renaming dupe file %s", Pathname);
+            Log->Write ("+Renaming dupe file %s", Pathname);
          }
       }
    }
 
+   if (Progress != NULL) {
+      Progress->Type = FILE_RECEIVING;
+      strcpy (Progress->RxFileName, name);
+      Progress->RxBlockSize = 0;
+      Progress->RxSize = filesize;
+      Progress->Begin ();
+      Progress->RxPosition = Rxbytes;
+      Progress->Update ();
+   }
+
    n = 10;
-   Rxbytes = 0L;
    length = time (NULL);
 
-   if ((fout = fopen (Pathname, "wb")) == NULL)
+   if ((fout = _fsopen (Pathname, "ab", SH_DENYNO)) == NULL) {
+      if (Progress != NULL)
+         Progress->End ();
       return (ZERROR);
+   }
 
-   while (Bbs->AbortSession () == FALSE) {
+   while (AbortSession () == FALSE) {
       ZPutLong (Txhdr, Rxbytes);
       ZSendBinaryHeader (ZRPOS, Txhdr);
 
@@ -797,6 +911,8 @@ nxthdr:
                   fclose (fout);
                   fout = NULL;
                }
+               if (Progress != NULL)
+                  Progress->End ();
                return (ZERROR);
             }
             break;
@@ -808,12 +924,14 @@ nxthdr:
          case ZEOF:
             if (ZGetLong (Rxhdr) != Rxbytes)
                continue;
+            if (Progress != NULL)
+               Progress->End ();
             if (fout != NULL) {
                fclose (fout);
                fout = NULL;
                if ((length = time (NULL) - length) == 0L)
                   length++;
-               Log->Write ("+CPS: %lu (%lu bytes)  Efficiency: %d%%", Rxbytes / length, Rxbytes, ((Rxbytes / length) * 100L) / (Bbs->CarrierSpeed / 10));
+               Log->Write ("+CPS: %lu (%lu bytes)  Efficiency: %d%%", Rxbytes / length, Rxbytes, ((Rxbytes / length) * 100L) / (Speed / 10));
                Log->Write ("+Received-Z%s %s", (Txfcs32 == TRUE) ? "/32" : "", strupr (Pathname));
                if (filetime) {
                   utimes.actime = filetime;
@@ -828,7 +946,14 @@ nxthdr:
                if (fout != NULL) {
                   fclose (fout);
                   fout = NULL;
+                  if (filetime) {
+                     utimes.actime = filetime;
+                     utimes.modtime = filetime;
+                     utime (Pathname, &utimes);
+                  }
                }
+               if (Progress != NULL)
+                  Progress->End ();
                return (ZERROR);
             }
             Com->SendBytes ((unsigned char *)Attn, (USHORT)strlen (Attn));
@@ -840,7 +965,14 @@ nxthdr:
                   if (fout != NULL) {
                      fclose (fout);
                      fout = NULL;
+                     if (filetime) {
+                        utimes.actime = filetime;
+                        utimes.modtime = filetime;
+                        utime (Pathname, &utimes);
+                     }
                   }
+                  if (Progress != NULL)
+                     Progress->End ();
                   return (ZERROR);
                }
                Com->SendBytes ((unsigned char *)Attn, (USHORT)strlen (Attn));
@@ -853,7 +985,14 @@ moredata:
                   if (fout != NULL) {
                      fclose (fout);
                      fout = NULL;
+                     if (filetime) {
+                        utimes.actime = filetime;
+                        utimes.modtime = filetime;
+                        utime (Pathname, &utimes);
+                     }
                   }
+                  if (Progress != NULL)
+                     Progress->End ();
                   return (ZERROR);
 
                case ZERROR:     /* CRC error */
@@ -861,7 +1000,14 @@ moredata:
                      if (fout != NULL) {
                         fclose (fout);
                         fout = NULL;
+                        if (filetime) {
+                           utimes.actime = filetime;
+                           utimes.modtime = filetime;
+                           utime (Pathname, &utimes);
+                        }
                      }
+                     if (Progress != NULL)
+                        Progress->End ();
                      return (ZERROR);
                   }
                   Com->SendBytes ((unsigned char *)Attn, (USHORT)strlen (Attn));
@@ -872,7 +1018,14 @@ moredata:
                      if (fout != NULL) {
                         fclose (fout);
                         fout = NULL;
+                        if (filetime) {
+                           utimes.actime = filetime;
+                           utimes.modtime = filetime;
+                           utime (Pathname, &utimes);
+                        }
                      }
+                     if (Progress != NULL)
+                        Progress->End ();
                      return (ZERROR);
                   }
                   continue;
@@ -883,6 +1036,11 @@ moredata:
                   Rxbytes += Rxcount;
                   ZPutLong (Txhdr, Rxbytes);
                   ZSendBinaryHeader (ZACK, Txhdr);
+                  if (Progress != NULL) {
+                     Progress->RxPosition = Rxbytes;
+                     Progress->RxBlockSize = Rxcount;
+                     Progress->Update ();
+                  }
                   goto nxthdr;
 
                case GOTCRCQ:
@@ -891,54 +1049,99 @@ moredata:
                   Rxbytes += Rxcount;
                   ZPutLong (Txhdr, Rxbytes);
                   ZSendBinaryHeader (ZACK, Txhdr);
+                  if (Progress != NULL) {
+                     Progress->RxPosition = Rxbytes;
+                     Progress->RxBlockSize = Rxcount;
+                     Progress->Update ();
+                  }
                   goto moredata;
 
                case GOTCRCG:
                   n = 10;
                   fwrite (RxBuffer, Rxcount, 1, fout);
                   Rxbytes += Rxcount;
+                  if (Progress != NULL) {
+                     Progress->RxPosition = Rxbytes;
+                     Progress->RxBlockSize = Rxcount;
+                     Progress->Update ();
+                  }
                   goto moredata;
 
                case GOTCRCE:
                   n = 10;
                   fwrite (RxBuffer, Rxcount, 1, fout);
                   Rxbytes += Rxcount;
+                  if (Progress != NULL) {
+                     Progress->RxPosition = Rxbytes;
+                     Progress->RxBlockSize = Rxcount;
+                     Progress->Update ();
+                  }
                   goto nxthdr;
             }
             break;
       }
    }
 
+   if (Progress != NULL)
+      Progress->End ();
+
    if (fout != NULL) {
       fclose (fout);
       fout = NULL;
+      if (filetime) {
+         utimes.actime = filetime;
+         utimes.modtime = filetime;
+         utime (Pathname, &utimes);
+      }
    }
 
    return (ZERROR);
 }
 
-short TZModem::ZSendFile (char *file)
+short TZModem::ZSendFile (char *file, char *name)
 {
-   FILE *fp;
-   short c, filedone, len;
+   int fd;
+   short c, filedone, len, goodneeded, goodblks;
    char buf[64], *p, *q;
    unsigned long length;
    struct stat f;
 
-   if ((fp = fopen (file, "rb")) == NULL)
+   if ((fd = sopen (file, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) == -1)
       return (ZERROR);
 
-   for (p = file, q = buf; *p; p++) {
-      if ((*q++ = *p) == '/' || *p == '\\' || *p == ':')
-         q = buf;
+   if (name == NULL) {
+      for (p = file, q = buf; *p; p++) {
+         if ((*q++ = *p) == '/' || *p == '\\' || *p == ':')
+            q = buf;
+      }
+   }
+   else {
+      strcpy (buf, name);
+      q = strchr (buf, '\0');
    }
    *q++ = 0;
 
-   fstat (fileno (fp), &f);
+   fstat (fd, &f);
    sprintf (q, "%lu %lo %o", f.st_size, f.st_mtime, f.st_mode);
    length = time (NULL);
 
-	Log->Write (" Sending %s; %ldb, %d min.", file, f.st_size, (int)((f.st_size * 10 / Bbs->CarrierSpeed + 53) / 54));
+   Txpos = Rxpos = 0L;
+   Log->Write (" Sending %s; %ldb, %d min.", file, f.st_size, (int)((f.st_size * 10 / Speed + 53) / 54));
+
+   if (Progress != NULL) {
+      Progress->Type = FILE_SENDING;
+      if (name != NULL)
+         strcpy (Progress->TxFileName, name);
+      else
+         strcpy (Progress->TxFileName, file);
+      Progress->TxBlockSize = Rxbuflen;
+      Progress->TxSize = f.st_size;
+      Progress->Begin ();
+      Progress->Update ();
+   }
+
+   while (TimedRead (50) != -1 && AbortSession () == FALSE)
+      ;
 
    do {
       Txhdr[ZF0] = LZCONV;    /* file conversion request */
@@ -957,10 +1160,16 @@ short TZModem::ZSendFile (char *file)
          case ZABORT:
          case ZFIN:
          case RCDO:
+            close (fd);
+            if (Progress != NULL)
+               Progress->End ();
+            Log->Write ("!Aborted by remote");
             return (ZERROR);
 
          case ZSKIP:
-            fclose (fp);
+            close (fd);
+            if (Progress != NULL)
+               Progress->End ();
             Log->Write ("+Remote refused %s", buf);
             return (c);
 
@@ -971,25 +1180,40 @@ short TZModem::ZSendFile (char *file)
          default:
             continue;
       }
-   } while (c != ZRPOS && Bbs->AbortSession () == FALSE);
+   } while (c != ZRPOS && AbortSession () == FALSE);
 
-   fseek (fp, Rxpos, SEEK_SET);
+   lseek (fd, Rxpos, SEEK_SET);
    Txpos = Rxpos;
    filedone = FALSE;
+   goodblks = 0;
+   goodneeded = 4;
+//   if (Rxbuflen == 0)
+   Rxbuflen = 1024;
+
+   if (Progress != NULL) {
+      Progress->TxPosition = Txpos;
+      Progress->TxBlockSize = Rxbuflen;
+      Progress->Update ();
+   }
 
    if (Txpos < f.st_size) {
       ZPutLong (Txhdr, Txpos);
       ZSendBinaryHeader (ZDATA, Txhdr);
    }
 
-   while (Bbs->AbortSession () == FALSE) {
+   while (AbortSession () == FALSE) {
       if (filedone == FALSE) {
-         if ((len = (short)fread (TxBuffer, 1, Rxbuflen, fp)) > 0) {
+         if ((len = (short)read (fd, TxBuffer, Rxbuflen)) > 0) {
             if (len < Rxbuflen)
                ZSendData (TxBuffer, len, ZCRCE);
             else
                ZSendData (TxBuffer, len, ZCRCG);
             Txpos += len;
+            if (Progress != NULL) {
+               Progress->TxPosition += len;
+               Progress->TxBlockSize = len;
+               Progress->Update ();
+            }
          }
          else {
             filedone = TRUE;
@@ -998,7 +1222,12 @@ short TZModem::ZSendFile (char *file)
          }
       }
 
-      while (Com->BytesReady () == TRUE && Bbs->AbortSession () == FALSE) {
+      if (Rxbuflen < Maxblklen && ++goodblks > goodneeded) {
+         Rxbuflen = (SHORT)(((Rxbuflen << 1) < Maxblklen) ? Rxbuflen << 1 : Maxblklen);
+         goodblks = 0;
+      }
+
+      while (Com->BytesReady () == TRUE && AbortSession () == FALSE) {
          c = Com->ReadByte ();
          if (c == CAN || c == ZPAD) {
             switch (c = ZGetHeader (Rxhdr)) {
@@ -1006,36 +1235,51 @@ short TZModem::ZSendFile (char *file)
                   continue;
 
                case ZRINIT:
-                  fclose (fp);
+                  close (fd);
+                  if (Progress != NULL)
+                     Progress->End ();
                   if ((length = time (NULL) - length) == 0L)
                      length++;
-                  Log->Write ("+CPS: %lu (%lu bytes)  Efficiency: %d%%", f.st_size / length, f.st_size, ((f.st_size / length) * 100L) / (Bbs->CarrierSpeed / 10));
+                  Log->Write ("+CPS: %lu (%lu bytes)  Efficiency: %d%%", f.st_size / length, f.st_size, ((f.st_size / length) * 100L) / (Speed / 10));
                   Log->Write ("+Sent-Z%s %s", (Txfcs32 == TRUE) ? "/32" : "", strupr (file));
                   return (OK);
 
                case ZRPOS:
                   Txpos = Rxpos;
-                  fseek (fp, Rxpos, SEEK_SET);
+                  lseek (fd, Txpos, SEEK_SET);
                   filedone = FALSE;
                   Com->ClearOutbound ();
                   if (Txpos < f.st_size) {
                      ZPutLong (Txhdr, Txpos);
                      ZSendBinaryHeader (ZDATA, Txhdr);
                   }
+                  if (Rxpos > 0L) {
+                     Rxbuflen = (SHORT)(((Rxbuflen >> 2) > 64) ? Rxbuflen >> 2 : 64);
+                     goodblks = 0;
+                     goodneeded = (SHORT)(((goodneeded << 1) > 16) ? 16 : goodneeded << 1);
+                  }
+                  if (Progress != NULL) {
+                     Progress->TxPosition = Rxpos;
+                     Progress->TxBlockSize = Rxbuflen;
+                     Progress->Update ();
+                  }
                   break;
 
                case ZSKIP:
-                  fclose (fp);
+                  close (fd);
+                  if (Progress != NULL)
+                     Progress->End ();
                   Log->Write ("+Remote refused %s", buf);
                   return (c);
             }
          }
       }
-
-      Bbs->ReleaseTimeSlice ();
    }
 
-   fclose (fp);
+   if (Progress != NULL)
+      Progress->End ();
+
+   close (fd);
    return (ZERROR);
 }
 
@@ -1043,7 +1287,7 @@ void TZModem::ZEndSender (void)
 {
    FileSent = 0;
 
-   while (Bbs->AbortSession () == FALSE) {
+   while (AbortSession () == FALSE) {
       ZPutLong (Txhdr, 0L);
       ZSendBinaryHeader (ZFIN, Txhdr);
 
@@ -1058,6 +1302,8 @@ void TZModem::ZEndSender (void)
             return;
       }
    }
+
+   Pause (2);
+   Com->ClearInbound ();
 }
 
-

@@ -1,1244 +1,1691 @@
 
+// ----------------------------------------------------------------------
+// LoraBBS Professional Edition - Version 3.00.12
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
+//
+// History:
+//    07/17/96 - Initial coding.
+// ----------------------------------------------------------------------
+
 #include "_ldefs.h"
-#include "config.h"
-#include "files.h"
+#include "lora_api.h"
 #include "menu.h"
-#include "msgbase.h"
-#include "msgdata.h"
-#include "schedule.h"
-#include "user.h"
-#include "version.h"
 
-typedef struct {
-   PSZ    Text;
-   USHORT Id;
-} ITEMDATA;
+USHORT MsgPending = FALSE, MsgUpdate = FALSE, FilePending = FALSE, FileUpdate;
+USHORT PackerPending = FALSE, PackerUpdate, NodesPending = FALSE, NodesUpdate;
+USHORT LastOp, ChannelPending = FALSE, MenuPending = FALSE;
+CHAR MenuName[128];
+class TConfig *Cfg = NULL;
+class TMsgData *Msg = NULL;
+class TFileData *File = NULL;
+class TPacker *Packer = NULL;
+class TNodes *Nodes = NULL;
+class TMenu *Menu = NULL;
 
-CHAR Temp[512], Translate[128], File[32];
-USHORT FirstMsg = TRUE, FirstFile = TRUE, FirstChannel = TRUE, FirstLimit = TRUE;
-USHORT FirstEvent = TRUE;
-ULONG Line;
-
-ITEMDATA Action[] = {
-   "Chg_Alias", MNU_CHGALIAS,
-   "Chg_Hotkeys", MNU_CHGHOTKEYS,
-   "Chg_Length", MNU_CHGLENGTH,
-   "Chg_More", MNU_CHGMORE,
-   "Chg_Password", MNU_CHGPASSWORD,
-   "Chg_Phone", MNU_CHGPHONE,
-   "Chg_RIP", MNU_CHGRIP,
-   "Chg_Video", MNU_CHGVIDEO,
-   "Display_File", MNU_DISPLAY,
-   "Display_Menu", MNU_GOTO,
-   "Edit_Abort", MNU_EDITABORT,
-   "Edit_Continue", MNU_EDITCONTINUE,
-   "Edit_Delete", MNU_EDITDELETE,
-   "Edit_Edit", MNU_EDITEDIT,
-   "Edit_Insert", MNU_EDITINSERT,
-   "Edit_List", MNU_EDITLIST,
-   "Edit_Save", MNU_EDITSAVE,
-   "Edit_Subj", MNU_EDITSUBJECT,
-   "Edit_To", MNU_EDITTO,
-   "File_Area", MNU_FILEAREA,
-   "File_Download", MNU_DOWNLOAD,
-   "File_Kill", MNU_FILEKILL,
-   "File_Locate", MNU_FILENAMELOCATE,
-   "File_Newfiles", MNU_NEWFILES,
-   "File_NextArea", MNU_FILENEXTAREA,
-   "File_PrevArea", MNU_FILEPREVAREA,
-   "File_Tag", MNU_FILETAG,
-   "File_Titles", MNU_FILETITLES,
-   "File_Upload", MNU_UPLOAD,
-   "Finger", MNU_FINGER,
-   "Ftp", MNU_FTP,
-   "Goodbye", MNU_LOGOFF,
-   "Gosub_Menu", MNU_GOSUB,
-   "Goto_Menu", MNU_GOTO,
-   "Link_Menu", MNU_GOSUB,
-   "Mail_Read", MNU_MAILREAD,
-   "Msg_Area", MNU_MSGAREA,
-   "Msg_Current", MNU_READCURRENT,
-   "Msg_Download_BW", MNU_DOWNLOADBW,
-   "Msg_Download_QWK", MNU_DOWNLOADQWK,
-   "Msg_Enter", MNU_MSGENTER,
-   "Msg_Forward", MNU_MSGFORWARD,
-   "Msg_Kill", MNU_MSGDELETE,
-   "Msg_Kludges", MNU_MSGKLUDGES,
-   "Msg_List", MNU_MSGLIST,
-   "Msg_ListTag", MNU_MSGVIEWTAG,
-   "Msg_NextArea", MNU_MSGNEXTAREA,
-   "Msg_PrevArea", MNU_MSGPREVAREA,
-   "Msg_Tag", MNU_MSGTAG,
-   "Press_Enter", MNU_PRESSENTER,
-   "Read_Individual", MNU_MSGINDIVIDUAL,
-   "Read_Msg", MNU_READMSG,
-   "Read_Next", MNU_READNEXT,
-   "Read_Nonstop", MNU_READNONSTOP,
-   "Read_Previous", MNU_READPREVIOUS,
-   "Return", MNU_RETURN,
-   "Same_Direction", MNU_SAMEDIRECTION,
-   "Telnet", MNU_TELNET,
-   "Version", MNU_VERSION,
-   "Who_Is_On", MNU_WHOISON,
-   "Xtern_Run", MNU_RUN,
-   NULL, 0
-};
-
-PSZ TranslateIn (PSZ pszText)
+void copyPath (char *dst, char *src)
 {
-   UCHAR c, a;
-   PSZ Src, Dst;
+   strcpy (dst, src);
+   if (dst[strlen (dst) - 1] == '\\' || dst[strlen (dst) - 1] == '/')
+      dst[strlen (dst) - 1] = '\0';
+#if defined(__LINUX__)
+   strcat (dst, "/");
+#else
+   strcat (dst, "\\");
+#endif
+}
 
-   Src = pszText;
-   Dst = Translate;
-   while ((c = *Src++) != '\0') {
-      if (c == '\\') {
-         a = *Src++;
-         if (a == '\\')
-            *Dst++ = (CHAR)a;
-         else if (a == 'n')
-            *Dst++ = '\n';
-         else if (a == 'r')
-            *Dst++ = '\r';
-         else if (a == 'a')
-            *Dst++ = '\a';
-         else if (a == 'x') {
-            a = *Src++;
-            a -= 0x30;
-            if (a > 9)
-               a -= 7;
-            c = *Src++;
-            c -= 0x30;
-            if (c > 9)
-               c -= 7;
-            c |= (UCHAR)(a << 4);
-            *Dst++ = (CHAR)c;
+int checkSystemConfiguration (char *p)
+{
+   int retval = FALSE;
+
+   if (!stricmp (p, "system")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "path")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->SystemPath, p);
+         }
+         else if (!stricmp (p, "name")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->SystemName, p);
+            }
          }
       }
-      else
-         *Dst++ = (CHAR)c;
    }
-   *Dst = '\0';
-   return (Translate);
-}
-
-PSZ GetNextKeyword (PSZ pszFrom, PSZ pszSeparator)
-{
-   PSZ RetVal;
-
-   if ((RetVal = strtok (pszFrom, pszSeparator)) == NULL)
-      cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, "");
-
-   return (RetVal);
-}
-
-VOID DefineMenu (FILE *fp, PSZ pszName)
-{
-   int fd;
-   USHORT i, HdrWritten = FALSE, NoDsp, More;
-   PSZ p, p1, s;
-   UCHAR ItemColor, ItemHilight;
-   MENUHDR Hdr;
-   ITEM Item;
-   class TConfig *Cfg;
-   class TLimits *Limits;
-
-   if ((Cfg = new TConfig (".\\")) != NULL)
-      Cfg->Read (0);
-
-   Limits = new TLimits (Cfg->SystemPath);
-
-   memset (&Hdr, 0, sizeof (Hdr));
-   Hdr.cbSize = sizeof (Hdr);
-
-   ItemColor = Hdr.ucColor = 0x0A;
-   ItemHilight = Hdr.ucHilight = 0x0B;
-
-   s = pszName;
-   while ((p = strchr (s, '\\')) != NULL)
-      s = p + 1;
-   strcpy (Hdr.szMenuName, s);
-   cprintf ("\rCompiling Menu: %-32s", strupr (Hdr.szMenuName));
-
-   if (Cfg == NULL || strchr (pszName, '\\') != NULL)
-      sprintf (Temp, "%s.Mnu", pszName);
-   else
-      sprintf (Temp, "%s%s.Mnu", Cfg->MenuPath, Hdr.szMenuName);
-
-   if ((fd = open (Temp, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE)) != -1) {
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Line++;
-         if ((p = strchr (Temp, '\n')) != NULL)
-            *p = '\0';
-         if ((p = strtok (Temp, " ")) != NULL) {
-            if (*p == '%' || *p == ';')
-               continue;
-            else if (!stricmp (p, "End")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Menu"))
-                     break;
+   else if (!stricmp (p, "sysop")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "name")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->SysopName, p);
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "normal")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "inbound")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->NormalInbound, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "protected")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "inbound")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->ProtectedInbound, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "known")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "inbound")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->KnownInbound, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "outbound")) {
+      retval = TRUE;
+      if ((p = strtok (NULL, " ")) != NULL)
+         copyPath (Cfg->Outbound, p);
+   }
+   else if (!stricmp (p, "log")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "file")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->LogFile, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "main")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "menu")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->MainMenu, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "nodelist")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "flags")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->NodelistFlags, p);
+            }
+         }
+         else if (!stricmp (p, "path")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->NodelistPath, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "location")) {
+      retval = TRUE;
+      if ((p = strtok (NULL, "")) != NULL) {
+         while (*p == ' ')
+            p++;
+         strcpy (Cfg->Location, p);
+      }
+   }
+   else if (!stricmp (p, "phone")) {
+      retval = TRUE;
+      if ((p = strtok (NULL, "")) != NULL) {
+         while (*p == ' ')
+            p++;
+         strcpy (Cfg->Phone, p);
+      }
+   }
+   else if (!stricmp (p, "menu")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "path")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->MenuPath, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "text")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "files")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "path")) {
+                  retval = TRUE;
+                  if ((p = strtok (NULL, " ")) != NULL)
+                     copyPath (Cfg->TextFiles, p);
                }
             }
-            else if (!stricmp (p, "MenuColour") || !stricmp (p, "MenuColor")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  ItemColor = Hdr.ucColor = (UCHAR)atoi (p);
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     ItemHilight = Hdr.ucHilight = (UCHAR)atoi (p);
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     ItemColor = (UCHAR)atoi (p);
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     ItemHilight = (UCHAR)atoi (p);
+         }
+      }
+   }
+   else if (!stricmp (p, "temp")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "path")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->TempPath, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "olr")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "packet")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->OLRPacketName, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "olr")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "max")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "messages")) {
+                  retval = TRUE;
+                  Cfg->OLRMaxMessages = (USHORT)atoi (p);
                }
             }
-            else if (!stricmp (p, "Prompt")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
-                  while (*p == ' ')
-                     p++;
-                  strcpy (Hdr.szPrompt, TranslateIn (p));
+         }
+      }
+   }
+   else if (!stricmp (p, "users")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "file")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->UserFile, p);
+         }
+         else if (!stricmp (p, "home")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               copyPath (Cfg->UsersHomePath, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "address")) {
+      retval = TRUE;
+      if ((p = strtok (NULL, " ")) != NULL)
+         Cfg->MailAddress.Add (p);
+   }
+   else if (!stricmp (p, "scheduler")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "file")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->SchedulerFile, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "new")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "user")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "level")) {
+                  retval = TRUE;
+                  if ((p = strtok (NULL, " ")) != NULL)
+                     Cfg->NewUserLevel = (USHORT)atoi (p);
+               }
+               else if (!stricmp (p, "limits")) {
+                  retval = TRUE;
+                  if ((p = strtok (NULL, " ")) != NULL)
+                     strcpy (Cfg->NewUserLimits, p);
                }
             }
-            else {
-               if (HdrWritten == FALSE) {
-                  write (fd, &Hdr, sizeof (Hdr));
-                  HdrWritten = TRUE;
+         }
+         else if (!stricmp (p, "areas")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "path")) {
+                  retval = TRUE;
+                  if ((p = strtok (NULL, " ")) != NULL)
+                     copyPath (Cfg->NewAreasPath, p);
                }
-
-               memset (&Item, 0, sizeof (Item));
-               Item.cbSize = sizeof (Item);
-               Item.ucColor = ItemColor;
-               Item.ucHilight = ItemHilight;
-
-               NoDsp = FALSE;
-
-               do {
-                  More = FALSE;
-                  if (!stricmp (p, "NoDsp")) {
-                     NoDsp = TRUE;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "NoRIP")) {
-                     Item.Flags |= MF_DSPNORIP;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "RIP")) {
-                     Item.Flags |= MF_DSPRIP;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "Local")) {
-                     Item.Flags |= MF_DSPLOCAL;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "Echo")) {
-                     Item.Flags |= MF_DSPECHOMAIL;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "Matrix") || !stricmp (p, "NetMail")) {
-                     Item.Flags |= MF_DSPNETMAIL;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "UsrRemote")) {
-                     Item.Flags |= MF_DSPUSRREMOTE;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "UsrLocal")) {
-                     Item.Flags |= MF_DSPUSRLOCAL;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "Exec")) {
-                     Item.Flags |= MF_AUTOEXEC;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-                  else if (!stricmp (p, "OnEnter")) {
-                     Item.Flags |= MF_ONENTER;
-                     p = GetNextKeyword (NULL, " ");
-                     More = TRUE;
-                  }
-               } while (More == TRUE && p != NULL);
-
-               if (p != NULL) {
-                  i = 0;
-                  while (Action[i].Text != NULL) {
-                     if (!stricmp (Action[i].Text, p)) {
-                        Item.usCommand = Action[i].Id;
-                        break;
-                     }
-                     i++;
-                  }
-
-                  if ((p1 = GetNextKeyword (NULL, "")) != NULL) {
-                     while (*p1 == ' ')
-                        p1++;
-
-                     if ((s = strchr (p1, '\"')) != NULL) {
-                        *s++ = '\0';
-                        if ((p = strchr (s, '\"')) != NULL)
-                           *p = '\0';
-                        strcpy (Item.szDisplay, TranslateIn (s));
-
-                        s -= 2;
-                        while (*s == ' ')
-                           *s-- = '\0';
-                        while (*s != ' ')
-                           s--;
-                        *s++ = '\0';
-
-                        if (isdigit (*s) || Limits == NULL)
-                           Item.usLevel = (USHORT)atoi (s);
-                        else {
-                           if (Limits->Read (s) == TRUE) {
-                              Item.usLevel = Limits->Level;
-                              Item.ulAccessFlags = Limits->Flags;
-                              Item.ulDenyFlags = Limits->DenyFlags;
-                           }
-                        }
-
-                        s -= 2;
-                        while (s > p1 && *s == ' ')
-                           *s-- = '\0';
-                        if (s > p1)
-                           strcpy (Item.szArgument, p1);
-
-                        if ((p = strchr (Item.szDisplay, '^')) != NULL) {
-                           p++;
-                           s = Item.szKey;
-                           if (*p == '^')
-                              *s++ = *p++;
-                           while (*p != '^')
-                              *s++ = *p++;
-                           *s = '\0';
-                        }
-
-                        if (NoDsp == TRUE)
-                           memset (Item.szDisplay, 0, sizeof (Item.szDisplay));
-
-                        write (fd, &Item, sizeof (Item));
-                        Hdr.usItems++;
-                     }
+               else if (!stricmp (p, "type")) {
+                  retval = TRUE;
+                  if ((p = strtok (NULL, " ")) != NULL) {
+                     if (!stricmp (p, "squish"))
+                        Cfg->NewAreasStorage = ST_SQUISH;
+                     else if (!stricmp (p, "fido"))
+                        Cfg->NewAreasStorage = ST_FIDO;
+                     else if (!stricmp (p, "jam"))
+                        Cfg->NewAreasStorage = ST_JAM;
+                     else if (!stricmp (p, "adept"))
+                        Cfg->NewAreasStorage = ST_ADEPT;
+                     else if (!stricmp (p, "usenet"))
+                        Cfg->NewAreasStorage = ST_USENET;
                   }
                }
             }
          }
       }
-
-      if (HdrWritten == TRUE) {
-         lseek (fd, 0L, SEEK_SET);
-         write (fd, &Hdr, sizeof (Hdr));
+   }
+   else if (!stricmp (p, "ask")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "ansi")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->CheckAnsi = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->CheckAnsi = NO;
+               }
+               else if (!stricmp (p, "required")) {
+                  retval = TRUE;
+                  Cfg->CheckAnsi = REQUIRED;
+               }
+            }
+         }
+         else if (!stricmp (p, "realname")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->RealName = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->RealName = NO;
+               }
+               else if (!stricmp (p, "required")) {
+                  retval = TRUE;
+                  Cfg->RealName = REQUIRED;
+               }
+            }
+         }
+         else if (!stricmp (p, "company")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->CompanyName = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->CompanyName = NO;
+               }
+               else if (!stricmp (p, "required")) {
+                  retval = TRUE;
+                  Cfg->CompanyName = REQUIRED;
+               }
+            }
+         }
+         else if (!stricmp (p, "address")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->Address = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->Address = NO;
+               }
+               else if (!stricmp (p, "required")) {
+                  retval = TRUE;
+                  Cfg->Address = REQUIRED;
+               }
+            }
+         }
+         else if (!stricmp (p, "city")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->City = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->City = NO;
+               }
+               else if (!stricmp (p, "required")) {
+                  retval = TRUE;
+                  Cfg->City = REQUIRED;
+               }
+            }
+         }
+         else if (!stricmp (p, "phone")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->PhoneNumber = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->PhoneNumber = NO;
+               }
+               else if (!stricmp (p, "required")) {
+                  retval = TRUE;
+                  Cfg->PhoneNumber = REQUIRED;
+               }
+            }
+         }
+         else if (!stricmp (p, "gender")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->Gender = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->Gender = NO;
+               }
+               else if (!stricmp (p, "required")) {
+                  retval = TRUE;
+                  Cfg->Gender = REQUIRED;
+               }
+            }
+         }
       }
-
-      close (fd);
+   }
+   else if (!stricmp (p, "ansi")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "login")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->Ansi = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->Ansi = NO;
+               }
+               else if (!stricmp (p, "detect") || !stricmp (p, "auto")) {
+                  retval = TRUE;
+                  Cfg->Ansi = AUTO;
+               }
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "iemsi")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "login")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "yes")) {
+                  retval = TRUE;
+                  Cfg->IEMSI = YES;
+               }
+               else if (!stricmp (p, "no")) {
+                  retval = TRUE;
+                  Cfg->IEMSI = NO;
+               }
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "netmail")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "path")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->NetMailPath, p);
+         }
+         else if (!stricmp (p, "type")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "squish"))
+                  Cfg->NetMailStorage = ST_SQUISH;
+               else if (!stricmp (p, "fido"))
+                  Cfg->NetMailStorage = ST_FIDO;
+               else if (!stricmp (p, "jam"))
+                  Cfg->NetMailStorage = ST_JAM;
+               else if (!stricmp (p, "adept"))
+                  Cfg->NetMailStorage = ST_ADEPT;
+               else if (!stricmp (p, "usenet"))
+                  Cfg->NetMailStorage = ST_USENET;
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "mail")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "path")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->MailPath, p);
+         }
+         else if (!stricmp (p, "type")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "squish"))
+                  Cfg->MailStorage = ST_SQUISH;
+               else if (!stricmp (p, "fido"))
+                  Cfg->MailStorage = ST_FIDO;
+               else if (!stricmp (p, "jam"))
+                  Cfg->MailStorage = ST_JAM;
+               else if (!stricmp (p, "adept"))
+                  Cfg->MailStorage = ST_ADEPT;
+               else if (!stricmp (p, "usenet"))
+                  Cfg->MailStorage = ST_USENET;
+            }
+         }
+         else if (!stricmp (p, "server")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->MailServer, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "duplicate")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "path")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->DupePath, p);
+         }
+         else if (!stricmp (p, "type")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "squish"))
+                  Cfg->DupeStorage = ST_SQUISH;
+               else if (!stricmp (p, "fido"))
+                  Cfg->DupeStorage = ST_FIDO;
+               else if (!stricmp (p, "jam"))
+                  Cfg->DupeStorage = ST_JAM;
+               else if (!stricmp (p, "adept"))
+                  Cfg->DupeStorage = ST_ADEPT;
+               else if (!stricmp (p, "usenet"))
+                  Cfg->DupeStorage = ST_USENET;
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "bad")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "path")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->BadPath, p);
+         }
+         else if (!stricmp (p, "type")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if (!stricmp (p, "squish"))
+                  Cfg->BadStorage = ST_SQUISH;
+               else if (!stricmp (p, "fido"))
+                  Cfg->BadStorage = ST_FIDO;
+               else if (!stricmp (p, "jam"))
+                  Cfg->BadStorage = ST_JAM;
+               else if (!stricmp (p, "adept"))
+                  Cfg->BadStorage = ST_ADEPT;
+               else if (!stricmp (p, "usenet"))
+                  Cfg->BadStorage = ST_USENET;
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "news")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "server")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->NewsServer, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "host")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "name")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->HostName, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "keep")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "netmail")) {
+            retval = TRUE;
+            Cfg->KeepNetMail = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "secure")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "mail")) {
+            retval = TRUE;
+            Cfg->Secure = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "wazoo")) {
+      retval = TRUE;
+      Cfg->WaZoo = TRUE;
+   }
+   else if (!stricmp (p, "EMSI")) {
+      retval = TRUE;
+      Cfg->EMSI = TRUE;
+   }
+   else if (!stricmp (p, "Janus")) {
+      retval = TRUE;
+      Cfg->Janus = TRUE;
+   }
+   else if (!stricmp (p, "mail")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "only")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->MailOnly, p);
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "enter")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "bbs")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->EnterBBS, p);
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "tear")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "line")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->TearLine, p);
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "force")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "intl")) {
+            retval = TRUE;
+            Cfg->ForceIntl = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "import")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "empty")) {
+            retval = TRUE;
+            Cfg->ImportEmpty = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "replace")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "tear")) {
+            retval = TRUE;
+            Cfg->ReplaceTear = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "use")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "areasbbs")) {
+            retval = TRUE;
+            Cfg->UseAreasBBS = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "update")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "areasbbs")) {
+            retval = TRUE;
+            Cfg->UpdateAreasBBS = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "separate")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "netmail")) {
+            retval = TRUE;
+            Cfg->SeparateNetMail = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "zmodem")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "telnet")) {
+            retval = TRUE;
+            Cfg->ZModemTelnet = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "detect")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "ppp")) {
+            retval = TRUE;
+            Cfg->EnablePPP = TRUE;
+         }
+      }
+   }
+   else if (!stricmp (p, "ppp")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "command")) {
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->PPPCmd, p);
+               retval = TRUE;
+            }
+         }
+         else if (!stricmp (p, "limit")) {
+            if ((p = strtok (NULL, " ")) != NULL) {
+               Cfg->PPPTimeLimit = (USHORT)atoi (p);
+               retval = TRUE;
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "areas")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "bbs")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, " ")) != NULL)
+               strcpy (Cfg->AreasBBS, p);
+         }
+      }
+   }
+   else if (!stricmp (p, "after")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "caller")) {
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->AfterCallerCmd, p);
+               retval = TRUE;
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "after")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "mail")) {
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->AfterMailCmd, p);
+               retval = TRUE;
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "import")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "command")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->ImportCmd, p);
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "export")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "command")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->ExportCmd, p);
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "pack")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "command")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->PackCmd, p);
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "single")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "pass")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->SinglePassCmd, p);
+            }
+         }
+      }
+   }
+   else if (!stricmp (p, "newsgroup")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "command")) {
+            retval = TRUE;
+            if ((p = strtok (NULL, "")) != NULL) {
+               while (*p == ' ')
+                  p++;
+               strcpy (Cfg->NewsgroupCmd, p);
+            }
+         }
+      }
    }
 
-   if (Limits != NULL)
-      delete Limits;
-
-   if (Cfg != NULL)
-      delete Cfg;
+   return (retval);
 }
 
-VOID DefineAccess (FILE *fp, PSZ pszKey)
+int checkMessageAreas (char *p)
 {
-   PSZ p;
-   class TLimits *Limit;
+   int retval = FALSE;
+   ULONG HWM, Highest;
+   class TEchoLink *Link;
 
-   cprintf ("\rCompiling Access: %-32s", pszKey);
+   if (!stricmp (p, "message")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "area")) {
+            retval = TRUE;
+            if (Msg != NULL && MsgPending == TRUE) {
+               if (MsgUpdate == TRUE)
+                  Msg->Update ();
+               else
+                  Msg->Add ();
+               MsgUpdate = MsgPending = FALSE;
+            }
+            if (Msg == NULL)
+               Msg = new TMsgData (Cfg->SystemPath);
+            if ((p = strtok (NULL, " ")) != NULL) {
+               if ((MsgUpdate = Msg->Read (p)) == TRUE) {
+                  HWM = Msg->HighWaterMark;
+                  Highest = Msg->Highest;
+               }
+               Msg->New ();
+               strcpy (Msg->Key, p);
+               if (MsgUpdate == TRUE) {
+                  Msg->HighWaterMark = HWM;
+                  Msg->Highest = Highest;
+               }
+               MsgPending = TRUE;
 
-   if (FirstLimit == TRUE) {
-      unlink ("limits.dat");
-      FirstLimit = FALSE;
+               if (LastOp != 1 && LastOp != 0)
+                  cprintf ("\r\n");
+               cprintf ("\r +-- Message area '%s' ", Msg->Key);
+               LastOp = 1;
+            }
+         }
+      }
    }
 
-   if ((Limit = new TLimits (".\\")) != NULL) {
-      Limit->Clear ();
-      strcpy (Limit->Key, pszKey);
-      strcpy (Limit->Description, pszKey);
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Line++;
-         if ((p = strchr (Temp, '\n')) != NULL)
-            *p = '\0';
-         if ((p = strtok (Temp, " ")) != NULL) {
-            if (*p == '%' || *p == ';')
-               continue;
-            else if (!stricmp (p, "End")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Access")) {
-                     Limit->Add ();
-                     break;
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
-               }
+   if (MsgPending == TRUE) {
+      if (!stricmp (p, "display")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (Msg->Display, p);
+         }
+      }
+      else if (!stricmp (p, "type")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "squish"))
+               Msg->Storage = ST_SQUISH;
+            else if (!stricmp (p, "fido"))
+               Msg->Storage = ST_FIDO;
+            else if (!stricmp (p, "jam"))
+               Msg->Storage = ST_JAM;
+            else if (!stricmp (p, "adept"))
+               Msg->Storage = ST_ADEPT;
+            else if (!stricmp (p, "usenet"))
+               Msg->Storage = ST_USENET;
+         }
+      }
+      else if (!stricmp (p, "path")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Msg->Path, p);
+      }
+      else if (!stricmp (p, "echotag")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Msg->EchoTag, p);
+         Msg->EchoMail = TRUE;
+      }
+      else if (!stricmp (p, "newsgroup")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Msg->NewsGroup, p);
+      }
+      else if (!stricmp (p, "level")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            Msg->Level = (USHORT)atoi (p);
+      }
+      else if (!stricmp (p, "write")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "level")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, " ")) != NULL)
+                  Msg->WriteLevel = (USHORT)atoi (p);
             }
-            else if (!stricmp (p, "Desc")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
+         }
+      }
+      else if (!stricmp (p, "forward")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "to")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, "")) != NULL) {
                   while (*p == ' ')
                      p++;
-                  strcpy (Limit->Description, p);
+                  if ((Link = new TEchoLink (Cfg->SystemPath)) != NULL) {
+                     Link->Load (Msg->EchoTag);
+                     Link->AddString (p);
+                     Link->Save ();
+                     delete Link;
+                  }
                }
             }
-            else if (!stricmp (p, "Level")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                  Limit->Level = (USHORT)atoi (p);
+         }
+      }
+      else if (!stricmp (p, "update")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "from")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (!stricmp (p, "newsgroup"))
+                     Msg->UpdateNews = TRUE;
+               }
             }
-            else if (!stricmp (p, "Time")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                  Limit->CallTimeLimit = (USHORT)atoi (p);
+         }
+      }
+      else if (!stricmp (p, "max")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "messages")) {
+               if ((p = strtok (NULL, " ")) != NULL)
+                  Msg->MaxMessages = (USHORT)atoi (p);
             }
-            else if (!stricmp (p, "Cume")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                  Limit->DayTimeLimit = (USHORT)atoi (p);
+            else if (!stricmp (p, "days")) {
+               if ((p = strtok (NULL, " ")) != NULL)
+                  Msg->DaysOld = (USHORT)atoi (p);
             }
-            else if (!stricmp (p, "FileLimit")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                  Limit->CallDownloadLimit = (USHORT)atoi (p);
+         }
+      }
+      else if (!stricmp (p, "show")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "global")) {
+               if ((p = strtok (NULL, " ")) != NULL)
+                  Msg->ShowGlobal = TRUE;
             }
+         }
+      }
+      else if (!stricmp (p, "use")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "offline")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (!stricmp (p, "reader"))
+                     Msg->Offline = TRUE;
+               }
+            }
+         }
+      }
+
+      if (retval == FALSE) {
+         if (Msg != NULL && MsgPending == TRUE) {
+            if (MsgUpdate == TRUE)
+               Msg->Update ();
             else
-               cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
+               Msg->Add ();
+            MsgUpdate = MsgPending = FALSE;
          }
       }
-      delete Limit;
    }
+
+   return (retval);
 }
 
-VOID DefineArea (FILE *fp, PSZ pszKey)
+int checkFileAreas (char *p)
 {
-   USHORT isFile = FALSE, isMsg = FALSE;
-   PSZ p;
-   class TMsgData *Msg;
-   class FileData *File;
-   class MsgBase *Base;
-   class TFile *Data;
+   int retval = FALSE;
+   class TFilechoLink *Link;
 
-   cprintf ("\rCompiling Area: %-15s", strupr (pszKey));
+   if (!stricmp (p, "file")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         if (!stricmp (p, "area")) {
+            retval = TRUE;
+            if (File != NULL && FilePending == TRUE) {
+               if (FileUpdate == TRUE)
+                  File->Update ();
+               else
+                  File->Add ();
+               FileUpdate = FilePending = FALSE;
+            }
+            if (File == NULL)
+               File = new TFileData (Cfg->SystemPath);
+            if ((p = strtok (NULL, " ")) != NULL) {
+               FileUpdate = File->Read (p);
+               File->New ();
+               strcpy (File->Key, p);
+               FilePending = TRUE;
 
-   Msg = new TMsgData (".\\");
-   File = new FileData (".\\");
+               if (LastOp != 2 && LastOp != 0)
+                  cprintf ("\r\n");
+               cprintf ("\r +-- File area '%s' ", File->Key);
+               LastOp = 2;
+            }
+         }
+      }
+   }
 
-   if (Msg != NULL && File != NULL) {
-      Msg->New ();
-      File->Reset ();
-      strcpy (Msg->Key, pszKey);
-      strcpy (File->Key, pszKey);
-      Msg->ShowGlobal = File->ShowGlobal = TRUE;
-      Msg->Offline = TRUE;
-
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Line++;
-         if ((p = strchr (Temp, '\n')) != NULL)
-            *p = '\0';
-         if ((p = strtok (Temp, " ")) != NULL) {
-            if (*p == '%' || *p == ';')
-               continue;
-            else if (!stricmp (p, "End")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Area")) {
-                     if (isMsg == TRUE && FirstMsg == TRUE) {
-                        unlink ("msg.dat");
-                        unlink ("msg.idx");
-                        FirstMsg = FALSE;
-                     }
-                     if (isFile == TRUE && FirstFile == TRUE) {
-                        unlink ("file.dat");
-                        unlink ("file.idx");
-                        FirstFile = FALSE;
-                     }
-                     if (isFile == TRUE) {
-                        if ((Data = new TFile (".\\", File->Key)) != NULL) {
-                           if (Data->First () == TRUE)
-                              do {
-                                 File->ActiveFiles++;
-                              } while (Data->Next () == TRUE);
-                           delete Data;
-                        }
-                        File->Add ();
-                     }
-                     if (isMsg == TRUE) {
-                        Base = NULL;
-                        if (Msg->Storage == ST_JAM)
-                           Base = new JAM (Msg->Path);
-                        else if (Msg->Storage == ST_SQUISH)
-                           Base = new SQUISH (Msg->Path);
-                        if (Base != NULL) {
-                           Msg->ActiveMsgs = Base->Number ();
-                           delete Base;
-                        }
-                        Msg->Add ();
-                     }
-                     break;
+   if (FilePending == TRUE) {
+      if (!stricmp (p, "display")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (File->Display, p);
+         }
+      }
+      else if (!stricmp (p, "level")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            File->Level = (USHORT)atoi (p);
+      }
+      else if (!stricmp (p, "download")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "level")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, " ")) != NULL)
+                  File->DownloadLevel = (USHORT)atoi (p);
+            }
+            else if (!stricmp (p, "path")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, " ")) != NULL)
+                  copyPath (File->Download, p);
+            }
+         }
+      }
+      else if (!stricmp (p, "upload")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "level")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, " ")) != NULL)
+                  File->UploadLevel = (USHORT)atoi (p);
+            }
+            else if (!stricmp (p, "path")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, " ")) != NULL)
+                  copyPath (File->Upload, p);
+            }
+         }
+      }
+      else if (!stricmp (p, "echotag")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (File->EchoTag, p);
+      }
+      else if (!stricmp (p, "forward")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "to")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, "")) != NULL) {
+                  while (*p == ' ')
+                     p++;
+                  if ((Link = new TFilechoLink (Cfg->SystemPath)) != NULL) {
+                     Link->Load (File->EchoTag);
+                     Link->AddString (p);
+                     Link->Save ();
+                     delete Link;
                   }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
                }
             }
-            else if (!stricmp (p, "MsgInfo")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
-                  while (*p == ' ')
-                     p++;
-                  strcpy (Msg->Display, p);
-                  isMsg = TRUE;
-               }
+         }
+      }
+      else if (!stricmp (p, "show")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "global")) {
+               if ((p = strtok (NULL, " ")) != NULL)
+                  File->ShowGlobal = TRUE;
             }
-            else if (!stricmp (p, "FileInfo")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
-                  while (*p == ' ')
-                     p++;
-                  strcpy (File->Display, p);
-                  isFile = TRUE;
-               }
-            }
-            else if (!stricmp (p, "MsgAccess")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
-                  while (*p == ' ')
-                     p++;
-                  Msg->Level = (USHORT)atoi (p);
-                  isMsg = TRUE;
-               }
-            }
-            else if (!stricmp (p, "FileAccess")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
-                  while (*p == ' ')
-                     p++;
-                  File->Level = (USHORT)atoi (p);
-                  isFile = TRUE;
-               }
-            }
-            else if (!stricmp (p, "Access")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
-                  while (*p == ' ')
-                     p++;
-                  Msg->Level = File->Level = (USHORT)atoi (p);
-               }
-            }
-            else if (!stricmp (p, "Conference") || !stricmp (p, "Local") || !stricmp (p, "EchoMail") || !stricmp (p, "Matrix")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  strcpy (Msg->Path, p);
-                  isMsg = TRUE;
-                  if (!stricmp (p, "EchoMail"))
-                     Msg->EchoMail = TRUE;
-               }
-            }
-            else if (!stricmp (p, "Origin")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  strcpy (Msg->Origin, p);
-                  isMsg = TRUE;
-               }
-            }
-            else if (!stricmp (p, "MsgName")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  strcpy (Msg->EchoTag, p);
-                  isMsg = TRUE;
-               }
-            }
-            else if (!stricmp (p, "Upload")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (p[strlen (p) - 1] != '\\')
-                     strcat (p, "\\");
-                  strcpy (File->Upload, p);
-                  isFile = TRUE;
-               }
-            }
-            else if (!stricmp (p, "Download")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (p[strlen (p) - 1] != '\\')
-                     strcat (p, "\\");
-                  strcpy (File->Download, p);
-                  isFile = TRUE;
-               }
-            }
-            else if (!stricmp (p, "Type")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Jam"))
-                     Msg->Storage = ST_JAM;
-                  else if (!stricmp (p, "Squish"))
-                     Msg->Storage = ST_SQUISH;
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "EchoMail")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Feeder")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        Msg->Feeder.Clear ();
-                        Msg->Feeder.Add (p);
-                     }
-                  }
-                  else if (!stricmp (p, "Link")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        do {
-                           Msg->Forward.Add (p);
-                        } while ((p = strtok (NULL, " ")) != NULL);
-                     }
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
-               }
-            }
+         }
+      }
+      else if (!stricmp (p, "cdrom")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            File->CdRom = TRUE;
+      }
+
+      if (retval == FALSE) {
+         if (File != NULL && FilePending == TRUE) {
+            if (FileUpdate == TRUE)
+               File->Update ();
             else
-               cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
+               File->Add ();
+            FileUpdate = FilePending = FALSE;
          }
       }
    }
 
-   if (Msg != NULL)
-      delete Msg;
-   if (File != NULL)
-      delete File;
+   return (retval);
 }
 
-VOID SystemSection (FILE *fp)
+int checkCompressor (char *p)
 {
-   USHORT i, FirstAddress = TRUE;
-   PSZ p, p1;
-   class TConfig *Cfg;
+   int retval = FALSE;
 
-   if ((Cfg = new TConfig (".\\")) != NULL) {
-      Cfg->Clear ();
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Line++;
-         if ((p = strchr (Temp, '\n')) != NULL)
-            *p = '\0';
-         if ((p = strtok (Temp, " ")) != NULL) {
-            if (*p == '%' || *p == ';')
-               continue;
-            else if (!stricmp (p, "End")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "System")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (!stricmp (p, "Section"))
-                           break;
-                        else
-                           cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
-                     }
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "Sysop")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
+   if (!stricmp (p, "compressor")) {
+      retval = TRUE;
+      if (Packer != NULL && PackerPending == TRUE) {
+         if (PackerUpdate == TRUE)
+            Packer->Update ();
+         else
+            Packer->Add ();
+         PackerUpdate = PackerPending = FALSE;
+      }
+      if (Packer == NULL)
+         Packer = new TPacker (Cfg->SystemPath);
+      if ((p = strtok (NULL, " ")) != NULL) {
+         PackerUpdate = Packer->Read (p, FALSE);
+         Packer->New ();
+         strcpy (Packer->Key, p);
+         PackerPending = TRUE;
+
+         if (LastOp != 3 && LastOp != 0)
+            cprintf ("\r\n");
+         cprintf ("\r +-- Compressor '%s' ", Packer->Key);
+         LastOp = 3;
+      }
+   }
+
+   if (PackerPending == TRUE) {
+      if (!stricmp (p, "display")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (Packer->Display, p);
+         }
+      }
+      else if (!stricmp (p, "pack")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "command")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, "")) != NULL) {
                   while (*p == ' ')
                      p++;
-                  strcpy (Cfg->SysopName, p);
+                  strcpy (Packer->PackCmd, p);
                }
             }
-            else if (!stricmp (p, "Name")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
+         }
+      }
+      else if (!stricmp (p, "unpack")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "command")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, "")) != NULL) {
                   while (*p == ' ')
                      p++;
-                  strcpy (Cfg->SystemName, p);
+                  strcpy (Packer->UnpackCmd, p);
                }
             }
-            else if (!stricmp (p, "Location")) {
-               if ((p = GetNextKeyword (NULL, "")) != NULL) {
-                  while (*p == ' ')
-                     p++;
-                  strcpy (Cfg->CityState, p);
-               }
-            }
-            else if (!stricmp (p, "Path")) {
-               if ((p1 = GetNextKeyword (NULL, " ")) != NULL) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                     if (stricmp (p1, "Sent")) {
-                        if (p[strlen (p) - 1] != '\\')
-                           strcat (p, "\\");
-                     }
-                     if (!stricmp (p1, "Home"))
-                        strcpy (Cfg->HomePath, p);
-                     else if (!stricmp (p1, "EMail"))
-                        strcpy (Cfg->MailSpool, p);
-                     else if (!stricmp (p1, "Misc"))
-                        strcpy (Cfg->MiscPath, p);
-                     else if (!stricmp (p1, "Outbound"))
-                        strcpy (Cfg->Outbound, p);
-                     else if (!stricmp (p1, "Inbound")) {
-                        strcpy (Cfg->Inbound, p);
-                        strcpy (Cfg->InboundProt, p);
-                        strcpy (Cfg->InboundKnown, p);
-                     }
-                     else if (!stricmp (p1, "System"))
-                        strcpy (Cfg->SystemPath, p);
-                     else if (!stricmp (p1, "Sent") && !stricmp (p, "Mail")) {
-                        if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                           if (p[strlen (p) - 1] != '\\')
-                              strcat (p, "\\");
-                           strcpy (Cfg->SentMail, p);
-                        }
-                     }
-                  }
-               }
-            }
-            else if (!stricmp (p, "Menu")) {
-               if ((p1 = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p1, "Path")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (p[strlen (p) - 1] != '\\')
-                           strcat (p, "\\");
-                        strcpy (Cfg->MenuPath, p);
-                     }
-                  }
-               }
-            }
-            else if (!stricmp (p, "First")) {
-               if ((p1 = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p1, "Menu")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                        strcpy (Cfg->FirstMenu, p);
-                  }
-               }
-            }
-            else if (!stricmp (p, "File")) {
-               if ((p1 = GetNextKeyword (NULL, " ")) != NULL) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                     if (!stricmp (p1, "Password"))
-                        strcpy (Cfg->UserFile, p);
-                  }
-               }
-            }
-            else if (!stricmp (p, "Log")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Path")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (p[strlen (p) - 1] != '\\')
-                           strcat (p, "\\");
-                        strcpy (Cfg->LogPath, p);
-                     }
-                  }
-                  else if (!stricmp (p, "Mode")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (!stricmp (p, "Debug"))
-                           Cfg->LogLevel = 0xFF;
-                        else if (!stricmp (p, "Verbose"))
-                           ;
-                        else if (!stricmp (p, "Terse"))
-                           ;
-                        else
-                           cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-                     }
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "Address")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (FirstAddress == TRUE)
-                     Cfg->Address.Clear ();
-                  Cfg->Address.Add (p);
-                  FirstAddress = FALSE;
-               }
-            }
-            else if (!stricmp (p, "Start")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Ftp")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (!stricmp (p, "Server"))
-                           Cfg->FtpServer = TRUE;
-                        else
-                           cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-                     }
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "Event")) {
-               class TScheduler *Event;
+         }
+      }
+      else if (!stricmp (p, "position")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            retval = TRUE;
+            Packer->Position = atol (p);
+         }
+      }
+      else if (!stricmp (p, "id")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            retval = TRUE;
+            strcpy (Packer->Id, p);
+         }
+      }
+      else if (!stricmp (p, "dos")) {
+         retval = TRUE;
+         Packer->Dos = TRUE;
+      }
+      else if (!stricmp (p, "os/2")) {
+         retval = TRUE;
+         Packer->OS2 = TRUE;
+      }
+      else if (!stricmp (p, "windows")) {
+         retval = TRUE;
+         Packer->Windows = TRUE;
+      }
+      else if (!stricmp (p, "linux")) {
+         retval = TRUE;
+         Packer->Linux = TRUE;
+      }
 
-               if (FirstEvent == TRUE) {
-                  unlink ("Events.Dat");
-                  FirstEvent = FALSE;
-               }
-
-               if ((Event = new TScheduler (".\\")) != NULL) {
-                  GetNextKeyword (NULL, " ");
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                     Event->Hour = (UCHAR)atoi (p);
-                     if ((p = strchr (p, ':')) != NULL)
-                        Event->Minute = (UCHAR)atoi (p + 1);
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        i = (USHORT)(atoi (p) * 60);
-                        if ((p = strchr (p, ':')) != NULL)
-                           i += (USHORT)atoi (p + 1);
-                        Event->Length = (USHORT)(i - (Event->Hour * 60 + Event->Minute));
-
-                        while ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                           if (!strnicmp (p, "A=", 2))
-                              Event->Delay = (USHORT)atoi (&p[2]);
-                           else if (!strnicmp (p, "C=", 2)) {
-                              Event->CallNode = TRUE;
-                              strcpy (Event->Address, &p[2]);
-                           }
-                           else if (!stricmp (p, "F"))
-                              Event->ForceCall = TRUE;
-                           else if (!strnicmp (p, "T=", 2)) {
-                              Event->Failures = (USHORT)atoi (&p[2]);
-                              if ((p = strchr (p, ',')) != NULL)
-                                 Event->Retries = (USHORT)atoi (p + 1);
-                           }
-                        }
-
-                        Event->Add ();
-                     }
-                  }
-                  delete Event;
-               }
-            }
+      if (retval == FALSE) {
+         if (Packer != NULL && PackerPending == TRUE) {
+            if (PackerUpdate == TRUE)
+               Packer->Update ();
             else
-               cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
+               Packer->Add ();
+            PackerUpdate = PackerPending = FALSE;
          }
       }
-      Cfg->Write (0);
-      delete Cfg;
    }
+
+   return (retval);
 }
 
-VOID SessionSection (FILE *fp)
+int checkNodes (char *p)
 {
-   PSZ p;
-   class TConfig *Cfg;
+   int retval = FALSE;
 
-   if ((Cfg = new TConfig (".\\")) != NULL) {
-      if (Cfg->Read (0) == FALSE)
-         Cfg->Clear ();
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Line++;
-         if ((p = strchr (Temp, '\n')) != NULL)
-            *p = '\0';
-         if ((p = strtok (Temp, " ")) != NULL) {
-            if (*p == '%' || *p == ';')
-               continue;
-            else if (!stricmp (p, "End")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Session")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (!stricmp (p, "Section"))
-                           break;
-                        else
-                           cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
-                     }
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "First")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Message")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (!stricmp (p, "Area")) {
-                           if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                              strcpy (Cfg->FirstMessageArea, p);
-                        }
-                     }
-                  }
-                  else if (!stricmp (p, "File")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (!stricmp (p, "Area")) {
-                           if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                              strcpy (Cfg->FirstFileArea, p);
-                        }
-                     }
-                  }
-               }
-            }
-            else
-               cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
+   if (!stricmp (p, "node")) {
+      retval = TRUE;
+      if (Nodes != NULL && NodesPending == TRUE) {
+         if (NodesUpdate == TRUE)
+            Nodes->Update ();
+         else
+            Nodes->Add ();
+         NodesUpdate = NodesPending = FALSE;
+      }
+      if (Nodes == NULL)
+         Nodes = new TNodes (Cfg->NodelistPath);
+      if ((p = strtok (NULL, " ")) != NULL) {
+         NodesUpdate = Nodes->Read (p, FALSE);
+         Nodes->New ();
+         strcpy (Nodes->Address, p);
+         NodesPending = TRUE;
+
+         if (LastOp != 4 && LastOp != 0)
+            cprintf ("\r\n");
+         cprintf ("\r +-- Node '%s' ", Nodes->Address);
+         LastOp = 4;
+      }
+   }
+
+   if (NodesPending == TRUE) {
+      if (!stricmp (p, "name")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (Nodes->SystemName, p);
          }
       }
-      Cfg->Write (0);
-      delete Cfg;
-   }
-}
-
-VOID ReaderSection (FILE *fp)
-{
-   PSZ p;
-   class TConfig *Cfg;
-
-   if ((Cfg = new TConfig (".\\")) != NULL) {
-      if (Cfg->Read (0) == 0)
-         Cfg->Clear ();
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Line++;
-         if ((p = strchr (Temp, '\n')) != NULL)
-            *p = '\0';
-         if ((p = strtok (Temp, " ")) != NULL) {
-            if (*p == '%' || *p == ';')
-               continue;
-            else if (!stricmp (p, "End")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Reader")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (!stricmp (p, "Section"))
-                           break;
-                        else
-                           cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-                     }
+      else if (!stricmp (p, "sysop")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (Nodes->SysopName, p);
+         }
+      }
+      else if (!stricmp (p, "location")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (Nodes->Location, p);
+         }
+      }
+      else if (!stricmp (p, "phone")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (Nodes->Phone, p);
+         }
+      }
+      else if (!stricmp (p, "flags")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (Nodes->Flags, p);
+         }
+      }
+      else if (!stricmp (p, "remap")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "netmail")) {
+               retval = TRUE;
+               Nodes->RemapMail = TRUE;
+            }
+         }
+      }
+      else if (!stricmp (p, "compressor")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Nodes->Packer, p);
+      }
+      else if (!stricmp (p, "session")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "password") || !stricmp (p, "pwd")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, " ")) != NULL)
+                  strcpy (Nodes->SessionPwd, p);
+            }
+         }
+      }
+      else if (!stricmp (p, "areamgr") || !stricmp (p, "areafix")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "password") || !stricmp (p, "pwd")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, " ")) != NULL)
+                  strcpy (Nodes->AreaMgrPwd, p);
+            }
+         }
+      }
+      else if (!stricmp (p, "in")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "packet")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (!stricmp (p, "password") || !stricmp (p, "pwd")) {
+                     retval = TRUE;
+                     if ((p = strtok (NULL, " ")) != NULL)
+                        strcpy (Nodes->InPktPwd, p);
                   }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
                }
             }
-            else if (!stricmp (p, "Phone")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Number")) {
-                     if ((p = GetNextKeyword (NULL, "")) != NULL) {
+         }
+      }
+      else if (!stricmp (p, "out")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "packet")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (!stricmp (p, "password") || !stricmp (p, "pwd")) {
+                     retval = TRUE;
+                     if ((p = strtok (NULL, " ")) != NULL)
+                        strcpy (Nodes->OutPktPwd, p);
+                  }
+               }
+            }
+         }
+      }
+      else if (!stricmp (p, "create")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "new")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (!stricmp (p, "areas")) {
+                     retval = TRUE;
+                     Nodes->CreateNewAreas = TRUE;
+                  }
+               }
+            }
+         }
+      }
+      else if (!stricmp (p, "new")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "areas")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (!stricmp (p, "filter")) {
+                     retval = TRUE;
+                     if ((p = strtok (NULL, "")) != NULL) {
                         while (*p == ' ')
                            p++;
-                        strcpy (Cfg->PhoneNumber, p);
+                        strcpy (Nodes->NewAreasFilter, p);
                      }
                   }
                }
             }
-            else if (!stricmp (p, "Packet")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Name")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                        strcpy (Cfg->BbsId, p);
-                  }
-               }
-            }
-            else if (!stricmp (p, "Max")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Messages")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                        Cfg->MaxOfflineMsgs = (USHORT)atoi (p);
-                  }
-               }
-            }
-            else if (!stricmp (p, "Work")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Directory")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                        if (p[strlen (p) - 1] != '\\')
-                           strcat (p, "\\");
-                        strcpy (Cfg->TempPath, p);
-                     }
-                  }
-               }
-            }
-            else
-               cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
          }
       }
-      Cfg->Write (0);
-      delete Cfg;
+
+      if (retval == FALSE) {
+         if (Nodes != NULL && NodesPending == TRUE) {
+            if (NodesUpdate == TRUE)
+               Nodes->Update ();
+            else
+               Nodes->Add ();
+            NodesUpdate = NodesPending = FALSE;
+         }
+      }
    }
+
+   return (retval);
 }
 
-VOID ChannelSection (FILE *fp, USHORT usChannel)
+int checkChannel (char *p)
 {
-   USHORT Init = 0;
-   UCHAR Ask = Q_YES;
-   PSZ p, p1;
-   class TConfig *Cfg;
+   static int init = 0;
+   int retval = FALSE;
 
-   if ((Cfg = new TConfig (".\\")) != NULL) {
-      Cfg->Clear ();
-      Cfg->Read (0);
-      if (FirstChannel == TRUE) {
-         unlink ("channels.dat");
-         Cfg->Write (0);
-         FirstChannel = FALSE;
+   if (!stricmp (p, "channel")) {
+      if ((p = strtok (NULL, " ")) != NULL) {
+         retval = TRUE;
+         if (ChannelPending == TRUE)
+            Cfg->Save ();
+         Cfg->NewChannel ();
+         Cfg->TaskNumber = (USHORT)atoi (p);
+         ChannelPending = TRUE;
+         init = 0;
       }
-      if (Cfg->Read (usChannel) == FALSE) {
-         Cfg->ClearChannel ();
-         Cfg->Write (usChannel);
-         Cfg->Read (usChannel);
+   }
+
+   if (ChannelPending == TRUE) {
+      if (!stricmp (p, "port")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Cfg->Device, p);
       }
-      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Line++;
-         if ((p = strchr (Temp, '\n')) != NULL)
-            *p = '\0';
-         if ((p = strtok (Temp, " ")) != NULL) {
-            if (*p == '%' || *p == ';')
-               continue;
-            else if (!stricmp (p, "End")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Channel"))
-                     break;
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "Type")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Modem")) {
-                     Cfg->Type = CH_MODEM;
-                     Cfg->MaxChannels = 1;
-                  }
-                  else if (!stricmp (p, "Telnet")) {
-                     Cfg->Type = CH_TELNET;
-                     Cfg->MaxChannels = 16;
-                  }
-                  else if (!stricmp (p, "Local")) {
-                     Cfg->Type = CH_LOCAL;
-                     Cfg->MaxChannels = 1;
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "Max")) {
-               if (Cfg->Type == CH_TELNET) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                     if (!stricmp (p, "Connections")) {
-                        if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                           Cfg->MaxChannels = (USHORT)atoi (p);
-                     }
-                     else
-                        cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-                  }
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Output")) {
-               if (Cfg->Type == CH_MODEM) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     strcpy (Cfg->Device, p);
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Baud")) {
-               if (Cfg->Type == CH_MODEM) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                     if (!stricmp (p, "Maximum")) {
-                        if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                           Cfg->Speed = atol (p);
-                     }
-                     else
-                        cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-                  }
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Init")) {
-               if (Cfg->Type == CH_MODEM && Init < 3) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     strcpy (Cfg->Initialize[Init++], p);
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Answer")) {
-               if (Cfg->Type == CH_MODEM) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     strcpy (Cfg->Answer, p);
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Hangup")) {
-               if (Cfg->Type == CH_MODEM) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     strcpy (Cfg->Hangup, p);
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Busy")) {
-               if (Cfg->Type == CH_MODEM) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     strcpy (Cfg->OffHook, p);
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Dial")) {
-               if (Cfg->Type == CH_MODEM) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     strcpy (Cfg->Dial, p);
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Port")) {
-               if (Cfg->Type == CH_TELNET) {
-                  if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                     Cfg->Port = (USHORT)atoi (p);
-               }
-               else
-                  cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-            }
-            else if (!stricmp (p, "Logon")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Level")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                        Cfg->NewLevel = (USHORT)atoi (p);
-                  }
-                  else if (!stricmp (p, "Class")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                        strcpy (Cfg->NewLimitClass, strupr (p));
-                  }
-                  else if (!stricmp (p, "TimeLimit")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                        Cfg->LoginTime = (USHORT)atoi (p);
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "Input")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Timeout")) {
-                     if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                        Cfg->InactivityTime = (USHORT)atoi (p);
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "Ask")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  Ask = Q_YES;
-                  if ((p1 = strtok (NULL, " ")) != NULL) {
-                     if (!stricmp (p1, "Required"))
-                        Ask = Q_REQUIRED;
-                     else
-                        cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p1);
-                  }
-                  if (!stricmp (p, "RealName"))
-                     Cfg->AskRealName = Ask;
-                  else if (!stricmp (p, "Company"))
-                     Cfg->AskCompany = Ask;
-                  else if (!stricmp (p, "Address"))
-                     Cfg->AskAddress = Ask;
-                  else if (!stricmp (p, "City"))
-                     Cfg->AskZipCity = Ask;
-                  else if (!stricmp (p, "State"))
-                     Cfg->AskState = Ask;
-                  else if (!stricmp (p, "Phone"))
-                     Cfg->AskPhone = Ask;
-                  else if (!stricmp (p, "Sex"))
-                     Cfg->AskSex = Ask;
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
-               }
-            }
-            else
-               cprintf ("Unknown statement in line %lu of '%s': '%s'\a\r\n", Line, File, p);
+      else if (!stricmp (p, "speed")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            Cfg->Speed = atol (p);
+      }
+      else if (!stricmp (p, "lock")) {
+         retval = TRUE;
+         Cfg->LockSpeed = TRUE;
+      }
+      else if (!stricmp (p, "initialize")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            if (init < 3)
+               strcpy (Cfg->Initialize[init++], p);
          }
       }
-      Cfg->Write (usChannel);
-      delete Cfg;
+      else if (!stricmp (p, "answer")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Cfg->Answer, p);
+      }
+      else if (!stricmp (p, "ring")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Cfg->Ring, p);
+      }
+      else if (!stricmp (p, "dial")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "timeout")) {
+               if ((p = strtok (NULL, " ")) != NULL)
+                  Cfg->DialTimeout = (USHORT)atoi (p);
+            }
+            else
+               strcpy (Cfg->Dial, p);
+         }
+      }
+      else if (!stricmp (p, "hangup")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Cfg->Hangup, p);
+      }
+      else if (!stricmp (p, "offhook")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, " ")) != NULL)
+            strcpy (Cfg->OffHook, p);
+      }
+      else if (!stricmp (p, "fax")) {
+         if ((p = strtok (NULL, " ")) != NULL) {
+            if (!stricmp (p, "message")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, " ")) != NULL)
+                  strcpy (Cfg->FaxMessage, p);
+            }
+            else if (!stricmp (p, "command")) {
+               retval = TRUE;
+               if ((p = strtok (NULL, "")) != NULL) {
+                  while (*p == ' ')
+                     p++;
+                  strcpy (Cfg->FaxCommand, p);
+               }
+            }
+         }
+      }
+
+      if (retval == FALSE) {
+         if (ChannelPending == TRUE) {
+            Cfg->Save ();
+            ChannelPending = FALSE;
+         }
+      }
    }
+
+   return (retval);
 }
 
-USHORT CompileFile (PSZ pszFile)
+int checkMenu (char *p)
+{
+   int retval = FALSE;
+   char *a;
+
+   if (!stricmp (p, "menu")) {
+      if (Menu == NULL)
+         Menu = new TMenu;
+      if ((p = strtok (NULL, " ")) != NULL) {
+         retval = TRUE;
+         if (MenuPending == TRUE)
+            Menu->Save (MenuName);
+         delete Menu;
+         Menu = new TMenu;
+         Menu->New (TRUE);
+         strcpy (MenuName, p);
+         MenuPending = TRUE;
+
+         if (LastOp != 5 && LastOp != 0)
+            cprintf ("\r\n");
+         cprintf ("\r +-- Menu '%s' ", MenuName);
+         LastOp = 5;
+      }
+   }
+
+   if (MenuPending == TRUE) {
+      if (!stricmp (p, "prompt")) {
+         retval = TRUE;
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ' || *p == '"')
+               p++;
+            a = p;
+            while (*p != '"') {
+               if (*p == '\\' && p[1] == '"')
+                  p++;
+               p++;
+            }
+            *p++ = '\0';
+            strcpy (Menu->Prompt, a);
+            if ((p = strtok (p, " ")) != NULL)
+               Menu->PromptColor = (UCHAR)atoi (p);
+            if ((p = strtok (NULL, " ")) != NULL)
+               Menu->PromptHilight = (UCHAR)atoi (p);
+         }
+      }
+      else if (!stricmp (p, "item")) {
+         retval = TRUE;
+         Menu->New ();
+
+         p = strtok (NULL, "");
+         while (*p == ' ')
+            p++;
+         if (*p != '"') {
+            a = p;
+            while (*p != ' ')
+               p++;
+            *p++ = '\0';
+            strcpy (Menu->Key, a);
+            while (*p == ' ')
+               p++;
+         }
+         if (*p == '"') {
+            a = ++p;
+            while (*p != '"') {
+               if (*p == '\\' && p[1] == '"')
+                  p++;
+               p++;
+            }
+            *p++ = '\0';
+            strcpy (Menu->Display, a);
+         }
+         if ((p = strtok (p, " ")) != NULL)
+            Menu->Level = (UCHAR)atoi (p);
+         if ((p = strtok (NULL, " ")) != NULL)
+            Menu->Color = (UCHAR)atoi (p);
+         if ((p = strtok (NULL, " ")) != NULL)
+            Menu->Hilight = (UCHAR)atoi (p);
+         Menu->Command = 0;
+         Menu->Argument[0] = '\0';
+         if ((p = strtok (NULL, " ")) != NULL)
+            Menu->Command = (USHORT)atoi (p);
+         if ((p = strtok (NULL, "")) != NULL) {
+            while (*p == ' ')
+               p++;
+            strcpy (Menu->Argument, p);
+         }
+         Menu->Add ();
+      }
+
+      if (retval == FALSE) {
+         if (MenuPending == TRUE) {
+            Menu->Save (MenuName);
+            MenuPending = FALSE;
+         }
+      }
+   }
+
+   return (retval);
+}
+
+void processFile (char *file)
 {
    FILE *fp;
-   USHORT RetVal = FALSE, NewLine = FALSE;
-   ULONG MyCount = 0;
-   PSZ p;
+   CHAR Temp[512], *p;
 
-   strcpy (File, pszFile);
-   Line = 0L;
-
-   if ((fp = fopen (pszFile, "rt")) != NULL) {
-      cprintf ("Parsing '%s':\r\n", pszFile);
+   printf (" * Compiling '%s'\n", file);
+   if ((fp = fopen (file, "rt")) != NULL) {
       while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
-         Line++;
-         MyCount++;
+         if ((p = strchr (Temp, '\r')) != NULL)
+            *p = '\0';
          if ((p = strchr (Temp, '\n')) != NULL)
             *p = '\0';
          if ((p = strtok (Temp, " ")) != NULL) {
-            if (*p == '%' || *p == ';')
+            if (*p == '%' || *p == ';' || *p == '\0')
                continue;
-            else if (!stricmp (p, "System")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Section")) {
-                     cprintf ("Compiling Section: System\r\n");
-                     SystemSection (fp);
+            if (!stricmp (p, "include")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (LastOp != 0)
+                     printf ("\n");
+                  LastOp = 0;
+                  processFile (p);
+               }
+            }
+            else if (!stricmp (p, "define")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (checkCompressor (p) == FALSE) {
+                     if (checkNodes (p) == FALSE)
+                        checkMenu (p);
                   }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
                }
             }
-            else if (!stricmp (p, "Session")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Section")) {
-                     cprintf ("Compiling Section: Session\r\n");
-                     SessionSection (fp);
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
+            else if (NodesPending == TRUE)
+               checkNodes (p);
+            else if (PackerPending == TRUE)
+               checkCompressor (p);
+            else if (MenuPending == TRUE)
+               checkMenu (p);
+            else if (checkSystemConfiguration (p) == FALSE) {
+               if (checkChannel (p) == FALSE) {
+                  if (checkMessageAreas (p) == FALSE)
+                     checkFileAreas (p);
                }
             }
-            else if (!stricmp (p, "Reader")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  if (!stricmp (p, "Section")) {
-                     cprintf ("Compiling Section: Reader\r\n");
-                     ReaderSection (fp);
-                  }
-                  else
-                     cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
-               }
-            }
-            else if (!stricmp (p, "Channel")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL)
-                  ChannelSection (fp, (USHORT)atoi (p));
-            }
-            else if (!stricmp (p, "Area")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  DefineArea (fp, p);
-                  NewLine = TRUE;
-               }
-            }
-            else if (!stricmp (p, "Access")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  DefineAccess (fp, p);
-                  NewLine = TRUE;
-               }
-            }
-            else if (!stricmp (p, "Menu")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  DefineMenu (fp, p);
-                  NewLine = TRUE;
-               }
-            }
-            else if (!stricmp (p, "Include")) {
-               if ((p = GetNextKeyword (NULL, " ")) != NULL) {
-                  CompileFile (p);
-                  Line = MyCount;
-               }
-            }
-            else
-               cprintf ("Unknown statement in line %lu of '%s': '%s'\r\n", Line, File, p);
          }
       }
       fclose (fp);
-      RetVal = TRUE;
    }
-   else
-      cprintf ("Parsing '%s': Fatal error opening '%s' for read!\a\r\n", pszFile, pszFile);
-
-   if (NewLine == TRUE)
-      cprintf ("\r\n");
-
-   return (RetVal);
 }
 
 void main (void)
 {
-   cprintf ("\r\nLoraBBS Professional Edition Configuration File Compiler - Version %s.\r\n", VERSION);
-   cprintf ("Copyright (c) 1995 by Marco Maccaferri. All rights reserved.\r\n\r\n");
+   int i;
+   FILE *fp;
 
-   Line = 0;
-   if (CompileFile ("Lora.Ctl") == TRUE)
-      cprintf ("\r\nDone!\r\n");
+   if ((Cfg = new TConfig) != NULL)
+      Cfg->New ();
+//      Cfg->Default ();
+   Msg = NULL;
+   File = NULL;
+   LastOp = 0;
+
+   printf ("\nLC; %s v%s - Configuration file compiler\n", NAME, VERSION);
+   printf ("    Copyright (c) 1991-96 by Marco Maccaferri. All Rights Reserved.\n\n");
+
+   if (ValidateKey ("bbs", NULL, NULL) == KEY_UNREGISTERED) {
+      printf ("* * *     WARNING: No license key found    * * *\n");
+      if ((i = CheckExpiration ()) == 0) {
+         printf ("* * *   This evaluation copy has expired   * * *\n\a\n");
+          exit (0);
+      }
+      else
+         printf ("* * * You have %2d days left for evaluation * * * \n\a\n", i);
+   }
+
+   processFile ("lora.cfg");
+
+   if (Msg != NULL && MsgPending == TRUE) {
+      if (MsgUpdate == TRUE)
+         Msg->Update ();
+      else
+         Msg->Add ();
+   }
+   if (File != NULL && FilePending == TRUE) {
+      if (FileUpdate == TRUE)
+         File->Update ();
+      else
+         File->Add ();
+   }
+   if (Packer != NULL && PackerPending == TRUE) {
+      if (PackerUpdate == TRUE)
+         Packer->Update ();
+      else
+         Packer->Add ();
+   }
+   if (Nodes != NULL && NodesPending == TRUE) {
+      if (NodesUpdate == TRUE)
+         Nodes->Update ();
+      else
+         Nodes->Add ();
+   }
+   if (Menu != NULL && MenuPending == TRUE)
+      Menu->Save (MenuName);
+   if (Cfg != NULL)
+      Cfg->Save ();
+
+   printf ("\r\n * Done\n\n");
 }
 
+/*
+void main (int argc, char *argv[])
+{
+   FILE *fp;
+   class TMenu *Menu;
 
+   if ((Menu = new TMenu) != NULL) {
+      Menu->Load (argv[1]);
+      if ((fp = fopen ("m.cfg", "at")) != NULL) {
+         fprintf (fp, "\ndefine menu %s\n", argv[1]);
+         fprintf (fp, "   text color    %d\n", Menu->PromptColor);
+         fprintf (fp, "   hilight color %d\n", Menu->PromptHilight);
+         fprintf (fp, "   prompt        \"%s\"\n\n", Menu->Prompt);
 
+         if (Menu->First () == TRUE)
+            do {
+               fprintf (fp, "   item   %s \"%s\" %d %d %d %s\n", Menu->Key, Menu->Display, Menu->Color, Menu->Hilight, Menu->Command, Menu->Argument);
+            } while (Menu->Next () == TRUE);
+         fclose (fp);
+      }
+      delete Menu;
+   }
+}
+*/

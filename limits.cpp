@@ -1,29 +1,37 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.01 - Rev. 1
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// LoraBBS Professional Edition - Version 3.00.1
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
-//    05/20/95 - Initial coding.
+//    05/03/96 - Initial coding.
 // ----------------------------------------------------------------------
 
 #include "_ldefs.h"
-#include "user.h"
+#include "lora_api.h"
 
 TLimits::TLimits (void)
 {
    fdDat = -1;
-   Clear ();
-   DataPath[0] = '\0';
+   New ();
+   strcpy (DatFile, "limits.dat");
 }
 
 TLimits::TLimits (PSZ pszDataPath)
 {
    fdDat = -1;
-   Clear ();
-   strcpy (DataPath, pszDataPath);
-   if (DataPath[strlen (DataPath) - 1] != '\\')
-      strcat (DataPath, "\\");
+   New ();
+   strcpy (DatFile, pszDataPath);
+   if (DatFile[0] != '\0') {
+#if defined(__LINUX__)
+      if (DatFile[strlen (DatFile) - 1] != '/')
+         strcat (DatFile, "/");
+#else
+      if (DatFile[strlen (DatFile) - 1] != '\\')
+         strcat (DatFile, "\\");
+#endif
+   }
+   strcat (DatFile, "limits.dat");
 }
 
 TLimits::~TLimits (void)
@@ -38,8 +46,7 @@ USHORT TLimits::Add (VOID)
    LIMITS Limits;
 
    if (fdDat == -1) {
-      sprintf (Temp, "%sLimits.Dat", DataPath);
-      fdDat = open (Temp, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE);
+      fdDat = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
       closeFile = TRUE;
    }
 
@@ -84,7 +91,7 @@ USHORT TLimits::Add (VOID)
    return (retVal);
 }
 
-VOID TLimits::Clear (VOID)
+VOID TLimits::New (VOID)
 {
    memset (Description, 0, sizeof (Description));
    memset (Key, 0, sizeof (Key));
@@ -107,16 +114,50 @@ VOID TLimits::Clear (VOID)
 
 VOID TLimits::Delete (VOID)
 {
+   int fdNew;
+   USHORT CloseFile = FALSE;
+   LIMITS Limits;
+
+   if (fdDat == -1) {
+      fdDat = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
+      CloseFile = TRUE;
+   }
+
+   fdNew = sopen ("temp3.dat", O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
+
+   if (fdDat != -1 && fdNew != -1) {
+      lseek (fdDat, 0L, SEEK_SET);
+
+      while (read (fdDat, &Limits, sizeof (Limits)) == sizeof (Limits)) {
+         if (strcmp (Key, Limits.Key))
+            write (fdNew, &Limits, sizeof (Limits));
+      }
+
+      lseek (fdDat, 0L, SEEK_SET);
+      lseek (fdNew, 0L, SEEK_SET);
+
+      while (read (fdNew, &Limits, sizeof (Limits)) == sizeof (Limits))
+         write (fdDat, &Limits, sizeof (Limits));
+      chsize (fdDat, tell (fdDat));
+   }
+
+   if (fdNew != -1) {
+      close (fdNew);
+      unlink ("temp3.dat");
+   }
+
+   if (CloseFile == TRUE && fdDat != -1) {
+      close (fdDat);
+      fdDat = -1;
+   }
 }
 
 USHORT TLimits::First (VOID)
 {
    USHORT retVal = FALSE;
 
-   if (fdDat == -1) {
-      sprintf (Temp, "%sLimits.Dat", DataPath);
-      fdDat = open (Temp, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE);
-   }
+   if (fdDat == -1)
+      fdDat = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
 
    if (fdDat != -1) {
       lseek (fdDat, 0L, SEEK_SET);
@@ -131,7 +172,7 @@ USHORT TLimits::Next (VOID)
    USHORT retVal = FALSE;
    LIMITS Limits;
 
-   Clear ();
+   New ();
 
    if (fdDat != -1) {
       if (read (fdDat, &Limits, sizeof (Limits)) == sizeof (Limits)) {
@@ -172,7 +213,7 @@ USHORT TLimits::Previous (VOID)
    USHORT retVal = FALSE;
    LIMITS Limits;
 
-   Clear ();
+   New ();
 
    if (fdDat != -1) {
       if (tell (fdDat) >= sizeof (Limits) * 2) {
@@ -215,12 +256,10 @@ USHORT TLimits::Read (PSZ pszName, USHORT fCloseFile)
    USHORT retVal = FALSE;
    LIMITS Limits;
 
-   Clear ();
+   New ();
 
-   if (fdDat == -1) {
-      sprintf (Temp, "%sLimits.Dat", DataPath);
-      fdDat = open (Temp, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE);
-   }
+   if (fdDat == -1)
+      fdDat = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
 
    if (fdDat != -1) {
       lseek (fdDat, 0L, SEEK_SET);
@@ -271,8 +310,7 @@ USHORT TLimits::Update (VOID)
    LIMITS Limits;
 
    if (fdDat == -1) {
-      sprintf (Temp, "%sLimits.Dat", DataPath);
-      fdDat = open (Temp, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE);
+      fdDat = sopen (DatFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
       closeFile = TRUE;
    }
 

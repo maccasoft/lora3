@@ -1,7 +1,7 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.20
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// Lora BBS Professional Edition - Version 3.00.1
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
@@ -10,14 +10,15 @@
 #ifndef _FTRANS_H
 #define _FTRANS_H
 
-#include "bbs.h"
 #include "combase.h"
-#include "tools.h"
+#include "lora_api.h"
 
 #define CAN          ('X'&037)
 #define XOFF         ('s'&037)
 #define XON          ('q'&037)
-#define OK           0
+#if !defined(OK)
+#define OK           1
+#endif
 #define ZERROR       (-1)
 #define TIMEOUT      (-2)
 #define RCDO         (-3)
@@ -113,37 +114,40 @@
 /* Parameters for ZCOMMAND frame ZF0 (otherwise 0) */
 #define ZCACK1       1              /* Acknowledge, then do command */
 
-class DLL_EXPORT TZModem : public TTimer, public TCrc
+/* Parameters for ZSINIT frame */
+#define ZATTNLEN     32             /* Max length of attention string */
+
+class DLL_EXPORT TZModem
 {
 public:
-   TZModem (class TBbs *bbs);
+   TZModem (void);
    ~TZModem (void);
 
-   /* Parameters for ZSINIT frame */
-   #define ZATTNLEN     32             /* Max length of attention string */
-
-   USHORT FileSent;
+   USHORT EndRun, Hangup;
+   USHORT FileSent, Maxblklen, Telnet;
    CHAR   Pathname[128];
+   ULONG  Speed;
+   class  TCom *Com;
+   class  TLog *Log;
+   class  TProgress *Progress;
 
+   USHORT AbortSession (VOID);
+   SHORT  TimedRead (LONG hSec);
    SHORT  ZInitReceiver (VOID);
    SHORT  ZInitSender (SHORT NothingToDo);
    SHORT  ZReceiveFile (PSZ pszPath);
-   SHORT  ZSendFile (PSZ pszFile);
+   SHORT  ZSendFile (PSZ pszFile, PSZ pszName = NULL);
    VOID   ZEndSender (VOID);
 
 private:
-   class TBbs *Bbs;
-   class TCom *Com;
-   class TLog *Log;
-
    SHORT Wantfcs32, Txfcs32, Znulls, lastsent, ZCtlesc;
    SHORT Rxframeind, Rxtype, Rxflags, Rxbuflen, Rxcount;
-   SHORT Tframlen, TryZHdrType;
+   SHORT Tframlen, TryZHdrType, RxTempSize;
    CHAR  Txhdr[4], Rxhdr[4], Attn[ZATTNLEN];
-   CHAR  *RxBuffer, *TxBuffer;
+   CHAR  RxBuffer[KSIZE], *TxBuffer;
+   CHAR  RxTemp[256], *RxTempPos;
    LONG  Rxtimeout, Rxpos, Txpos, Rxbytes;
 
-   SHORT TimedRead (SHORT hSec);
    VOID  ZAckBiBi (VOID);
    SHORT ZDLRead (VOID);
    SHORT ZGetByte (VOID);
@@ -159,14 +163,49 @@ private:
    VOID  ZSendBinaryHeader (SHORT type, CHAR *hdr);
    VOID  ZSendData (CHAR *buf, SHORT length, SHORT frameend);
    VOID  ZSendHexHeader (SHORT type, CHAR *hdr);
-   VOID  ZSendLine (SHORT c);
+   VOID  ZSendLine (UCHAR c);
 };
+
+// ----------------------------------------------------------------------
+
+class TFileQueue
+{
+public:
+   TFileQueue (void);
+   ~TFileQueue (void);
+
+   USHORT Sent;
+   CHAR   Name[32], Complete[128];
+   ULONG  Size;
+   UCHAR  DeleteAfter;
+   UCHAR  TruncateAfter;
+   ULONG  TotalFiles;
+
+   USHORT Add (VOID);
+   VOID   Clear (VOID);
+   USHORT First (VOID);
+   VOID   New (VOID);
+   USHORT Next (VOID);
+   USHORT Previous (VOID);
+   VOID   Remove (PSZ pszName = NULL);
+   VOID   Update (VOID);
+
+private:
+   class  TCollection Data;
+};
+
+// ----------------------------------------------------------------------
 
 class DLL_EXPORT TTransfer : public TZModem
 {
 public:
-   TTransfer (class TBbs *bbs);
+   TTransfer (void);
    ~TTransfer (void);
+
+   USHORT Task;
+   CHAR   Device[16];
+   class  TFileQueue RxQueue;
+   class  TFileQueue TxQueue;
 
    PSZ    ReceiveXModem (PSZ pszPath);
    PSZ    ReceiveASCIIDump (PSZ pszPath);
@@ -175,34 +214,110 @@ public:
    PSZ    ReceiveYModem (PSZ pszPath);
    PSZ    ReceiveYModemG (PSZ pszPath);
    PSZ    ReceiveZModem (PSZ pszPath);
-
+   VOID   RunExternalProtocol (USHORT Download, PSZ Cmd, class TProtocol *Protocol);
+   VOID   Janus (PSZ pszPath);
    USHORT Send1kXModem (PSZ pszFile);
    USHORT SendASCIIDump (PSZ pszFile);
    USHORT SendFTPHost (PSZ pszFile);
    USHORT SendXModem (PSZ pszFile);
    USHORT SendYModem (PSZ pszFile);
    USHORT SendYModemG (PSZ pszFile);
-   USHORT SendZModem (PSZ pszFile);
+   USHORT SendZModem (PSZ pszFile, PSZ pszName = NULL);
+   USHORT SendZModem8K (PSZ pszFile, PSZ pszName = NULL);
 
 private:
-   class  TBbs      *Bbs;
-   class  TConfig   *Cfg;
-   class  TCom      *Com;
-   class  TLanguage *Lang;
-   class  TLog      *Log;
-
-   USHORT pktSize;
+   USHORT PktSize;
    UCHAR  Soh;
    USHORT DoCrc;
    USHORT UseAck;
-   UCHAR  pktNumber;
+   UCHAR  PktNumber;
    CHAR   FinalName[128];
 
-   SHORT  ReceivePacket (UCHAR *lpBuffer);
+   USHORT ReceivePacket (UCHAR *lpBuffer);
    PSZ    ReceiveXFile (PSZ pszPath);
    SHORT  SendPacket (UCHAR *lpBuffer);
    USHORT SendXFile (PSZ pszFile);
-   SHORT  TimedRead (SHORT hSec);
+};
+
+// ----------------------------------------------------------------------
+
+/* Misc. Constants */
+#define BUFMAX 2048          /* Max packet contents length                   */
+#define JANUS_EFFICIENCY 95  /* Estimate Janus xfers at 95% throughput       */
+
+class TJanus
+{
+public:
+   TJanus (void);
+   ~TJanus (void);
+
+   USHORT TimeoutSecs;
+   CHAR   RxPath[64];
+   ULONG  Speed;
+   class  TCom *Com;
+   class  TLog *Log;
+   class  TFileQueue *TxQueue;
+   class  TFileQueue *RxQueue;
+   class  TOutbound *Outbound;
+
+   VOID   Transfer (VOID);
+
+private:
+   int    RxFile, TxFile;
+   USHORT Rxblklen, IsOutbound;
+   SHORT  CanCrc32, WaitFlag, RxCrc32, RxTempSize;
+   CHAR   RxFileName[128], TxFileName[128];
+   CHAR   RxTemp[256], *RxTempPos;
+   UCHAR  LastSent, *Rxbufptr, *Rxbufmax;
+   UCHAR  RxBuffer[BUFMAX + 8], TxBuffer[BUFMAX + 8];
+   ULONG  RxPktCrc32;
+   USHORT RxPktCrc16;
+   ULONG  LastPktName;
+   LONG   Rxpos, RxFilesize, RxFiletime;
+
+   UCHAR pkttype, SharedCap, Done;
+   USHORT xstate, rstate, rpos_count;
+   USHORT blklen, txblklen, txblkmax;
+   LONG rxstpos, length, xmit_retry, txpos, txstpos, timeout;
+   LONG txlength, lasttx, last_blkpos, rpos_retry, rpos_sttime;
+   struct utimbuf utimes;
+#if defined(__NT__)
+   HANDLE hBlock;
+#elif defined(__OS2__)
+#endif
+
+   friend VOID SendThread (PVOID Args);
+
+   SHORT  GetByte (VOID);
+   VOID   GetNextFile (VOID);
+   UCHAR  GetPacket (VOID);
+   SHORT  GetRawByte (VOID);
+   LONG   ProcessFileName (VOID);
+   VOID   SendByte (UCHAR Byte);
+   VOID   SendPacket (UCHAR *Buffer, USHORT Len, USHORT Type);
+};
+
+// ----------------------------------------------------------------------
+
+#define FILE_RECEIVING        1
+#define FILE_SENDING          2
+#define FILE_BIDIRECTIONAL    3
+
+class DLL_EXPORT TProgress
+{
+public:
+   TProgress (void);
+   virtual ~TProgress (void);
+
+   USHORT Type;
+   USHORT RxBlockSize, TxBlockSize;
+   CHAR   RxFileName[128], TxFileName[128];
+   ULONG  RxSize, RxPosition;
+   ULONG  TxSize, TxPosition;
+
+   virtual VOID   Begin (VOID);
+   virtual VOID   End (VOID);
+   virtual VOID   Update (VOID);
 };
 
 #endif

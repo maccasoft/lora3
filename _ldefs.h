@@ -1,7 +1,7 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.01
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// LoraBBS Professional Edition - Version 3.00.11
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
@@ -10,22 +10,35 @@
 #ifndef __LDEFS_H
 #define __LDEFS_H
 
-#include <conio.h>
-#include <ctype.h>
-#include <direct.h>
-#include <dos.h>
-#include <fcntl.h>
-#include <io.h>
-#include <malloc.h>
 #if defined(_MSC_VER)
+#undef _WINDOWS
+#endif
+
+#if !defined(__LINUX__)
+#include <conio.h>
+#include <dos.h>
+#if defined(__BORLANDC__)
+#include <dirent.h>
+#endif
+#include <direct.h>
+#if defined(__OS2__) && defined(__BORLANDC__)
+#define __IN_IOCTL
+#endif
+#include <io.h>
+#include <process.h>
+#include <share.h>
+#include <sys\stat.h>
+#endif
+
+#include <ctype.h>
+#include <fcntl.h>
+#include <malloc.h>
+#if defined(_MSC_VER) || defined(__LINUX__)
 #include <memory.h>
 #else
 #include <mem.h>
 #endif
-#include <process.h>
-#include <share.h>
-#include <sys\stat.h>
-#if defined(__BORLANDC__)
+#if defined(__BORLANDC__) || defined(__LINUX__)
 #include <utime.h>
 #else
 #include <sys\utime.h>
@@ -36,6 +49,47 @@
 #include <string.h>
 #include <time.h>
 
+#if defined(__LINUX__)
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#pragma pack(1)
+#define cprintf         printf
+
+#define O_BINARY        0
+#define SH_DENYNO       0
+#define SH_DENYRW       0
+
+struct dosdate_t {
+   unsigned char day;
+   unsigned char month;
+   unsigned int year;
+   unsigned char dayofweek;
+};
+
+struct dostime_t {
+   unsigned char hour;
+   unsigned char minute;
+   unsigned char second;
+   unsigned char hsecond;
+};
+
+void chsize (int fd, long size);
+void _dos_getdate (struct dosdate_t *ddate);
+void _dos_gettime (struct dostime_t *dtime);
+long filelength (int fd);
+FILE *_fsopen (char *name, char *mode, int shflags);
+int sopen (char *file, int flags, int shmode, int mode);
+int stricmp (char *s1, char *s2);
+int strnicmp (char *s1, char *s2, size_t maxlen);
+char *strlwr (char *s);
+char *strupr (char *s);
+long tell (int fd);
+
+#endif
+
 #if defined(__OS2__) && !defined(INCL_DOS)
 #define INCL_DOS
 #define INCL_DOSDEVICES
@@ -44,9 +98,26 @@
 #define INCL_DOSPROCESS
 #define INCL_PM
 #define INCL_VIO
+#define INCL_KBD
 #include <os2.h>
+
+typedef struct {
+   ULONG SessionID;
+   ULONG ResultCode;
+} TERMNOTIFY, *PTERMNOTIFY;
+
 #elif defined(__NT__)
 #include <windows.h>
+#endif
+
+#if defined(__OS2__) || defined(__NT__)
+#if defined(_MSC_VER)
+#define DLL_EXPORT
+#else
+#define DLL_EXPORT      _export
+#endif
+#else
+#define DLL_EXPORT
 #endif
 
 #ifndef TRUE
@@ -59,6 +130,7 @@ typedef void            VOID;
 typedef void *          PVOID;
 typedef char            CHAR;
 typedef unsigned char   UCHAR;
+typedef unsigned char   BYTE;
 typedef char *          PSZ;
 typedef short           SHORT;
 typedef unsigned short  USHORT;
@@ -76,10 +148,10 @@ typedef int             INT;
 #define CTRLG           0x07
 #define CTRLH           0x08
 #define CTRLI           0x09
-#define LF              0x0a
+#define CTRLJ           0x0a
 #define CTRLK           0x0b
 #define CTRLL           0x0c
-#define CR              0x0d
+#define CTRLM           0x0d
 #define CTRLN           0x0e
 #define CTRLO           0x0f
 #define CTRLP           0x10
@@ -132,12 +204,6 @@ typedef int             INT;
 #define EOT             0x04
 #define ENQ             0x05
 
-#if defined(__OS2__) || defined(__NT__)
-#define DLL_EXPORT      _export
-#else
-#define DLL_EXPORT
-#endif
-
 typedef struct {
    USHORT Zone;
    USHORT Net;
@@ -146,6 +212,24 @@ typedef struct {
    CHAR   Domain[32];
    USHORT Flags;
 } ADDR;
+
+USHORT DLL_EXPORT Crc16 (UCHAR Byte, USHORT Crc);
+ULONG  DLL_EXPORT Crc32 (UCHAR Byte, ULONG Crc);
+USHORT DLL_EXPORT StringCrc16 (CHAR *String, USHORT Crc);
+ULONG  DLL_EXPORT StringCrc32 (CHAR *String, ULONG Crc);
+
+VOID   DLL_EXPORT Pause (LONG lHund);
+LONG   DLL_EXPORT TimerSet (LONG lHund);
+USHORT DLL_EXPORT TimeUp (LONG lEndtime);
+
+PSZ    DLL_EXPORT AdjustPath (PSZ pszPath);
+USHORT DLL_EXPORT BuildPath (PSZ pszPath);
+
+char * DLL_EXPORT strsrep (char *str, char *search, char *replace);
+
+VOID   DLL_EXPORT RunExternal (PSZ Command, USHORT TimeLimit = 0);
+VOID   DLL_EXPORT SpawnExternal (PSZ Command);
+ULONG  DLL_EXPORT AvailableMemory (VOID);
 
 #endif
 

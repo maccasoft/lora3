@@ -1,14 +1,14 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.20
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// Lora BBS Professional Edition - Version 3.00.1
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
 // ----------------------------------------------------------------------
 
 #include "_ldefs.h"
-#include "filebase.h"
+#include "lora_api.h"
 
 #define MAX_INDEX       256
 
@@ -17,9 +17,10 @@ typedef struct {
    ULONG Date;
    ULONG Download;
    ULONG Position;
+   ULONG IdxPosition;
 } NAMESORT;
 
-TFile::TFile (void)
+TFileBase::TFileBase (void)
 {
    fdIdx = fdDat = -1;
    fUploader = FALSE;
@@ -28,7 +29,7 @@ TFile::TFile (void)
    List = NULL;
 }
 
-TFile::TFile (PSZ pszPath, PSZ pszArea)
+TFileBase::TFileBase (PSZ pszPath, PSZ pszArea)
 {
    fdIdx = fdDat = -1;
    fUploader = FALSE;
@@ -38,7 +39,7 @@ TFile::TFile (PSZ pszPath, PSZ pszArea)
    List = NULL;
 }
 
-TFile::~TFile (void)
+TFileBase::~TFileBase (void)
 {
    Clear ();
    Close ();
@@ -50,7 +51,7 @@ TFile::~TFile (void)
    }
 }
 
-USHORT TFile::Add (VOID)
+USHORT TFileBase::Add (VOID)
 {
    PSZ pszTemp;
    FILEDATA fileData;
@@ -60,7 +61,7 @@ USHORT TFile::Add (VOID)
    fUploader = FALSE;
 
    memset (&fileIndex, 0, sizeof (fileIndex));
-   fileIndex.Area = StringCrc32 (Area);
+   fileIndex.Area = StringCrc32 (Area, 0xFFFFFFFFL);
    strcpy (fileIndex.Name, Name);
    memset (&ftm, 0, sizeof (ftm));
    ftm.tm_min = UplDate.Minute;
@@ -71,11 +72,14 @@ USHORT TFile::Add (VOID)
    fileIndex.UploadDate = mktime (&ftm);
    lseek (fdDat, 0L, SEEK_END);
    fileIndex.Offset = tell (fdDat);
+   if (Unapproved == TRUE)
+      fileIndex.Flags |= FILE_UNAPPROVED;
 
    lseek (fdIdx, 0L, SEEK_END);
    write (fdIdx, &fileIndex, sizeof (fileIndex));
 
    memset (&fileData, 0, sizeof (fileData));
+   fileData.Id = FILEBASE_ID;
    strcpy (fileData.Area, Area);
    strcpy (fileData.Name, Name);
    strcpy (fileData.Complete, Complete);
@@ -101,6 +105,10 @@ USHORT TFile::Add (VOID)
    fileData.Level = Level;
    fileData.AccessFlags = AccessFlags;
    fileData.DenyFlags = DenyFlags;
+   if (Unapproved == TRUE)
+      fileData.Flags |= FILE_UNAPPROVED;
+   if (CdRom == TRUE)
+      fileData.Flags |= FILE_CDROM;
    if ((pszTemp = (PSZ)Description->First ()) != NULL) {
       do {
          fileData.Description += strlen (pszTemp) + 2;
@@ -125,7 +133,39 @@ USHORT TFile::Add (VOID)
    return (TRUE);
 }
 
-VOID TFile::Clear (VOID)
+ULONG TFileBase::ChangeLibrary (PSZ pszFrom, PSZ pszTo)
+{
+   ULONG CrcFrom, Number;
+   FILEDATA fileData;
+   FILEINDEX fileIndex;
+
+   CrcFrom = StringCrc32 (pszFrom, 0xFFFFFFFFL);
+   Number = 0L;
+
+   lseek (fdIdx, 0L, SEEK_SET);
+
+   while (read (fdIdx, &fileIndex, sizeof (fileIndex)) == sizeof (fileIndex)) {
+      if (fileIndex.Flags & FILE_DELETED)
+         continue;
+      if (fileIndex.Area == CrcFrom) {
+         lseek (fdDat, fileIndex.Offset, SEEK_SET);
+         read (fdDat, &fileData, sizeof (fileData));
+         strcpy (fileData.Area, pszTo);
+         lseek (fdDat, fileIndex.Offset, SEEK_SET);
+         write (fdDat, &fileData, sizeof (fileData));
+
+         fileIndex.Area = StringCrc32 (pszTo, 0xFFFFFFFFL);
+         lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex), SEEK_SET);
+         write (fdIdx, &fileIndex, sizeof (fileIndex));
+
+         Number++;
+      }
+   }
+
+   return (Number);
+}
+
+VOID TFileBase::Clear (VOID)
 {
    memset (Area, 0, sizeof (Area));
    memset (Name, 0, sizeof (Name));
@@ -146,9 +186,11 @@ VOID TFile::Clear (VOID)
    Level = 0;
    AccessFlags = DenyFlags = 0;
    FileDate = UploadDate = 0L;
+   Unapproved = FALSE;
+   CdRom = FALSE;
 }
 
-VOID TFile::Close (VOID)
+VOID TFileBase::Close (VOID)
 {
    if (fdIdx != -1)
       close (fdIdx);
@@ -157,7 +199,7 @@ VOID TFile::Close (VOID)
    fdIdx = fdDat = -1;
 }
 
-VOID TFile::Delete (VOID)
+VOID TFileBase::Delete (VOID)
 {
    FILEDATA fileData;
    FILEINDEX fileIndex;
@@ -183,7 +225,7 @@ VOID TFile::Delete (VOID)
    }
 }
 
-USHORT TFile::First (VOID)
+USHORT TFileBase::First (PSZ pszSearch)
 {
    USHORT RetVal = FALSE, i, r, w;
    CHAR szTemp[80], szLine[80];
@@ -193,301 +235,19 @@ USHORT TFile::First (VOID)
 
    if (List == NULL) {
       lseek (fdIdx, 0L, SEEK_SET);
-      RetVal = Next ();
+      RetVal = Next (pszSearch);
    }
    else if ((ns = (NAMESORT *)List->First ()) != NULL) {
-      RetVal = TRUE;
-
       lseek (fdDat, ns->Position, SEEK_SET);
       read (fdDat, &fileData, sizeof (fileData));
 
-      Clear ();
-      strcpy (Area, fileData.Area);
-      strcpy (Name, fileData.Name);
-      strcpy (Complete, fileData.Complete);
-      strcpy (Keyword, fileData.Keyword);
-      if (fileData.Description != 0) {
-         w = 0;
-         do {
-            if ((r = (USHORT)sizeof (szTemp)) > fileData.Description)
-               r = fileData.Description;
-            r = (USHORT)read (fdDat, szTemp, r);
-            for (i = 0; i < r; i++) {
-               if (szTemp[i] == '\r') {
-                  szLine[w++] = '\0';
-                  Description->Add (szLine, w);
-                  w = 0;
-               }
-               else if (szTemp[i] != '\n')
-                  szLine[w++] = szTemp[i];
-            }
-            fileData.Description -= r;
-         } while (fileData.Description > 0);
-         if (w > 0) {
-            szLine[w++] = '\0';
-            Description->Add (szLine, w);
-         }
-      }
-      if (fileData.Uploader != 0) {
-         fUploader = TRUE;
-         pszMemUploader = Uploader = (PSZ)malloc (fileData.Uploader);
-         read (fdDat, Uploader, fileData.Uploader);
-      }
-      Size = fileData.Size;
-      DlTimes = fileData.DlTimes;
-      FileDate = fileData.FileDate;
-      ftm = localtime ((time_t *)&fileData.FileDate);
-      Date.Day = (UCHAR)ftm->tm_mday;
-      Date.Month = (UCHAR)(ftm->tm_mon + 1);
-      Date.Year = (USHORT)(ftm->tm_year + 1900);
-      Date.Hour = (UCHAR)ftm->tm_hour;
-      Date.Minute = (UCHAR)ftm->tm_min;
-      UploadDate = fileData.UploadDate;
-      ftm = localtime ((time_t *)&fileData.UploadDate);
-      UplDate.Day = (UCHAR)ftm->tm_mday;
-      UplDate.Month = (UCHAR)(ftm->tm_mon + 1);
-      UplDate.Year = (USHORT)(ftm->tm_year + 1900);
-      UplDate.Hour = (UCHAR)ftm->tm_hour;
-      UplDate.Minute = (UCHAR)ftm->tm_min;
-      Cost = fileData.Cost;
-      Password = fileData.Password;
-      Level = fileData.Level;
-      AccessFlags = fileData.AccessFlags;
-      DenyFlags = fileData.DenyFlags;
-   }
-
-   return (RetVal);
-}
-
-USHORT TFile::Next (VOID)
-{
-   USHORT fRet = FALSE, i, r, w;
-   CHAR szTemp[80], szLine[80];
-   ULONG ulCrc;
-   NAMESORT *ns;
-   FILEDATA fileData;
-   FILEINDEX fileIndex;
-   struct tm *ftm;
-
-   if (List == NULL && fdDat != -1) {
-      ulCrc = StringCrc32 (szArea);
-
-      while (read (fdIdx, &fileIndex, sizeof (fileIndex)) == sizeof (fileIndex)) {
-         if (fileIndex.Flags & FILE_DELETED)
-            continue;
-         if (szArea[0] == '\0' || fileIndex.Area == ulCrc) {
-            fRet = TRUE;
-            lseek (fdDat, fileIndex.Offset, SEEK_SET);
-            break;
-         }
-      }
-   }
-   else if (List != NULL && (ns = (NAMESORT *)List->Next ()) != NULL) {
-      lseek (fdDat, ns->Position, SEEK_SET);
-      fRet = TRUE;
-   }
-
-   if (fRet == TRUE) {
-      read (fdDat, &fileData, sizeof (fileData));
-
-      Clear ();
-      strcpy (Area, fileData.Area);
-      strcpy (Name, fileData.Name);
-      strcpy (Complete, fileData.Complete);
-      strcpy (Keyword, fileData.Keyword);
-      if (fileData.Description != 0) {
-         w = 0;
-         do {
-            if ((r = (USHORT)sizeof (szTemp)) > fileData.Description)
-               r = fileData.Description;
-            r = (USHORT)read (fdDat, szTemp, r);
-            for (i = 0; i < r; i++) {
-               if (szTemp[i] == '\r') {
-                  szLine[w++] = '\0';
-                  Description->Add (szLine, w);
-                  w = 0;
-               }
-               else if (szTemp[i] != '\n')
-                  szLine[w++] = szTemp[i];
-            }
-            fileData.Description -= r;
-         } while (fileData.Description > 0);
-         if (w > 0) {
-            szLine[w++] = '\0';
-            Description->Add (szLine, w);
-         }
-      }
-      if (fileData.Uploader != 0) {
-         fUploader = TRUE;
-         pszMemUploader = Uploader = (PSZ)malloc (fileData.Uploader);
-         read (fdDat, Uploader, fileData.Uploader);
-      }
-      Size = fileData.Size;
-      DlTimes = fileData.DlTimes;
-      FileDate = fileData.FileDate;
-      ftm = localtime ((time_t *)&fileData.FileDate);
-      Date.Day = (UCHAR)ftm->tm_mday;
-      Date.Month = (UCHAR)(ftm->tm_mon + 1);
-      Date.Year = (USHORT)(ftm->tm_year + 1900);
-      Date.Hour = (UCHAR)ftm->tm_hour;
-      Date.Minute = (UCHAR)ftm->tm_min;
-      UploadDate = fileData.UploadDate;
-      ftm = localtime ((time_t *)&fileData.UploadDate);
-      UplDate.Day = (UCHAR)ftm->tm_mday;
-      UplDate.Month = (UCHAR)(ftm->tm_mon + 1);
-      UplDate.Year = (USHORT)(ftm->tm_year + 1900);
-      UplDate.Hour = (UCHAR)ftm->tm_hour;
-      UplDate.Minute = (UCHAR)ftm->tm_min;
-      Cost = fileData.Cost;
-      Password = fileData.Password;
-      Level = fileData.Level;
-      AccessFlags = fileData.AccessFlags;
-      DenyFlags = fileData.DenyFlags;
-   }
-
-   return (fRet);
-}
-
-USHORT TFile::Open (PSZ pszPath, PSZ pszArea)
-{
-   CHAR szFile[128];
-
-   sprintf (szFile, "%s%s", pszPath, "FileBase.Idx");
-   if ((fdIdx = open (szFile, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE)) == -1)
-      return (FALSE);
-
-   sprintf (szFile, "%s%s", pszPath, "FileBase.Dat");
-   if ((fdDat = open (szFile, O_RDWR|O_BINARY|O_CREAT, S_IREAD|S_IWRITE)) == -1) {
-      close (fdDat);
-      fdDat = -1;
-      return (FALSE);
-   }
-
-   strcpy (szArea, pszArea);
-
-   return (TRUE);
-}
-
-USHORT TFile::Previous (VOID)
-{
-   USHORT fRet = FALSE, i, r, w;
-   CHAR szTemp[80], szLine[80];
-   ULONG ulCrc;
-   NAMESORT *ns;
-   FILEDATA fileData;
-   FILEINDEX fileIndex;
-   struct tm *ftm;
-
-   if (List == NULL && fdDat != -1) {
-      ulCrc = StringCrc32 (szArea);
-
-      if (fdDat != -1) {
-         if (tell (fdIdx) >= sizeof (fileIndex) * 2)
-            do {
-               lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex) * 2, SEEK_SET);
-               read (fdIdx, &fileIndex, sizeof (fileIndex));
-               if (fileIndex.Flags & FILE_DELETED)
-                  continue;
-               if (szArea[0] == '\0' || fileIndex.Area == ulCrc) {
-                  fRet = TRUE;
-                  lseek (fdDat, fileIndex.Offset, SEEK_SET);
-                  break;
-               }
-            } while (tell (fdIdx) >= sizeof (fileIndex) * 2);
-      }
-   }
-   else if (List != NULL && (ns = (NAMESORT *)List->Previous ()) != NULL) {
-      lseek (fdDat, ns->Position, SEEK_SET);
-      fRet = TRUE;
-   }
-
-   if (fRet == TRUE) {
-      read (fdDat, &fileData, sizeof (fileData));
-
-      Clear ();
-      strcpy (Area, fileData.Area);
-      strcpy (Name, fileData.Name);
-      strcpy (Complete, fileData.Complete);
-      strcpy (Keyword, fileData.Keyword);
-      if (fileData.Description != 0) {
-         w = 0;
-         do {
-            if ((r = (USHORT)sizeof (szTemp)) > fileData.Description)
-               r = fileData.Description;
-            r = (USHORT)read (fdDat, szTemp, r);
-            for (i = 0; i < r; i++) {
-               if (szTemp[i] == '\r') {
-                  szLine[w++] = '\0';
-                  Description->Add (szLine, w);
-                  w = 0;
-               }
-               else if (szTemp[i] != '\n')
-                  szLine[w++] = szTemp[i];
-            }
-            fileData.Description -= r;
-         } while (fileData.Description > 0);
-         if (w > 0) {
-            szLine[w++] = '\0';
-            Description->Add (szLine, w);
-         }
-      }
-      if (fileData.Uploader != 0) {
-         fUploader = TRUE;
-         pszMemUploader = Uploader = (PSZ)malloc (fileData.Uploader);
-         read (fdDat, Uploader, fileData.Uploader);
-      }
-      Size = fileData.Size;
-      DlTimes = fileData.DlTimes;
-      FileDate = fileData.FileDate;
-      ftm = localtime ((time_t *)&fileData.FileDate);
-      Date.Day = (UCHAR)ftm->tm_mday;
-      Date.Month = (UCHAR)(ftm->tm_mon + 1);
-      Date.Year = (USHORT)(ftm->tm_year + 1900);
-      Date.Hour = (UCHAR)ftm->tm_hour;
-      Date.Minute = (UCHAR)ftm->tm_min;
-      UploadDate = fileData.UploadDate;
-      ftm = localtime ((time_t *)&fileData.UploadDate);
-      UplDate.Day = (UCHAR)ftm->tm_mday;
-      UplDate.Month = (UCHAR)(ftm->tm_mon + 1);
-      UplDate.Year = (USHORT)(ftm->tm_year + 1900);
-      UplDate.Hour = (UCHAR)ftm->tm_hour;
-      UplDate.Minute = (UCHAR)ftm->tm_min;
-      Cost = fileData.Cost;
-      Password = fileData.Password;
-      Level = fileData.Level;
-      AccessFlags = fileData.AccessFlags;
-      DenyFlags = fileData.DenyFlags;
-   }
-
-   return (fRet);
-}
-
-USHORT TFile::Read (PSZ pszFile)
-{
-   USHORT fRet = FALSE, i, r, w;
-   CHAR szTemp[80], szLine[80];
-   ULONG ulCrc;
-   FILEDATA fileData;
-   FILEINDEX fileIndex;
-   struct tm *ftm;
-
-   ulCrc = StringCrc32 (szArea);
-   lseek (fdIdx, 0L, SEEK_SET);
-
-   if (fdDat != -1) {
-      while (fRet == FALSE && read (fdIdx, &fileIndex, sizeof (fileIndex)) == sizeof (fileIndex)) {
-         if (!(fileIndex.Flags & FILE_DELETED)) {
-            if (szArea[0] == '\0' || fileIndex.Area == ulCrc) {
-               if (!stricmp (fileIndex.Name, pszFile))
-                  fRet = TRUE;
-            }
-         }
-      }
-      if (fRet == TRUE) {
-         lseek (fdDat, fileIndex.Offset, SEEK_SET);
-         read (fdDat, &fileData, sizeof (fileData));
-
+      if (fileData.Id == FILEBASE_ID) {
          Clear ();
+         fileData.Area[sizeof (fileData.Area) - 1] = '\0';
+         fileData.Name[sizeof (fileData.Name) - 1] = '\0';
+         fileData.Complete[sizeof (fileData.Complete) - 1] = '\0';
+         fileData.Keyword[sizeof (fileData.Keyword) - 1] = '\0';
+
          strcpy (Area, fileData.Area);
          strcpy (Name, fileData.Name);
          strcpy (Complete, fileData.Complete);
@@ -540,15 +300,449 @@ USHORT TFile::Read (PSZ pszFile)
          Level = fileData.Level;
          AccessFlags = fileData.AccessFlags;
          DenyFlags = fileData.DenyFlags;
+         Unapproved = (fileData.Flags & FILE_UNAPPROVED) ? TRUE : FALSE;
+         CdRom = (fileData.Flags & FILE_CDROM) ? TRUE : FALSE;
+         RetVal = TRUE;
+      }
+   }
+
+   return (RetVal);
+}
+
+USHORT TFileBase::MatchName (PSZ pszName, PSZ pszSearch)
+{
+   USHORT Match = TRUE;
+
+   while (*pszName != '\0' && *pszSearch != '\0' && Match == TRUE) {
+      if (*pszSearch == '*') {
+         pszSearch++;
+         while (*pszName != '\0' && toupper (*pszName) != toupper (*pszSearch))
+            pszName++;
+         if (toupper (*pszName) != toupper (*pszSearch))
+            Match = FALSE;
+      }
+      else if (*pszSearch != '?' && toupper (*pszName) != toupper (*pszSearch))
+         Match = FALSE;
+      else {
+         pszSearch++;
+         pszName++;
+      }
+   }
+
+   return (Match);
+}
+
+USHORT TFileBase::Next (PSZ pszSearch)
+{
+   USHORT fRet = FALSE, i, r, w;
+   CHAR szTemp[80], szLine[80];
+   ULONG ulCrc;
+   NAMESORT *ns;
+   FILEDATA fileData;
+   FILEINDEX fileIndex;
+   struct tm *ftm;
+
+   if (List == NULL && fdDat != -1) {
+      ulCrc = StringCrc32 (szArea, 0xFFFFFFFFL);
+
+      while (read (fdIdx, &fileIndex, sizeof (fileIndex)) == sizeof (fileIndex)) {
+         if (fileIndex.Flags & FILE_DELETED)
+            continue;
+         if (szArea[0] == '\0' || fileIndex.Area == ulCrc) {
+            fRet = TRUE;
+            if (pszSearch != NULL)
+               fRet = MatchName (fileIndex.Name, pszSearch);
+            if (fRet == TRUE) {
+               lseek (fdDat, fileIndex.Offset, SEEK_SET);
+               break;
+            }
+         }
+      }
+   }
+   else if (List != NULL && (ns = (NAMESORT *)List->Next ()) != NULL) {
+      lseek (fdDat, ns->Position, SEEK_SET);
+      fRet = TRUE;
+   }
+
+   if (fRet == TRUE) {
+      read (fdDat, &fileData, sizeof (fileData));
+
+      fRet = FALSE;
+      if (fileData.Id == FILEBASE_ID) {
+         Clear ();
+         fileData.Area[sizeof (fileData.Area) - 1] = '\0';
+         fileData.Name[sizeof (fileData.Name) - 1] = '\0';
+         fileData.Complete[sizeof (fileData.Complete) - 1] = '\0';
+         fileData.Keyword[sizeof (fileData.Keyword) - 1] = '\0';
+
+         strcpy (Area, fileData.Area);
+         strcpy (Name, fileData.Name);
+         strcpy (Complete, fileData.Complete);
+         strcpy (Keyword, fileData.Keyword);
+         if (fileData.Description != 0) {
+            w = 0;
+            do {
+               if ((r = (USHORT)sizeof (szTemp)) > fileData.Description)
+                  r = fileData.Description;
+               r = (USHORT)read (fdDat, szTemp, r);
+               for (i = 0; i < r; i++) {
+                  if (szTemp[i] == '\r') {
+                     szLine[w++] = '\0';
+                     Description->Add (szLine, w);
+                     w = 0;
+                  }
+                  else if (szTemp[i] != '\n')
+                     szLine[w++] = szTemp[i];
+               }
+               fileData.Description -= r;
+            } while (fileData.Description > 0);
+            if (w > 0) {
+               szLine[w++] = '\0';
+               Description->Add (szLine, w);
+            }
+         }
+         if (fileData.Uploader != 0) {
+            fUploader = TRUE;
+            pszMemUploader = Uploader = (PSZ)malloc (fileData.Uploader);
+            read (fdDat, Uploader, fileData.Uploader);
+         }
+         Size = fileData.Size;
+         DlTimes = fileData.DlTimes;
+         FileDate = fileData.FileDate;
+         ftm = localtime ((time_t *)&fileData.FileDate);
+         Date.Day = (UCHAR)ftm->tm_mday;
+         Date.Month = (UCHAR)(ftm->tm_mon + 1);
+         Date.Year = (USHORT)(ftm->tm_year + 1900);
+         Date.Hour = (UCHAR)ftm->tm_hour;
+         Date.Minute = (UCHAR)ftm->tm_min;
+         UploadDate = fileData.UploadDate;
+         ftm = localtime ((time_t *)&fileData.UploadDate);
+         UplDate.Day = (UCHAR)ftm->tm_mday;
+         UplDate.Month = (UCHAR)(ftm->tm_mon + 1);
+         UplDate.Year = (USHORT)(ftm->tm_year + 1900);
+         UplDate.Hour = (UCHAR)ftm->tm_hour;
+         UplDate.Minute = (UCHAR)ftm->tm_min;
+         Cost = fileData.Cost;
+         Password = fileData.Password;
+         Level = fileData.Level;
+         AccessFlags = fileData.AccessFlags;
+         DenyFlags = fileData.DenyFlags;
+         Unapproved = (fileData.Flags & FILE_UNAPPROVED) ? TRUE : FALSE;
+         CdRom = (fileData.Flags & FILE_CDROM) ? TRUE : FALSE;
+         fRet = TRUE;
       }
    }
 
    return (fRet);
 }
 
-USHORT TFile::Replace (VOID)
+USHORT TFileBase::Open (PSZ pszDataPath, PSZ pszArea)
+{
+   CHAR szFile[128];
+
+   strcpy (DataPath, pszDataPath);
+   if (DataPath[0] != '\0') {
+#if defined(__LINUX__)
+      if (DataPath[strlen (DataPath) - 1] != '/')
+         strcat (DataPath, "/");
+#else
+      if (DataPath[strlen (DataPath) - 1] != '\\')
+         strcat (DataPath, "\\");
+#endif
+   }
+
+   sprintf (szFile, "%s%s", DataPath, "filebase.idx");
+   if ((fdIdx = sopen (AdjustPath (szFile), O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) == -1)
+      return (FALSE);
+
+   sprintf (szFile, "%s%s", DataPath, "filebase.dat");
+   if ((fdDat = sopen (AdjustPath (szFile), O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) == -1) {
+      close (fdDat);
+      fdDat = -1;
+      return (FALSE);
+   }
+
+   strcpy (szArea, pszArea);
+
+   return (TRUE);
+}
+
+VOID TFileBase::Pack (VOID)
+{
+   int fdNdx, fdNdat, Readed;
+   CHAR File[128], NewFile[128], *Buffer;
+   FILEDATA fileData;
+   FILEINDEX fileIndex;
+
+   sprintf (File, "%s%s", DataPath, "filebase.$dx");
+   fdNdx = sopen (AdjustPath (File), O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
+   sprintf (File, "%s%s", DataPath, "filebase.$at");
+   fdNdat = sopen (AdjustPath (File), O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
+   Buffer = (CHAR *)malloc (2048);
+
+   if (fdIdx != -1 && fdDat != -1 && fdNdx != -1 && fdNdat != -1 && Buffer != NULL) {
+      while (read (fdIdx, &fileIndex, sizeof (FILEINDEX)) == sizeof (FILEINDEX)) {
+         if (!(fileIndex.Flags & FILE_DELETED)) {
+            lseek (fdDat, fileIndex.Offset, SEEK_SET);
+
+            fileIndex.Offset = tell (fdNdat);
+            write (fdNdx, &fileIndex, sizeof (FILEINDEX));
+
+            read (fdDat, &fileData, sizeof (FILEDATA));
+            write (fdNdat, &fileData, sizeof (FILEDATA));
+
+            while (fileData.Description > 0) {
+               Readed = read (fdDat, Buffer, 2048);
+               write (fdNdat, Buffer, Readed);
+               fileData.Description -= (USHORT)Readed;
+            }
+            while (fileData.Uploader > 0) {
+               Readed = read (fdDat, Buffer, 2048);
+               write (fdNdat, Buffer, Readed);
+               fileData.Uploader -= (USHORT)Readed;
+            }
+         }
+      }
+
+      close (fdNdat);
+      close (fdDat);
+      fdNdat = -1;
+      sprintf (File, "%s%s", DataPath, "filebase.$at");
+      sprintf (NewFile, "%s%s", DataPath, "filebase.dat");
+      unlink (NewFile);
+      rename (File, NewFile);
+      fdDat = sopen (NewFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
+
+      close (fdNdx);
+      close (fdIdx);
+      fdNdx = -1;
+      sprintf (File, "%s%s", DataPath, "filebase.$dx");
+      sprintf (NewFile, "%s%s", DataPath, "filebase.idx");
+      unlink (NewFile);
+      rename (File, NewFile);
+      fdIdx = sopen (NewFile, O_RDWR|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE);
+   }
+
+   if (Buffer != NULL)
+      delete Buffer;
+
+   if (fdNdat != -1)
+      close (fdNdat);
+   sprintf (File, "%s%s", DataPath, "filebase.$at");
+   unlink (File);
+
+   if (fdNdx != -1)
+      close (fdNdx);
+   sprintf (File, "%s%s", DataPath, "filebase.$dx");
+   unlink (File);
+}
+
+USHORT TFileBase::Previous (VOID)
+{
+   USHORT fRet = FALSE, i, r, w;
+   CHAR szTemp[80], szLine[80];
+   ULONG ulCrc;
+   NAMESORT *ns;
+   FILEDATA fileData;
+   FILEINDEX fileIndex;
+   struct tm *ftm;
+
+   if (List == NULL && fdDat != -1) {
+      ulCrc = StringCrc32 (szArea, 0xFFFFFFFFL);
+
+      if (fdDat != -1) {
+         if (tell (fdIdx) >= sizeof (fileIndex) * 2)
+            do {
+               lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex) * 2, SEEK_SET);
+               read (fdIdx, &fileIndex, sizeof (fileIndex));
+               if (fileIndex.Flags & FILE_DELETED)
+                  continue;
+               if (szArea[0] == '\0' || fileIndex.Area == ulCrc) {
+                  fRet = TRUE;
+                  lseek (fdDat, fileIndex.Offset, SEEK_SET);
+                  break;
+               }
+            } while (tell (fdIdx) >= sizeof (fileIndex) * 2);
+      }
+   }
+   else if (List != NULL && (ns = (NAMESORT *)List->Previous ()) != NULL) {
+      lseek (fdDat, ns->Position, SEEK_SET);
+      fRet = TRUE;
+   }
+
+   if (fRet == TRUE) {
+      read (fdDat, &fileData, sizeof (fileData));
+
+      fRet = FALSE;
+      if (fileData.Id == FILEBASE_ID) {
+         Clear ();
+         fileData.Area[sizeof (fileData.Area) - 1] = '\0';
+         fileData.Name[sizeof (fileData.Name) - 1] = '\0';
+         fileData.Complete[sizeof (fileData.Complete) - 1] = '\0';
+         fileData.Keyword[sizeof (fileData.Keyword) - 1] = '\0';
+
+         strcpy (Area, fileData.Area);
+         strcpy (Name, fileData.Name);
+         strcpy (Complete, fileData.Complete);
+         strcpy (Keyword, fileData.Keyword);
+         if (fileData.Description != 0) {
+            w = 0;
+            do {
+               if ((r = (USHORT)sizeof (szTemp)) > fileData.Description)
+                  r = fileData.Description;
+               r = (USHORT)read (fdDat, szTemp, r);
+               for (i = 0; i < r; i++) {
+                  if (szTemp[i] == '\r') {
+                     szLine[w++] = '\0';
+                     Description->Add (szLine, w);
+                     w = 0;
+                  }
+                  else if (szTemp[i] != '\n')
+                     szLine[w++] = szTemp[i];
+               }
+               fileData.Description -= r;
+            } while (fileData.Description > 0);
+            if (w > 0) {
+               szLine[w++] = '\0';
+               Description->Add (szLine, w);
+            }
+         }
+         if (fileData.Uploader != 0) {
+            fUploader = TRUE;
+            pszMemUploader = Uploader = (PSZ)malloc (fileData.Uploader);
+            read (fdDat, Uploader, fileData.Uploader);
+         }
+         Size = fileData.Size;
+         DlTimes = fileData.DlTimes;
+         FileDate = fileData.FileDate;
+         ftm = localtime ((time_t *)&fileData.FileDate);
+         Date.Day = (UCHAR)ftm->tm_mday;
+         Date.Month = (UCHAR)(ftm->tm_mon + 1);
+         Date.Year = (USHORT)(ftm->tm_year + 1900);
+         Date.Hour = (UCHAR)ftm->tm_hour;
+         Date.Minute = (UCHAR)ftm->tm_min;
+         UploadDate = fileData.UploadDate;
+         ftm = localtime ((time_t *)&fileData.UploadDate);
+         UplDate.Day = (UCHAR)ftm->tm_mday;
+         UplDate.Month = (UCHAR)(ftm->tm_mon + 1);
+         UplDate.Year = (USHORT)(ftm->tm_year + 1900);
+         UplDate.Hour = (UCHAR)ftm->tm_hour;
+         UplDate.Minute = (UCHAR)ftm->tm_min;
+         Cost = fileData.Cost;
+         Password = fileData.Password;
+         Level = fileData.Level;
+         AccessFlags = fileData.AccessFlags;
+         DenyFlags = fileData.DenyFlags;
+         Unapproved = (fileData.Flags & FILE_UNAPPROVED) ? TRUE : FALSE;
+         CdRom = (fileData.Flags & FILE_CDROM) ? TRUE : FALSE;
+         fRet = TRUE;
+      }
+   }
+
+   return (fRet);
+}
+
+USHORT TFileBase::Read (PSZ pszFile)
+{
+   USHORT fRet = FALSE, i, r, w;
+   CHAR szTemp[80], szLine[80];
+   ULONG ulCrc;
+   FILEDATA fileData;
+   FILEINDEX fileIndex;
+   struct tm *ftm;
+
+   ulCrc = StringCrc32 (szArea, 0xFFFFFFFFL);
+
+   if (fdDat != -1 && fdIdx != -1) {
+      lseek (fdIdx, 0L, SEEK_SET);
+      while (read (fdIdx, &fileIndex, sizeof (fileIndex)) == sizeof (fileIndex)) {
+         if (!(fileIndex.Flags & FILE_DELETED)) {
+            if (szArea[0] == '\0' || fileIndex.Area == ulCrc) {
+               if (!stricmp (fileIndex.Name, pszFile)) {
+                  fRet = TRUE;
+                  break;
+               }
+            }
+         }
+      }
+      if (fRet == TRUE) {
+         lseek (fdDat, fileIndex.Offset, SEEK_SET);
+         read (fdDat, &fileData, sizeof (fileData));
+
+         fRet = FALSE;
+         if (fileData.Id == FILEBASE_ID) {
+            Clear ();
+            fileData.Area[sizeof (fileData.Area) - 1] = '\0';
+            fileData.Name[sizeof (fileData.Name) - 1] = '\0';
+            fileData.Complete[sizeof (fileData.Complete) - 1] = '\0';
+            fileData.Keyword[sizeof (fileData.Keyword) - 1] = '\0';
+
+            strcpy (Area, fileData.Area);
+            strcpy (Name, fileData.Name);
+            strcpy (Complete, fileData.Complete);
+            strcpy (Keyword, fileData.Keyword);
+            if (fileData.Description != 0) {
+               w = 0;
+               do {
+                  if ((r = (USHORT)sizeof (szTemp)) > fileData.Description)
+                     r = fileData.Description;
+                  r = (USHORT)read (fdDat, szTemp, r);
+                  for (i = 0; i < r; i++) {
+                     if (szTemp[i] == '\r') {
+                        szLine[w++] = '\0';
+                        Description->Add (szLine, w);
+                        w = 0;
+                     }
+                     else if (szTemp[i] != '\n')
+                        szLine[w++] = szTemp[i];
+                  }
+                  fileData.Description -= r;
+               } while (fileData.Description > 0);
+               if (w > 0) {
+                  szLine[w++] = '\0';
+                  Description->Add (szLine, w);
+               }
+            }
+            if (fileData.Uploader != 0) {
+               fUploader = TRUE;
+               pszMemUploader = Uploader = (PSZ)malloc (fileData.Uploader);
+               read (fdDat, Uploader, fileData.Uploader);
+            }
+            Size = fileData.Size;
+            DlTimes = fileData.DlTimes;
+            FileDate = fileData.FileDate;
+            ftm = localtime ((time_t *)&fileData.FileDate);
+            Date.Day = (UCHAR)ftm->tm_mday;
+            Date.Month = (UCHAR)(ftm->tm_mon + 1);
+            Date.Year = (USHORT)(ftm->tm_year + 1900);
+            Date.Hour = (UCHAR)ftm->tm_hour;
+            Date.Minute = (UCHAR)ftm->tm_min;
+            UploadDate = fileData.UploadDate;
+            ftm = localtime ((time_t *)&fileData.UploadDate);
+            UplDate.Day = (UCHAR)ftm->tm_mday;
+            UplDate.Month = (UCHAR)(ftm->tm_mon + 1);
+            UplDate.Year = (USHORT)(ftm->tm_year + 1900);
+            UplDate.Hour = (UCHAR)ftm->tm_hour;
+            UplDate.Minute = (UCHAR)ftm->tm_min;
+            Cost = fileData.Cost;
+            Password = fileData.Password;
+            Level = fileData.Level;
+            AccessFlags = fileData.AccessFlags;
+            DenyFlags = fileData.DenyFlags;
+            Unapproved = (fileData.Flags & FILE_UNAPPROVED) ? TRUE : FALSE;
+            CdRom = (fileData.Flags & FILE_CDROM) ? TRUE : FALSE;
+            fRet = TRUE;
+         }
+      }
+   }
+
+   return (fRet);
+}
+
+USHORT TFileBase::Replace (VOID)
 {
    PSZ pszTemp;
+   USHORT RetVal = FALSE;
    FILEDATA fileData;
    FILEINDEX fileIndex;
    struct tm ftm;
@@ -560,84 +754,15 @@ USHORT TFile::Replace (VOID)
 
    lseek (fdDat, fileIndex.Offset, SEEK_SET);
    read (fdDat, &fileData, sizeof (fileData));
-   fileData.Flags |= FILE_DELETED;
-   lseek (fdDat, fileIndex.Offset, SEEK_SET);
-   write (fdDat, &fileData, sizeof (fileData));
 
-   lseek (fdDat, 0L, SEEK_END);
-   fileIndex.Offset = tell (fdDat);
-   memset (&ftm, 0, sizeof (ftm));
-   ftm.tm_min = UplDate.Minute;
-   ftm.tm_hour = UplDate.Hour;
-   ftm.tm_mday = UplDate.Day;
-   ftm.tm_mon = UplDate.Month - 1;
-   ftm.tm_year = UplDate.Year - 1900;
-   fileIndex.UploadDate = mktime (&ftm);
-   lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex), SEEK_SET);
-   write (fdIdx, &fileIndex, sizeof (fileIndex));
+   if (fileData.Id == FILEBASE_ID) {
+      fileData.Flags |= FILE_DELETED;
+      lseek (fdDat, fileIndex.Offset, SEEK_SET);
+      write (fdDat, &fileData, sizeof (fileData));
 
-   memset (&fileData, 0, sizeof (fileData));
-   strcpy (fileData.Area, Area);
-   strcpy (fileData.Name, Name);
-   strcpy (fileData.Complete, Complete);
-   strcpy (fileData.Keyword, Keyword);
-   fileData.Size = Size;
-   fileData.DlTimes = DlTimes;
-   memset (&ftm, 0, sizeof (ftm));
-   ftm.tm_min = Date.Minute;
-   ftm.tm_hour = Date.Hour;
-   ftm.tm_mday = Date.Day;
-   ftm.tm_mon = Date.Month - 1;
-   ftm.tm_year = Date.Year - 1900;
-   FileDate = fileData.FileDate = mktime (&ftm);
-   memset (&ftm, 0, sizeof (ftm));
-   ftm.tm_min = UplDate.Minute;
-   ftm.tm_hour = UplDate.Hour;
-   ftm.tm_mday = UplDate.Day;
-   ftm.tm_mon = UplDate.Month - 1;
-   ftm.tm_year = UplDate.Year - 1900;
-   UploadDate = fileData.UploadDate = mktime (&ftm);
-   fileData.Cost = Cost;
-   fileData.Password = Password;
-   fileData.Level = Level;
-   fileData.AccessFlags = AccessFlags;
-   fileData.DenyFlags = DenyFlags;
-   if ((pszTemp = (PSZ)Description->First ()) != NULL) {
-      do {
-         fileData.Description += strlen (pszTemp) + 2;
-      } while ((pszTemp = (PSZ)Description->Next ()) != NULL);
-   }
-   if (Uploader != NULL)
-     fileData.Uploader = (USHORT)(strlen (Uploader) + 1);
+      lseek (fdDat, 0L, SEEK_END);
 
-   lseek (fdDat, 0L, SEEK_END);
-   write (fdDat, &fileData, sizeof (fileData));
-
-   if ((pszTemp = (PSZ)Description->First ()) != NULL) {
-      do {
-         write (fdDat, pszTemp, strlen (pszTemp));
-         write (fdDat, "\r\n", 2);
-      } while ((pszTemp = (PSZ)Description->Next ()) != NULL);
-   }
-
-   if (Uploader != NULL)
-     write (fdDat, Uploader, fileData.Uploader);
-
-   return (TRUE);
-}
-
-USHORT TFile::ReplaceHeader (VOID)
-{
-   FILEDATA fileData;
-   FILEINDEX fileIndex;
-   struct tm ftm;
-
-   if (tell (fdIdx) > 0) {
-      lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex), SEEK_SET);
-      read (fdIdx, &fileIndex, sizeof (fileIndex));
-
-      fileIndex.Area = StringCrc32 (Area);
-      strcpy (fileIndex.Name, Name);
+      fileIndex.Offset = tell (fdDat);
       memset (&ftm, 0, sizeof (ftm));
       ftm.tm_min = UplDate.Minute;
       ftm.tm_hour = UplDate.Hour;
@@ -645,13 +770,14 @@ USHORT TFile::ReplaceHeader (VOID)
       ftm.tm_mon = UplDate.Month - 1;
       ftm.tm_year = UplDate.Year - 1900;
       fileIndex.UploadDate = mktime (&ftm);
-
+      if (Unapproved == TRUE)
+         fileIndex.Flags |= FILE_UNAPPROVED;
+      else
+         fileIndex.Flags &= ~FILE_UNAPPROVED;
       lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex), SEEK_SET);
       write (fdIdx, &fileIndex, sizeof (fileIndex));
 
-      lseek (fdDat, fileIndex.Offset, SEEK_SET);
-      read (fdDat, &fileData, sizeof (fileData));
-
+      memset (&fileData, 0, sizeof (fileData));
       strcpy (fileData.Area, Area);
       strcpy (fileData.Name, Name);
       strcpy (fileData.Complete, Complete);
@@ -677,6 +803,147 @@ USHORT TFile::ReplaceHeader (VOID)
       fileData.Level = Level;
       fileData.AccessFlags = AccessFlags;
       fileData.DenyFlags = DenyFlags;
+      if (Unapproved == TRUE)
+         fileData.Flags |= FILE_UNAPPROVED;
+      if (CdRom == TRUE)
+         fileData.Flags |= FILE_CDROM;
+      if ((pszTemp = (PSZ)Description->First ()) != NULL) {
+         do {
+            fileData.Description += strlen (pszTemp) + 2;
+         } while ((pszTemp = (PSZ)Description->Next ()) != NULL);
+      }
+      if (Uploader != NULL)
+        fileData.Uploader = (USHORT)(strlen (Uploader) + 1);
+
+      lseek (fdDat, 0L, SEEK_END);
+      write (fdDat, &fileData, sizeof (fileData));
+
+      if ((pszTemp = (PSZ)Description->First ()) != NULL) {
+         do {
+            write (fdDat, pszTemp, strlen (pszTemp));
+            write (fdDat, "\r\n", 2);
+         } while ((pszTemp = (PSZ)Description->Next ()) != NULL);
+      }
+
+      if (Uploader != NULL)
+        write (fdDat, Uploader, fileData.Uploader);
+
+      RetVal = TRUE;
+   }
+
+   return (RetVal);
+}
+
+USHORT TFileBase::ReplaceHeader (VOID)
+{
+   USHORT RetVal = FALSE;
+   ULONG ulCrc;
+   FILEDATA fileData;
+   FILEINDEX fileIndex;
+   NAMESORT *ns;
+   struct tm ftm;
+
+   if (List == NULL) {
+      ulCrc = StringCrc32 (szArea, 0xFFFFFFFFL);
+
+      if (fdDat != -1 && fdIdx != -1) {
+         lseek (fdIdx, 0L, SEEK_SET);
+         while (read (fdIdx, &fileIndex, sizeof (fileIndex)) == sizeof (fileIndex)) {
+            if (!(fileIndex.Flags & FILE_DELETED)) {
+               if (szArea[0] == '\0' || fileIndex.Area == ulCrc) {
+                  if (!stricmp (fileIndex.Name, Name)) {
+                     lseek (fdDat, fileIndex.Offset, SEEK_SET);
+                     read (fdDat, &fileData, sizeof (fileData));
+                     if (fileData.Id == FILEBASE_ID) {
+                        RetVal = TRUE;
+                        break;
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+   else {
+      if ((ns = (NAMESORT *)List->Value ()) != NULL) {
+         lseek (fdIdx, ns->IdxPosition, SEEK_SET);
+         read (fdIdx, &fileIndex, sizeof (fileIndex));
+         lseek (fdDat, fileIndex.Offset, SEEK_SET);
+         read (fdDat, &fileData, sizeof (fileData));
+         if (fileData.Id == FILEBASE_ID && !strcmp (fileData.Name, Name))
+            RetVal = TRUE;
+      }
+
+      if (RetVal == FALSE) {
+         if ((ns = (NAMESORT *)List->First ()) != NULL)
+            do {
+               if (!stricmp (ns->Name, Name)) {
+                  lseek (fdIdx, ns->IdxPosition, SEEK_SET);
+                  read (fdIdx, &fileIndex, sizeof (fileIndex));
+                  lseek (fdDat, fileIndex.Offset, SEEK_SET);
+                  read (fdDat, &fileData, sizeof (fileData));
+                  if (fileData.Id == FILEBASE_ID) {
+                     RetVal = TRUE;
+                     break;
+                  }
+               }
+            } while ((ns = (NAMESORT *)List->Next ()) != NULL);
+      }
+   }
+
+   if (RetVal == TRUE) {
+      // Aggiornamento dell'indice
+      fileIndex.Area = StringCrc32 (Area, 0xFFFFFFFFL);
+      strcpy (fileIndex.Name, Name);
+      memset (&ftm, 0, sizeof (ftm));
+      ftm.tm_min = UplDate.Minute;
+      ftm.tm_hour = UplDate.Hour;
+      ftm.tm_mday = UplDate.Day;
+      ftm.tm_mon = UplDate.Month - 1;
+      ftm.tm_year = UplDate.Year - 1900;
+      fileIndex.UploadDate = mktime (&ftm);
+      if (Unapproved == TRUE)
+         fileIndex.Flags |= FILE_UNAPPROVED;
+      else
+         fileIndex.Flags &= ~FILE_UNAPPROVED;
+
+      lseek (fdIdx, tell (fdIdx) - sizeof (fileIndex), SEEK_SET);
+      write (fdIdx, &fileIndex, sizeof (fileIndex));
+
+      // Aggiornamento della struttura dati principale
+      strcpy (fileData.Area, Area);
+      strcpy (fileData.Name, Name);
+      strcpy (fileData.Complete, Complete);
+      strcpy (fileData.Keyword, Keyword);
+      fileData.Size = Size;
+      fileData.DlTimes = DlTimes;
+      memset (&ftm, 0, sizeof (ftm));
+      ftm.tm_min = Date.Minute;
+      ftm.tm_hour = Date.Hour;
+      ftm.tm_mday = Date.Day;
+      ftm.tm_mon = Date.Month - 1;
+      ftm.tm_year = Date.Year - 1900;
+      FileDate = fileData.FileDate = mktime (&ftm);
+      memset (&ftm, 0, sizeof (ftm));
+      ftm.tm_min = UplDate.Minute;
+      ftm.tm_hour = UplDate.Hour;
+      ftm.tm_mday = UplDate.Day;
+      ftm.tm_mon = UplDate.Month - 1;
+      ftm.tm_year = UplDate.Year - 1900;
+      UploadDate = fileData.UploadDate = mktime (&ftm);
+      fileData.Cost = Cost;
+      fileData.Password = Password;
+      fileData.Level = Level;
+      fileData.AccessFlags = AccessFlags;
+      fileData.DenyFlags = DenyFlags;
+      if (Unapproved == TRUE)
+         fileData.Flags |= FILE_UNAPPROVED;
+      else
+         fileData.Flags &= ~FILE_UNAPPROVED;
+      if (CdRom == TRUE)
+         fileData.Flags |= FILE_CDROM;
+      else
+         fileData.Flags &= ~FILE_CDROM;
 
       lseek (fdDat, fileIndex.Offset, SEEK_SET);
       write (fdDat, &fileData, sizeof (fileData));
@@ -685,11 +952,12 @@ USHORT TFile::ReplaceHeader (VOID)
    return (TRUE);
 }
 
-VOID TFile::SearchFile (PSZ pszFile)
+VOID TFileBase::SearchFile (PSZ pszFile)
 {
    USHORT i, Readed, RetVal = FALSE;
    ULONG Crc;
    NAMESORT ns, *pns;
+   FILEDATA fileData;
    FILEINDEX *fileIndex;
 
    if (List == NULL)
@@ -699,41 +967,52 @@ VOID TFile::SearchFile (PSZ pszFile)
 
    if (List != NULL && fileIndex != NULL) {
       List->Clear ();
-      Crc = StringCrc32 (szArea);
+      Crc = StringCrc32 (szArea, 0xFFFFFFFFL);
 
       if (fdDat != -1 && fdIdx != -1) {
          lseek (fdIdx, 0L, SEEK_SET);
          while ((Readed = (USHORT)read (fdIdx, fileIndex, sizeof (FILEINDEX) * MAX_INDEX)) > 0) {
             Readed /= sizeof (FILEINDEX);
             for (i = 0; i < Readed; i++) {
-               if (!(fileIndex[i].Flags & FILE_DELETED) && (szArea[0] == '\0' || fileIndex[i].Area == Crc)) {
-                  RetVal = FALSE;
-                  if (strstr (strlwr (fileIndex[i].Name), pszFile) != NULL) {
-                     strcpy (ns.Name, fileIndex[i].Name);
-                     ns.Position = fileIndex[i].Offset;
-                     if ((pns = (NAMESORT *)List->First ()) != NULL) {
-                        if (strcmp (pns->Name, ns.Name) > 0) {
-                           List->Insert (&ns, sizeof (ns));
-                           List->Insert (pns, sizeof (ns));
-                           List->First ();
-                           List->Remove ();
-                           RetVal = TRUE;
-                        }
-                        if (RetVal == FALSE)
-                           do {
-                              if (strcmp (pns->Name, ns.Name) > 0) {
-                                 List->Previous ();
-                                 List->Insert (&ns, sizeof (ns));
-                                 RetVal = TRUE;
-                              }
-                           } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
-                     }
+               if (!(fileIndex[i].Flags & (FILE_DELETED|FILE_UNAPPROVED)) && (szArea[0] == '\0' || fileIndex[i].Area == Crc)) {
+                  lseek (fdDat, fileIndex[i].Offset, SEEK_SET);
+                  read (fdDat, &fileData, sizeof (fileData));
 
-                     if (RetVal == FALSE)
-                        List->Add (&ns, sizeof (ns));
+                  if (fileData.Id == FILEBASE_ID) {
+                     RetVal = FALSE;
+                     if (MatchName (fileIndex[i].Name, pszFile) == TRUE) {
+                        fileIndex[i].Name[sizeof (fileIndex[i].Name) - 1] = '\0';
+                        strcpy (ns.Name, fileIndex[i].Name);
+                        ns.Position = fileIndex[i].Offset;
+                        if ((pns = (NAMESORT *)List->First ()) != NULL) {
+                           if (strcmp (pns->Name, ns.Name) > 0) {
+                              List->Insert (&ns, sizeof (ns));
+                              List->Insert (pns, sizeof (ns));
+                              List->First ();
+                              List->Remove ();
+                              RetVal = TRUE;
+                           }
+                           if (RetVal == FALSE)
+                              do {
+                                 if (strcmp (pns->Name, ns.Name) > 0) {
+                                    List->Previous ();
+                                    List->Insert (&ns, sizeof (ns));
+                                    RetVal = TRUE;
+                                 }
+                              } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
+                        }
+
+                        if (RetVal == FALSE)
+                           List->Add (&ns, sizeof (ns));
+                     }
                   }
                }
             }
+#if defined(__OS2__)
+            DosSleep (1L);
+#elif defined(__NT__)
+            Sleep (1L);
+#endif
          }
       }
    }
@@ -742,7 +1021,7 @@ VOID TFile::SearchFile (PSZ pszFile)
       free (fileIndex);
 }
 
-VOID TFile::SearchKeyword (PSZ pszKeyword)
+VOID TFileBase::SearchKeyword (PSZ pszKeyword)
 {
    USHORT x, Readed, RetVal = FALSE;
    ULONG Crc;
@@ -757,45 +1036,53 @@ VOID TFile::SearchKeyword (PSZ pszKeyword)
 
    if (List != NULL && fileIndex != NULL) {
       List->Clear ();
-      Crc = StringCrc32 (szArea);
+      Crc = StringCrc32 (szArea, 0xFFFFFFFFL);
 
       if (fdDat != -1 && fdIdx != -1) {
          lseek (fdIdx, 0L, SEEK_SET);
          while ((Readed = (USHORT)read (fdIdx, fileIndex, sizeof (FILEINDEX) * MAX_INDEX)) > 0) {
             Readed /= sizeof (FILEINDEX);
             for (x = 0; x < Readed; x++) {
-               if (!(fileIndex[x].Flags & FILE_DELETED) && (szArea[0] == '\0' || fileIndex[x].Area == Crc)) {
+               if (!(fileIndex[x].Flags & (FILE_DELETED|FILE_UNAPPROVED)) && (szArea[0] == '\0' || fileIndex[x].Area == Crc)) {
                   lseek (fdDat, fileIndex[x].Offset, SEEK_SET);
                   read (fdDat, &fileData, sizeof (fileData));
 
-                  if (strstr (strlwr (fileData.Keyword), pszKeyword) != NULL) {
-                     strcpy (ns.Name, fileIndex[x].Name);
-                     ns.Position = fileIndex[x].Offset;
+                  if (fileData.Id == FILEBASE_ID) {
+                     if (strstr (strlwr (fileData.Keyword), pszKeyword) != NULL) {
+                        fileIndex[x].Name[sizeof (fileIndex[x].Name) - 1] = '\0';
+                        strcpy (ns.Name, fileIndex[x].Name);
+                        ns.Position = fileIndex[x].Offset;
 
-                     RetVal = FALSE;
-                     if ((pns = (NAMESORT *)List->First ()) != NULL) {
-                        if (strcmp (pns->Name, ns.Name) > 0) {
-                           List->Insert (&ns, sizeof (ns));
-                           List->Insert (pns, sizeof (ns));
-                           List->First ();
-                           List->Remove ();
-                           RetVal = TRUE;
+                        RetVal = FALSE;
+                        if ((pns = (NAMESORT *)List->First ()) != NULL) {
+                           if (strcmp (pns->Name, ns.Name) > 0) {
+                              List->Insert (&ns, sizeof (ns));
+                              List->Insert (pns, sizeof (ns));
+                              List->First ();
+                              List->Remove ();
+                              RetVal = TRUE;
+                           }
+                           if (RetVal == FALSE)
+                              do {
+                                 if (strcmp (pns->Name, ns.Name) > 0) {
+                                    List->Previous ();
+                                    List->Insert (&ns, sizeof (ns));
+                                    RetVal = TRUE;
+                                 }
+                              } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
                         }
-                        if (RetVal == FALSE)
-                           do {
-                              if (strcmp (pns->Name, ns.Name) > 0) {
-                                 List->Previous ();
-                                 List->Insert (&ns, sizeof (ns));
-                                 RetVal = TRUE;
-                              }
-                           } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
-                     }
 
-                     if (RetVal == FALSE)
-                        List->Add (&ns, sizeof (ns));
+                        if (RetVal == FALSE)
+                           List->Add (&ns, sizeof (ns));
+                     }
                   }
                }
             }
+#if defined(__OS2__)
+            DosSleep (1L);
+#elif defined(__NT__)
+            Sleep (1L);
+#endif
          }
       }
    }
@@ -804,10 +1091,10 @@ VOID TFile::SearchKeyword (PSZ pszKeyword)
       free (fileIndex);
 }
 
-VOID TFile::SearchText (PSZ pszText)
+VOID TFileBase::SearchText (PSZ pszText)
 {
    USHORT x, i, r, w, Readed, RetVal = FALSE, AddThis;
-   CHAR szTemp[80], szLine[80], *p;
+   CHAR szTemp[80], szLine[80];
    ULONG Crc;
    NAMESORT ns, *pns;
    FILEDATA fileData;
@@ -820,83 +1107,93 @@ VOID TFile::SearchText (PSZ pszText)
 
    if (List != NULL && fileIndex != NULL) {
       List->Clear ();
-      Crc = StringCrc32 (szArea);
+      Crc = StringCrc32 (szArea, 0xFFFFFFFFL);
 
       if (fdDat != -1 && fdIdx != -1) {
          lseek (fdIdx, 0L, SEEK_SET);
          while ((Readed = (USHORT)read (fdIdx, fileIndex, sizeof (FILEINDEX) * MAX_INDEX)) > 0) {
             Readed /= sizeof (FILEINDEX);
             for (x = 0; x < Readed; x++) {
-               if (!(fileIndex[x].Flags & FILE_DELETED) && (szArea[0] == '\0' || fileIndex[x].Area == Crc)) {
+               if (!(fileIndex[x].Flags & (FILE_DELETED|FILE_UNAPPROVED)) && (szArea[0] == '\0' || fileIndex[x].Area == Crc)) {
                   lseek (fdDat, fileIndex[x].Offset, SEEK_SET);
                   read (fdDat, &fileData, sizeof (fileData));
 
-                  AddThis = FALSE;
+                  if (fileData.Id == FILEBASE_ID) {
+                     AddThis = FALSE;
+                     fileData.Name[sizeof (fileData.Name) - 1] = '\0';
+                     fileData.Keyword[sizeof (fileData.Keyword) - 1] = '\0';
 
-                  if (strstr (strlwr (fileData.Name), pszText) != NULL)
-                     AddThis = TRUE;
-                  if (strstr (strlwr (fileData.Keyword), pszText) != NULL)
-                     AddThis = TRUE;
+                     if (strstr (strlwr (fileData.Name), pszText) != NULL)
+                        AddThis = TRUE;
+                     if (strstr (strlwr (fileData.Keyword), pszText) != NULL)
+                        AddThis = TRUE;
 
-                  if (fileData.Description != 0 && AddThis == FALSE) {
-                     w = 0;
-                     do {
-                        if ((r = (USHORT)sizeof (szTemp)) > fileData.Description)
-                           r = fileData.Description;
-                        r = (USHORT)read (fdDat, szTemp, r);
-                        for (i = 0; i < r && AddThis == FALSE; i++) {
-                           if (szTemp[i] == '\r') {
-                              szLine[w++] = '\0';
-                              if (strstr (strlwr (szLine), pszText) != NULL)
-                                 AddThis = TRUE;
-                              w = 0;
-                           }
-                           else if (szTemp[i] != '\n')
-                              szLine[w++] = szTemp[i];
-                        }
-                        fileData.Description -= r;
-                     } while (AddThis == FALSE && fileData.Description > 0);
-                     if (w > 0) {
-                        szLine[w++] = '\0';
-                        if (strstr (strlwr (szLine), pszText) != NULL)
-                           AddThis = TRUE;
-                     }
-                  }
-
-                  if (fileData.Uploader != 0 && AddThis == FALSE) {
-                     fUploader = TRUE;
-                     pszMemUploader = Uploader = (PSZ)malloc (fileData.Uploader);
-                     read (fdDat, Uploader, fileData.Uploader);
-                  }
-
-                  if (AddThis == TRUE) {
-                     strcpy (ns.Name, fileIndex[x].Name);
-                     ns.Position = fileIndex[x].Offset;
-
-                     RetVal = FALSE;
-                     if ((pns = (NAMESORT *)List->First ()) != NULL) {
-                        if (strcmp (pns->Name, ns.Name) > 0) {
-                           List->Insert (&ns, sizeof (ns));
-                           List->Insert (pns, sizeof (ns));
-                           List->First ();
-                           List->Remove ();
-                           RetVal = TRUE;
-                        }
-                        if (RetVal == FALSE)
-                           do {
-                              if (strcmp (pns->Name, ns.Name) > 0) {
-                                 List->Previous ();
-                                 List->Insert (&ns, sizeof (ns));
-                                 RetVal = TRUE;
+                     if (fileData.Description != 0 && AddThis == FALSE) {
+                        w = 0;
+                        do {
+                           if ((r = (USHORT)sizeof (szTemp)) > fileData.Description)
+                              r = fileData.Description;
+                           r = (USHORT)read (fdDat, szTemp, r);
+                           for (i = 0; i < r && AddThis == FALSE; i++) {
+                              if (szTemp[i] == '\r') {
+                                 szLine[w++] = '\0';
+                                 if (strstr (strlwr (szLine), pszText) != NULL)
+                                    AddThis = TRUE;
+                                 w = 0;
                               }
-                           } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
+                              else if (szTemp[i] != '\n')
+                                 szLine[w++] = szTemp[i];
+                           }
+                           fileData.Description -= r;
+                        } while (AddThis == FALSE && fileData.Description > 0);
+                        if (w > 0) {
+                           szLine[w++] = '\0';
+                           if (strstr (strlwr (szLine), pszText) != NULL)
+                              AddThis = TRUE;
+                        }
                      }
 
-                     if (RetVal == FALSE)
-                        List->Add (&ns, sizeof (ns));
+                     if (fileData.Uploader != 0 && AddThis == FALSE) {
+                        fUploader = TRUE;
+                        pszMemUploader = Uploader = (PSZ)malloc (fileData.Uploader);
+                        read (fdDat, Uploader, fileData.Uploader);
+                     }
+
+                     if (AddThis == TRUE) {
+                        fileIndex[x].Name[sizeof (fileIndex[x].Name) - 1] = '\0';
+                        strcpy (ns.Name, fileIndex[x].Name);
+                        ns.Position = fileIndex[x].Offset;
+
+                        RetVal = FALSE;
+                        if ((pns = (NAMESORT *)List->First ()) != NULL) {
+                           if (strcmp (pns->Name, ns.Name) > 0) {
+                              List->Insert (&ns, sizeof (ns));
+                              List->Insert (pns, sizeof (ns));
+                              List->First ();
+                              List->Remove ();
+                              RetVal = TRUE;
+                           }
+                           if (RetVal == FALSE)
+                              do {
+                                 if (strcmp (pns->Name, ns.Name) > 0) {
+                                    List->Previous ();
+                                    List->Insert (&ns, sizeof (ns));
+                                    RetVal = TRUE;
+                                 }
+                              } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
+                        }
+
+                        if (RetVal == FALSE)
+                           List->Add (&ns, sizeof (ns));
+                     }
                   }
                }
             }
+#if defined(__OS2__)
+            DosSleep (1L);
+#elif defined(__NT__)
+            Sleep (1L);
+#endif
          }
       }
    }
@@ -905,11 +1202,12 @@ VOID TFile::SearchText (PSZ pszText)
       free (fileIndex);
 }
 
-VOID TFile::SortByDate (ULONG ulDate)
+VOID TFileBase::SortByDate (ULONG ulDate)
 {
    USHORT i, Readed, RetVal = FALSE;
    ULONG Crc;
    NAMESORT ns, *pns;
+   FILEDATA fileData;
    FILEINDEX *fileIndex;
 
    if (List == NULL)
@@ -918,43 +1216,55 @@ VOID TFile::SortByDate (ULONG ulDate)
 
    if (List != NULL && fileIndex != NULL) {
       List->Clear ();
-      Crc = StringCrc32 (szArea);
+      Crc = StringCrc32 (szArea, 0xFFFFFFFFL);
 
       if (fdDat != -1 && fdIdx != -1) {
          lseek (fdIdx, 0L, SEEK_SET);
          while ((Readed = (USHORT)read (fdIdx, fileIndex, sizeof (FILEINDEX) * MAX_INDEX)) > 0) {
             Readed /= sizeof (FILEINDEX);
             for (i = 0; i < Readed; i++) {
-               if (!(fileIndex[i].Flags & FILE_DELETED) && (szArea[0] == '\0' || fileIndex[i].Area == Crc)) {
-                  ns.Date = fileIndex[i].UploadDate;
-                  ns.Position = fileIndex[i].Offset;
+               if (!(fileIndex[i].Flags & (FILE_DELETED|FILE_UNAPPROVED)) && (szArea[0] == '\0' || fileIndex[i].Area == Crc)) {
+                  lseek (fdDat, fileIndex[i].Offset, SEEK_SET);
+                  read (fdDat, &fileData, sizeof (fileData));
 
-                  if (ns.Date > ulDate) {
-                     RetVal = FALSE;
-                     if ((pns = (NAMESORT *)List->First ()) != NULL) {
-                        if (pns->Date < ns.Date) {
-                           List->Insert (&ns, sizeof (ns));
-                           List->Insert (pns, sizeof (ns));
-                           List->First ();
-                           List->Remove ();
-                           List->First ();
-                           RetVal = TRUE;
+                  if (fileData.Id == FILEBASE_ID) {
+                     fileIndex[i].Name[sizeof (fileIndex[i].Name) - 1] = '\0';
+                     strcpy (ns.Name, fileIndex[i].Name);
+                     ns.Date = fileIndex[i].UploadDate;
+                     ns.Position = fileIndex[i].Offset;
+
+                     if (ns.Date > ulDate) {
+                        RetVal = FALSE;
+                        if ((pns = (NAMESORT *)List->First ()) != NULL) {
+                           if (pns->Date < ns.Date) {
+                              List->Insert (&ns, sizeof (ns));
+                              List->Insert (pns, sizeof (ns));
+                              List->First ();
+                              List->Remove ();
+                              List->First ();
+                              RetVal = TRUE;
+                           }
+                           if (RetVal == FALSE)
+                              do {
+                                 if (pns->Date < ns.Date) {
+                                    List->Previous ();
+                                    List->Insert (&ns, sizeof (ns));
+                                    RetVal = TRUE;
+                                 }
+                              } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
                         }
-                        if (RetVal == FALSE)
-                           do {
-                              if (pns->Date < ns.Date) {
-                                 List->Previous ();
-                                 List->Insert (&ns, sizeof (ns));
-                                 RetVal = TRUE;
-                              }
-                           } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
-                     }
 
-                     if (RetVal == FALSE)
-                        List->Add (&ns, sizeof (ns));
+                        if (RetVal == FALSE)
+                           List->Add (&ns, sizeof (ns));
+                     }
                   }
                }
             }
+#if defined(__OS2__)
+            DosSleep (1L);
+#elif defined(__NT__)
+            Sleep (1L);
+#endif
          }
       }
    }
@@ -963,7 +1273,7 @@ VOID TFile::SortByDate (ULONG ulDate)
       free (fileIndex);
 }
 
-VOID TFile::SortByDownload (VOID)
+VOID TFileBase::SortByDownload (VOID)
 {
    USHORT x, Readed, RetVal = FALSE;
    ULONG Crc;
@@ -977,43 +1287,52 @@ VOID TFile::SortByDownload (VOID)
 
    if (List != NULL && fileIndex != NULL) {
       List->Clear ();
-      Crc = StringCrc32 (szArea);
+      Crc = StringCrc32 (szArea, 0xFFFFFFFFL);
 
       if (fdDat != -1 && fdIdx != -1) {
          lseek (fdIdx, 0L, SEEK_SET);
          while ((Readed = (USHORT)read (fdIdx, fileIndex, sizeof (FILEINDEX) * MAX_INDEX)) > 0) {
             Readed /= sizeof (FILEINDEX);
             for (x = 0; x < Readed; x++) {
-               if (!(fileIndex[x].Flags & FILE_DELETED) && (szArea[0] == '\0' || fileIndex[x].Area == Crc)) {
+               if (!(fileIndex[x].Flags & (FILE_DELETED|FILE_UNAPPROVED)) && (szArea[0] == '\0' || fileIndex[x].Area == Crc)) {
                   lseek (fdDat, fileIndex[x].Offset, SEEK_SET);
                   read (fdDat, &fileData, sizeof (fileData));
 
-                  ns.Download = fileData.DlTimes;
-                  ns.Position = fileIndex[x].Offset;
+                  if (fileData.Id == FILEBASE_ID) {
+                     fileIndex[x].Name[sizeof (fileIndex[x].Name) - 1] = '\0';
+                     strcpy (ns.Name, fileIndex[x].Name);
+                     ns.Download = fileData.DlTimes;
+                     ns.Position = fileIndex[x].Offset;
 
-                  RetVal = FALSE;
-                  if ((pns = (NAMESORT *)List->First ()) != NULL) {
-                     if (pns->Download < ns.Download) {
-                        List->Insert (&ns, sizeof (ns));
-                        List->Insert (pns, sizeof (ns));
-                        List->First ();
-                        List->Remove ();
-                        RetVal = TRUE;
+                     RetVal = FALSE;
+                     if ((pns = (NAMESORT *)List->First ()) != NULL) {
+                        if (pns->Download < ns.Download) {
+                           List->Insert (&ns, sizeof (ns));
+                           List->Insert (pns, sizeof (ns));
+                           List->First ();
+                           List->Remove ();
+                           RetVal = TRUE;
+                        }
+                        if (RetVal == FALSE)
+                           do {
+                              if (pns->Download < ns.Download) {
+                                 List->Previous ();
+                                 List->Insert (&ns, sizeof (ns));
+                                 RetVal = TRUE;
+                              }
+                           } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
                      }
-                     if (RetVal == FALSE)
-                        do {
-                           if (pns->Download < ns.Download) {
-                              List->Previous ();
-                              List->Insert (&ns, sizeof (ns));
-                              RetVal = TRUE;
-                           }
-                        } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
-                  }
 
-                  if (RetVal == FALSE)
-                     List->Add (&ns, sizeof (ns));
+                     if (RetVal == FALSE)
+                        List->Add (&ns, sizeof (ns));
+                  }
                }
             }
+#if defined(__OS2__)
+            DosSleep (1L);
+#elif defined(__NT__)
+            Sleep (1L);
+#endif
          }
       }
    }
@@ -1022,11 +1341,12 @@ VOID TFile::SortByDownload (VOID)
       free (fileIndex);
 }
 
-VOID TFile::SortByName (VOID)
+VOID TFileBase::SortByName (VOID)
 {
    USHORT i, Readed, RetVal = FALSE;
-   ULONG Crc;
+   ULONG Crc, Position;
    NAMESORT ns, *pns;
+   FILEDATA fileData;
    FILEINDEX *fileIndex;
 
    if (List == NULL)
@@ -1035,40 +1355,53 @@ VOID TFile::SortByName (VOID)
 
    if (List != NULL && fileIndex != NULL) {
       List->Clear ();
-      Crc = StringCrc32 (szArea);
+      Crc = StringCrc32 (szArea, 0xFFFFFFFFL);
 
       if (fdDat != -1 && fdIdx != -1) {
          lseek (fdIdx, 0L, SEEK_SET);
+         Position = 0L;
          while ((Readed = (USHORT)read (fdIdx, fileIndex, sizeof (FILEINDEX) * MAX_INDEX)) > 0) {
             Readed /= sizeof (FILEINDEX);
-            for (i = 0; i < Readed; i++) {
-               if (!(fileIndex[i].Flags & FILE_DELETED) && (szArea[0] == '\0' || fileIndex[i].Area == Crc)) {
-                  strcpy (ns.Name, fileIndex[i].Name);
-                  ns.Position = fileIndex[i].Offset;
+            for (i = 0; i < Readed; i++, Position += sizeof (FILEINDEX)) {
+               if (!(fileIndex[i].Flags & (FILE_DELETED|FILE_UNAPPROVED)) && (szArea[0] == '\0' || fileIndex[i].Area == Crc)) {
+                  lseek (fdDat, fileIndex[i].Offset, SEEK_SET);
+                  read (fdDat, &fileData, sizeof (fileData));
 
-                  RetVal = FALSE;
-                  if ((pns = (NAMESORT *)List->First ()) != NULL) {
-                     if (strcmp (pns->Name, ns.Name) > 0) {
-                        List->Insert (&ns, sizeof (ns));
-                        List->Insert (pns, sizeof (ns));
-                        List->First ();
-                        List->Remove ();
-                        RetVal = TRUE;
+                  if (fileData.Id == FILEBASE_ID) {
+                     fileIndex[i].Name[sizeof (fileIndex[i].Name) - 1] = '\0';
+                     strcpy (ns.Name, fileIndex[i].Name);
+                     ns.Position = fileIndex[i].Offset;
+                     ns.IdxPosition = Position;
+
+                     RetVal = FALSE;
+                     if ((pns = (NAMESORT *)List->First ()) != NULL) {
+                        if (strcmp (pns->Name, ns.Name) > 0) {
+                           List->Insert (&ns, sizeof (ns));
+                           List->Insert (pns, sizeof (ns));
+                           List->First ();
+                           List->Remove ();
+                           RetVal = TRUE;
+                        }
+                        if (RetVal == FALSE)
+                           do {
+                              if (strcmp (pns->Name, ns.Name) > 0) {
+                                 List->Previous ();
+                                 List->Insert (&ns, sizeof (ns));
+                                 RetVal = TRUE;
+                              }
+                           } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
                      }
-                     if (RetVal == FALSE)
-                        do {
-                           if (strcmp (pns->Name, ns.Name) > 0) {
-                              List->Previous ();
-                              List->Insert (&ns, sizeof (ns));
-                              RetVal = TRUE;
-                           }
-                        } while (RetVal == FALSE && (pns = (NAMESORT *)List->Next ()) != NULL);
-                  }
 
-                  if (RetVal == FALSE)
-                     List->Add (&ns, sizeof (ns));
+                     if (RetVal == FALSE)
+                        List->Add (&ns, sizeof (ns));
+                  }
                }
             }
+#if defined(__OS2__)
+            DosSleep (1L);
+#elif defined(__NT__)
+            Sleep (1L);
+#endif
          }
       }
    }

@@ -1,6 +1,6 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.20
+// Lora BBS Professional Edition - Version 3.00.24
 // Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
 //
 // History:
@@ -8,141 +8,120 @@
 // ----------------------------------------------------------------------
 
 #include "_ldefs.h"
-#include "offline.h"
+#include "lora.h"
 
-TOffline::TOffline (class TBbs *bbs)
+class TMsgAreaSelect : public TListings
 {
-   Bbs = bbs;
-   Cfg = bbs->Cfg;
-   Lang = bbs->Lang;
-   Log = bbs->Log;
-   User = bbs->User;
+public:
+   class  TConfig *Cfg;
 
-   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
-   sprintf (Path, "%s%s\\", Cfg->HomePath, User->MailBox);
+   VOID   Begin (VOID);
+   VOID   PrintCursor (USHORT y);
+   VOID   PrintLine (VOID);
+   VOID   PrintTitles (VOID);
+   VOID   RemoveCursor (USHORT y);
+   VOID   Select (VOID);
+   VOID   Tag (VOID);
+
+private:
+};
+
+// ----------------------------------------------------------------------
+
+TOffline::TOffline (void)
+{
+   Cfg = NULL;
+   Log = NULL;
+   Embedded = NULL;
+   User = NULL;
+   Lang = NULL;
+   Progress = NULL;
+
+   CarrierSpeed = 19200L;
+
    Total = TotalPersonal = 0L;
-   Limit = 1000L;
-   strcpy (Id, "OFFLINE");
+   Limit = 0L;
+   strcpy (Id, "offline");
    Msg = NULL;
-   NewLR.Clear ();
 }
 
 TOffline::~TOffline (void)
 {
-   CHAR Temp[128];
-   struct find_t blk;
-
-   NewLR.Clear ();
-
-// ----------------------------------------------------------------------
-// The destructor is responsible for the cleanup of the temporary work
-// directory.
-// ----------------------------------------------------------------------
-   sprintf (Temp, "%s*.*", Work);
-   if (!_dos_findfirst (Temp, 0, &blk))
-      do {
-         sprintf (Temp, "%s%s", Work, blk.name);
-         unlink (Temp);
-      } while (!_dos_findnext (&blk));
-
-   rmdir (Work);
+   if (User != NULL) {
+      sprintf (Work, "%s%s", Cfg->TempPath, User->MailBox);
+      rmdir (AdjustPath (Work));
+   }
+   if (Cfg != NULL && User != NULL) {
+      sprintf (Path, "%s%s", Cfg->UsersHomePath, User->MailBox);
+      rmdir (AdjustPath (Path));
+   }
 }
 
 VOID TOffline::AddConference (VOID)
 {
-   USHORT Found = FALSE;
+   USHORT Found = FALSE, Line;
    CHAR Area[16];
    class TMsgData *Data;
+   class TMsgAreaSelect *List;
 
-   if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
-      do {
-         Bbs->Printf ("\n\x16\x01\013Enter a Conference to add to your offline reader, or ? for a list\n : \026\001\x1E");
-         Bbs->GetString (Area, (USHORT)(sizeof (Area) - 1), INP_FIELD);
+   if (Embedded->Ansi == TRUE || Embedded->Avatar == TRUE) {
+      if ((List = new TMsgAreaSelect) != NULL) {
+         List->Cfg = Cfg;
+         List->Embedded = Embedded;
+         List->Log = Log;
+         List->User = User;
+//         List->Language = Language;
+         List->Run ();
+         delete List;
+      }
+   }
+   else {
+      if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
+         do {
+            Embedded->Printf ("\n\026\001\013Enter the name of the Conference, or ? for a list: \026\001\x1E");
+            Embedded->Input (Area, (USHORT)(sizeof (Area) - 1), INP_FIELD);
 
-         if (!stricmp (Area, "?")) {
-            if (Data->First () == TRUE) {
-               Bbs->Printf (Lang->MessageListHeader);
-               do {
-                  if (Data->ShowGlobal == TRUE && Data->Offline == TRUE && User->Level >= Data->Level) {
-                     if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags)
-                        Bbs->Printf (Lang->MessageList, Data->Key, Data->ActiveMsgs, Data->Display);
-                  }
-               } while (Bbs->AbortSession () == FALSE && Data->Next () == TRUE);
-            }
-         }
-         else if (Area[0] != '\0') {
-            if (Data->Read (Area) == TRUE) {
-               if (Data->ShowGlobal == TRUE && User->Level >= Data->Level) {
-                  if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
-                     if (User->LastRead->Read (Area) == FALSE) {
-                        strcpy (User->LastRead->Key, Area);
-                        User->LastRead->Number = 0L;
-                        User->LastRead->QuickScan = TRUE;
-                        User->LastRead->PersonalOnly = FALSE;
-                        User->LastRead->ExcludeOwn = FALSE;
-                        User->LastRead->Add ();
+            if (!stricmp (Area, "?")) {
+               if (Data->First () == TRUE) {
+                  Embedded->Printf ("\n\026\001\012Conference       Msgs   Description\n\026\001\017\031Ф\017  \031Ф\005  \031Ф\067\n");
+                  Line = 3;
+                  do {
+                     if (Data->Offline == TRUE && User->Level >= Data->Level) {
+                        if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
+                           Embedded->Printf ("\026\001\013%-15.15s  \026\001\016%5ld  %.55s\n", Data->Key, Data->ActiveMsgs, Data->Display);
+                           Line = Embedded->MoreQuestion (Line);
+                        }
                      }
-                     else {
-                        User->LastRead->QuickScan = TRUE;
-                        User->LastRead->Update ();
-                     }
-                     Found = TRUE;
-                  }
+                  } while (Embedded->AbortSession () == FALSE && Data->Next () == TRUE && Line != 0);
                }
             }
+            else if (Area[0] != '\0') {
+               if (Data->Read (Area) == TRUE) {
+                  if (User->Level >= Data->Level) {
+                     if ((Data->AccessFlags & User->AccessFlags) == Data->AccessFlags) {
+                        if (User->MsgTag->Read (Area) == FALSE) {
+                           User->MsgTag->New ();
+                           strcpy (User->MsgTag->Area, Area);
+                           User->MsgTag->Tagged = TRUE;
+                           User->MsgTag->Add ();
+                        }
+                        else {
+                           User->MsgTag->Tagged = TRUE;
+                           User->MsgTag->Update ();
+                        }
+                        Found = TRUE;
+                     }
+                  }
+               }
 
-            if (Found == FALSE)
-               Bbs->Printf ("\n\x16\x01\x0DSorry, no such Conference is accessible to you.\n");
-         }
-      } while (Area[0] != '\0' && Found == FALSE && Bbs->AbortSession () == FALSE);
+               if (Found == FALSE)
+                  Embedded->Printf ("\n\x16\x01\x0DSorry, no such Conference is accessible to you.\n");
+            }
+         } while (Area[0] != '\0' && Found == FALSE && Embedded->AbortSession () == FALSE);
 
-      delete Data;
+         delete Data;
+      }
    }
-}
-
-USHORT TOffline::BuildPath (PSZ pszPath)
-{
-   USHORT RetVal = TRUE;
-   CHAR Dir[128], *p, Final[128];
-   struct find_t blk;
-
-   strcpy (Final, "");
-   strcpy (Dir, pszPath);
-
-// ----------------------------------------------------------------------
-// Build a complete directory tree by extracting the single directory
-// names from the pathname.
-// ----------------------------------------------------------------------
-   if ((p = strtok (Dir, "\\")) != NULL)
-      do {
-         strcat (Final, p);
-         if (p[1] != ':' && p[0] != '.') {
-// ----------------------------------------------------------------------
-// If the directory cannot be created, stops the process immediately.
-// The global variable errno is set to zero after an error only if the
-// directory already exists.
-// ----------------------------------------------------------------------
-            mkdir (Final);
-//            if (mkdir (Final) != 0 && errno != 0)
-//               RetVal = FALSE;
-         }
-         strcat (Final, "\\");
-      } while (RetVal == TRUE && (p = strtok (NULL, "\\")) != NULL);
-
-   if (RetVal == TRUE) {
-// ----------------------------------------------------------------------
-// The directory was successfully created, now we clean the directory
-// just in case it was already here with some trash in it.
-// ----------------------------------------------------------------------
-      sprintf (Dir, "%s*.*", pszPath);
-      if (!_dos_findfirst (Dir, 0, &blk))
-         do {
-            sprintf (Final, "%s%s", pszPath, blk.name);
-            unlink (Final);
-         } while (!_dos_findnext (&blk));
-   }
-
-   return (RetVal);
 }
 
 USHORT TOffline::Compress (PSZ pszPacket)
@@ -151,23 +130,34 @@ USHORT TOffline::Compress (PSZ pszPacket)
    CHAR Cmd[16], Temp[128];
    class TPacker *Packer;
 
-   Bbs->Printf ("\n\n");
+   Embedded->Printf ("\n\n");
 
    if ((Packer = new TPacker (Cfg->SystemPath)) != NULL) {
       if (Packer->First () == TRUE)
          do {
-            Bbs->Printf ("  \x16\x01\013%s ... \x16\x01\016%s\n", Packer->Key, Packer->Display);
+#if defined(__OS2__)
+            if (Packer->OS2 == TRUE)
+#elif defined(__NT__)
+            if (Packer->Windows == TRUE)
+#elif defined(__LINUX__)
+            if (Packer->Linux == TRUE)
+#else
+            if (Packer->Dos == TRUE)
+#endif
+               Embedded->Printf ("  \x16\x01\013%s ... \x16\x01\016%s\n", Packer->Key, Packer->Display);
          } while (Packer->Next () == TRUE);
 
       do {
-         Bbs->Printf ("\n\x16\x01\013Choose a compression option (or RETURN to exit): ");
-         Bbs->GetString (Cmd, (USHORT)(sizeof (Cmd) - 1), 0);
-      } while (Cmd[0] != '\0' && Bbs->AbortSession () == FALSE && Packer->Read (Cmd) == FALSE);
+         Embedded->Printf ("\n\x16\x01\013Choose a compression option (or RETURN to exit): ");
+         Embedded->Input (Cmd, (USHORT)(sizeof (Cmd) - 1), 0);
+      } while (Cmd[0] != '\0' && Embedded->AbortSession () == FALSE && Packer->Read (Cmd) == FALSE);
 
       if (Cmd[0] != '\0' && Packer->Read (Cmd) == TRUE) {
-         Bbs->Printf ("\n\x16\x01\016Please wait while compressing your mail packet.\n");
+         Embedded->Printf ("\n\x16\x01\016Please wait while compressing your mail packet.\n");
          strcpy (Temp, Work);
          strcat (Temp, "*.*");
+         if (Log != NULL)
+            Log->Write ("#Executing %s", Packer->PackCmd);
          if (Packer->DoPack (pszPacket, Temp) == TRUE)
             RetVal = TRUE;
       }
@@ -188,19 +178,19 @@ VOID TOffline::Display (VOID)
    class TMsgData *Data;
 
    if ((Data = new TMsgData (Cfg->SystemPath)) != NULL) {
-      Bbs->Printf ("\n\x16\x01\012You have selected the following Conference(s):\n\x16\x01\x0E");
+      Embedded->Printf ("\n\x16\x01\012You have selected the following Conference(s):\n\x16\x01\x0E");
 
-      if (User->LastRead->First () == TRUE) {
-         Bbs->Printf (Lang->MessageListHeader);
+      if (User->MsgTag->First () == TRUE) {
+         Embedded->Printf ("\n\026\001\012Conference       Msgs   Description\n\026\001\017\031Ф\017  \031Ф\005  \031Ф\067\n");
          do {
-            if (User->LastRead->QuickScan == TRUE) {
-               if (Data->Read (User->LastRead->Key) == TRUE)
-                  Bbs->Printf (Lang->MessageList, Data->Key, Data->ActiveMsgs, Data->Display);
+            if (User->MsgTag->Tagged == TRUE) {
+               if (Data->Read (User->MsgTag->Area) == TRUE)
+                  Embedded->Printf ("\026\001\013%-15.15s  \026\001\016%5ld  %.55s\n", Data->Key, Data->ActiveMsgs, Data->Display);
             }
-         } while (User->LastRead->Next () == TRUE);
+         } while (User->MsgTag->Next () == TRUE);
       }
 
-      Bbs->Printf ("\n");
+      Embedded->Printf ("\n");
       delete Data;
    }
 }
@@ -210,100 +200,104 @@ VOID TOffline::Download (PSZ pszFile, PSZ pszName)
    USHORT RetVal = FALSE, SelectOK, Loop;
    CHAR Cmd[10];
    ULONG DlTime;
-   struct find_t blk;
+   struct stat statbuf;
    class TTransfer *Transfer;
+   class TMsgTag *MsgTag = User->MsgTag;
 
-   if (!_dos_findfirst (pszFile, 0, &blk)) {
-      DlTime = (blk.size / (Bbs->CarrierSpeed / 10L) + 30L) / 60L;
+   if (stat (pszFile, &statbuf) == 0) {
+      DlTime = (statbuf.st_size / (CarrierSpeed / 10L) + 30L) / 60L;
       if (DlTime < 1)
-         Bbs->Printf ("\n\x16\x01\012Approximate download time: < 1 minute.\n\n");
+         Embedded->Printf ("\n\x16\x01\012Approximate download time: < 1 minute.\n\n");
       else
-         Bbs->Printf ("\n\x16\x01\012Approximate download time: %ld minutes.\n\n", DlTime);
+         Embedded->Printf ("\n\x16\x01\012Approximate download time: %ld minutes.\n\n", DlTime);
 
-      Bbs->Printf ("  \x16\x01\013M ... \x16\x01\016XMODEM (Checksum/CRC)\n");
-      Bbs->Printf ("  \x16\x01\0131 ... \x16\x01\016XMODEM-1K\n");
-      Bbs->Printf ("  \x16\x01\013Z ... \x16\x01\016ZMODEM\n");
-      Bbs->Printf ("  \x16\x01\013T ... \x16\x01\016Tag file(s) for later download\n");
+      if (DlTime < Embedded->TimeRemain ()) {
+         Embedded->Printf ("  \x16\x01\013M ... \x16\x01\016XMODEM (Checksum/CRC)\n");
+         Embedded->Printf ("  \x16\x01\0131 ... \x16\x01\016XMODEM-1K\n");
+         Embedded->Printf ("  \x16\x01\013Z ... \x16\x01\016ZMODEM\n");
+      }
+      Embedded->Printf ("  \x16\x01\013T ... \x16\x01\016Tag file(s) for later download\n");
 
       SelectOK = FALSE;
 
       do {
-         Bbs->Printf ("\n\x16\x01\013Choose a download option (or RETURN to exit): ");
-         if (Bbs->HotKey == TRUE)
-            Bbs->GetString (Cmd, 1, INP_HOTKEY);
+         Embedded->Printf ("\n\x16\x01\013Choose a download option (or RETURN to exit): ");
+         if (Embedded->HotKey == TRUE)
+            Embedded->Input (Cmd, 1, INP_HOTKEY);
          else
-            Bbs->GetString (Cmd, (USHORT)(sizeof (Cmd) - 1), 0);
+            Embedded->Input (Cmd, (USHORT)(sizeof (Cmd) - 1), 0);
          Cmd[0] = (CHAR)toupper (Cmd[0]);
          if (Cmd[0] == 'M' || Cmd[0] == '1')
             SelectOK = TRUE;
          else if (Cmd[0] == '\0' || Cmd[0] == 'Z' || Cmd[0] == 'T')
             SelectOK = TRUE;
-      } while (Bbs->AbortSession () == FALSE && SelectOK == FALSE);
+      } while (Embedded->AbortSession () == FALSE && SelectOK == FALSE);
 
-      if (Cmd[0] != '\0' && (Transfer = new TTransfer (Bbs)) != NULL) {
+      if (Cmd[0] != '\0' && (Transfer = new TTransfer) != NULL) {
+         Transfer->Com = Embedded->Com;
+         Transfer->Log = Log;
+         Transfer->Speed = CarrierSpeed;
+         Transfer->Progress = Progress;
+         Transfer->Telnet = Cfg->ZModemTelnet;
+
          Loop = TRUE;
-         while (Loop == TRUE && RetVal == FALSE) {
-            if (Cmd[0] != 'T')
-               Bbs->Printf ("\n\x16\x01\012(Hit \x16\x01\013CTRL-X \x16\x01\012a few times to abort)\n");
+         while (Loop == TRUE && RetVal == FALSE && Embedded->AbortSession () == FALSE) {
+            if (DlTime < Embedded->TimeRemain ()) {
+               if (Cmd[0] != 'T')
+                  Embedded->Printf ("\n\x16\x01\012(Hit \x16\x01\013CTRL-X \x16\x01\012a few times to abort)\n");
 
-            if (Cmd[0] == '1') {
-               Bbs->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "XMODEM-1K", pszName);
-               RetVal = Transfer->Send1kXModem (pszFile);
+               if (Cmd[0] == '1') {
+                  Embedded->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "XMODEM-1K", pszName);
+                  RetVal = Transfer->Send1kXModem (pszFile);
+               }
+               else if (Cmd[0] == 'M') {
+                  Embedded->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "XMODEM", pszName);
+                  RetVal = Transfer->SendXModem (pszFile);
+               }
+               else if (Cmd[0] == 'Z') {
+                  Embedded->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "ZMODEM", pszName);
+                  if ((RetVal = Transfer->SendZModem (pszFile)) == TRUE)
+                     Transfer->SendZModem (NULL);
+               }
             }
-            else if (Cmd[0] == 'M') {
-               Bbs->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "XMODEM", pszName);
-               RetVal = Transfer->SendXModem (pszFile);
-            }
-            else if (Cmd[0] == 'Z') {
-               Bbs->Printf ("\x16\x01\012Beginning %s download of the file %s\n", "ZMODEM", pszName);
-               if ((RetVal = Transfer->SendZModem (pszFile)) == TRUE)
-                  Transfer->SendZModem (NULL);
-            }
-            else if (Cmd[0] == 'T') {
-               Bbs->Printf ("\n\x16\x01\012You have just tagged:\n\n");
+
+            if (Cmd[0] == 'T') {
+               Embedded->Printf ("\n\x16\x01\012You have just tagged:\n\n");
                User->FileTag->New ();
                strcpy (User->FileTag->Name, pszName);
-               strcpy (User->FileTag->Library, "Offline-Reader");
+               strcpy (User->FileTag->Area, "Offline-Reader");
                strcpy (User->FileTag->Complete, pszFile);
-               User->FileTag->Size = blk.size;
+               User->FileTag->Size = statbuf.st_size;
                User->FileTag->DeleteAfter = TRUE;
                User->FileTag->Add ();
-               Bbs->Printf ("\x16\x01\x0A%5d. The file %s in the %s Library\n", User->FileTag->Index, pszName, User->FileTag->Library);
-               Log->Write (":Tagged file %s, library %s", pszName, User->FileTag->Library);
+               Embedded->Printf ("\x16\x01\x0A%5d. The file %s in the %s Library\n", User->FileTag->Index, pszName, User->FileTag->Area);
+               if (Log != NULL)
+                  Log->Write (":Tagged file %s, library %s", pszName, User->FileTag->Area);
                RetVal = TRUE;
             }
 
-            // After a successfull file transfer, the user's lastread pointers
-            // are updated.
             if (RetVal == TRUE) {
-               class TLastRead *LastRead = User->LastRead;
-
-               if (NewLR.First () == TRUE)
+               if (NewMsgTag.First () == TRUE)
                   do {
-                     if (LastRead->First () == TRUE)
-                        do {
-                           if (!stricmp (LastRead->Key, NewLR.Key)) {
-                              LastRead->Number = NewLR.Number;
-                              LastRead->Update ();
-                           }
-                        } while (LastRead->Next () == TRUE);
-                  } while (NewLR.Next () == TRUE);
+                     if (MsgTag->Read (NewMsgTag.Area) == TRUE) {
+                        MsgTag->LastRead = NewMsgTag.LastRead;
+                        MsgTag->LastPacked = NewMsgTag.LastRead;
+                        MsgTag->Update ();
+                     }
+                  } while (NewMsgTag.Next () == TRUE);
+
+               MsgTag->Save ();
             }
 
-            // The messages regarding the successful download are displayed only if
-            // the user has choose an actual file transfer protocol and not the tag file
-            // for later download option.
-            if (Cmd[0] != 'T' && Bbs->AbortSession () == FALSE) {
+            if (Cmd[0] != 'T' && Embedded->AbortSession () == FALSE) {
                if (RetVal == FALSE) {
-                  Bbs->Printf ("\n\n\x16\x01\015*** NO FILES DOWNLOADED ***\n");
-                  Bbs->Printf ("\n\x16\x01\013Do you want to try to download the file again");
-                  if (Bbs->GetAnswer (ASK_DEFYES) == ANSWER_NO)
+                  Embedded->Printf ("\n\n\x16\x01\015*** NO FILES DOWNLOADED ***\n\006\007\006\007");
+                  Embedded->Printf ("\n\x16\x01\013Do you want to try to download the file again");
+                  if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_NO)
                      Loop = FALSE;
                }
                else {
-                  // After a successful download the packet should be deleted in order
-                  // to prevent the garbage to wast the disk space.
-                  Bbs->Printf ("\n\n\x16\x01\016*** DOWNLOAD COMPLETE ***\n");
+                  Embedded->Printf ("\n\n\x16\x01\016*** DOWNLOAD COMPLETE ***\n\006\007\006\007");
                   unlink (pszFile);
                }
             }
@@ -319,9 +313,8 @@ USHORT TOffline::FetchReply (VOID)
    return (FALSE);
 }
 
-VOID TOffline::PackArea (PSZ pszKey, ULONG &ulLast)
+VOID TOffline::PackArea (ULONG &ulLast)
 {
-   pszKey = pszKey;
    ulLast = ulLast;
 }
 
@@ -333,66 +326,47 @@ VOID TOffline::PackEMail (ULONG &ulLast)
 USHORT TOffline::Prescan (VOID)
 {
    USHORT RetVal = FALSE, Areas;
-   CHAR Temp[128];
    ULONG Number;
-   class TLastRead *LastRead;
+   class TMsgTag *MsgTag;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   BuildPath (Work);
+   sprintf (Path, "%s%s\\", Cfg->UsersHomePath, User->MailBox);
+   BuildPath (Path);
 
    Areas = 0;
-   LastRead = User->LastRead;
+   MsgTag = User->MsgTag;
 
-   if (LastRead->First () == TRUE) {
-      Bbs->Printf ("\n\x16\x01\012Forum \x0A Description & Msgs. Pers.\n\x16\x01\x0FФ Ф1 Ф Ф\n");
+   if (MsgTag->First () == TRUE) {
+      Embedded->Printf ("\n\x16\x01\012Forum \x0A Description & Msgs. Pers.\n\x16\x01\x0FФ Ф1 Ф Ф\n");
 
-      sprintf (Temp, "%s%s", Cfg->MailSpool, User->MailBox);
-      if ((Msg = new SQUISH (Temp)) != NULL) {
-         Current = Personal = 0L;
-         Bbs->Printf ("\x16\x01\x0B%-15.15s \x16\x01\x0E%-49.49s ", "E-MAIL", "Electronic Mail");
-
-         Number = 0L;
-         if (LastRead->Read ("e-mail") == TRUE)
-            Number = LastRead->Number;
-
-         if (Msg->Next (Number) == TRUE) {
-            do {
-               Msg->ReadHeader (Number);
-               Current++;
-               Total++;
-               Personal++;
-               TotalPersonal++;
-            } while (Msg->Next (Number) == TRUE);
-         }
-
-         Bbs->Printf ("%5lu %5lu\n", Current, Personal);
-         delete Msg;
-      }
-
-      LastRead->First ();
+      MsgTag->First ();
       do {
-         if (LastRead->QuickScan == TRUE) {
+         if (MsgTag->Tagged == TRUE) {
             if ((MsgArea = new TMsgData (Cfg->SystemPath)) != NULL) {
-               if (MsgArea->Read (LastRead->Key) == TRUE) {
+               if (MsgArea->Read (MsgTag->Area) == TRUE) {
                   Msg = NULL;
                   if (MsgArea->Storage == ST_JAM)
                      Msg = new JAM (MsgArea->Path);
                   else if (MsgArea->Storage == ST_SQUISH)
                      Msg = new SQUISH (MsgArea->Path);
-                  else if (MsgArea->Storage == ST_USENET)
-                     Msg = new USENET (Cfg->NewsServer, MsgArea->NewsGroup);
+                  else if (MsgArea->Storage == ST_FIDO)
+                     Msg = new FIDOSDM (MsgArea->Path);
+                  else if (MsgArea->Storage == ST_ADEPT)
+                     Msg = new ADEPT (MsgArea->Path);
 
                   Areas++;
                   Current = Personal = 0L;
-                  Bbs->Printf ("\x16\x01\x0B%-15.15s \x16\x01\x0E%-49.49s ", MsgArea->Key, MsgArea->Display);
+                  Embedded->Printf ("\x16\x01\x0B%-15.15s \x16\x01\x0E%-49.49s ", MsgArea->Key, MsgArea->Display);
 
                   if (Msg != NULL) {
-                     Number = LastRead->Number;
+                     Number = MsgTag->LastRead;
                      if (Msg->Next (Number) == TRUE) {
                         do {
                            Msg->ReadHeader (Number);
                            Current++;
                            Total++;
                            if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
-                              // If the message is directed to the user, then writes the message
-                              // number and area number in the personal index file too.
                               Personal++;
                               TotalPersonal++;
                            }
@@ -400,26 +374,34 @@ USHORT TOffline::Prescan (VOID)
                      }
                   }
 
-                  Bbs->Printf ("%5lu %5lu\n", Current, Personal);
+                  Embedded->Printf ("%5lu %5lu\n", Current, Personal);
 
-                  if (Msg != NULL)
+                  if (Msg != NULL) {
+                     Msg->Close ();
                      delete Msg;
+                  }
                }
                delete MsgArea;
             }
          }
-      } while (LastRead->Next () == TRUE);
+      } while (MsgTag->Next () == TRUE);
    }
 
-   Log->Write (":Offline Prescan: %u Areas, %lu Messages", Areas, Total);
+   if (Log != NULL)
+      Log->Write (":OLR Prescan: %u Areas, %lu Messages", Areas, Total);
 
-   Bbs->Printf ("\n\x16\x01\x0ATotal messages found: %lu\n\n", Total);
+   Embedded->Printf ("\n\x16\x01\x0ATotal messages found: %lu\n\n", Total);
 
    if (Total == 0L)
-      Bbs->Printf ("\x16\x01\015No messages found to download!\n");
+      Embedded->Printf ("\x16\x01\015No messages found to download!\n\006\007\006\007");
    else {
-      Bbs->Printf ("\x16\x01\013Do you want to download these messages");
-      if (Bbs->GetAnswer (ASK_DEFYES) == ANSWER_YES) {
+      if (Limit != 0 && Total > Limit) {
+         Embedded->Printf ("\x16\x01\015Too much messages. Only the first %lu will be packed!\n\n\006\007\006\007", Limit);
+         Total = Limit;
+      }
+
+      Embedded->Printf ("\x16\x01\013Do you want to download these messages");
+      if (Embedded->GetAnswer (ASK_DEFYES) == ANSWER_YES) {
          RetVal = TRUE;
          TotalPack = Total;
          BarWidth = 0;
@@ -433,34 +415,36 @@ VOID TOffline::RemoveArea (VOID)
 {
    CHAR Area[16];
 
-   Bbs->Printf ("\n\x16\x01\013Enter a Conference to delete from your offline reader: \026\001\x1E");
-   Bbs->GetString (Area, (USHORT)(sizeof (Area) - 1), INP_FIELD);
+   Embedded->Printf ("\n\026\001\013Enter the name of the Conference, or ? for a list: \026\001\x1E");
+   Embedded->Input (Area, (USHORT)(sizeof (Area) - 1), INP_FIELD);
 
-   if (Bbs->AbortSession () == FALSE) {
-      if (User->LastRead->Read (Area) == TRUE) {
-         User->LastRead->QuickScan = FALSE;
-         User->LastRead->Update ();
+   if (Embedded->AbortSession () == FALSE) {
+      if (User->MsgTag->Read (Area) == TRUE) {
+         User->MsgTag->Tagged = FALSE;
+         User->MsgTag->Update ();
       }
       else
-         Bbs->Printf ("\n\x16\x01\x0DThere is no such Conference in your offline reader configuration.\n");
+         Embedded->Printf ("\n\x16\x01\x0DThere is no such Conference in your offline reader configuration.\n");
    }
 }
 
 VOID TOffline::Scan (PSZ pszKey, ULONG ulLast)
 {
    class TMsgData *MsgArea;
-   class MsgBase *Msg = NULL;
+   class TMsgBase *Msg = NULL;
 
    Current = Personal = 0L;
 
-   if (Total < Limit && (MsgArea = new TMsgData (Cfg->SystemPath)) != NULL) {
+   if ((Limit == 0 || Total < Limit) && (MsgArea = new TMsgData (Cfg->SystemPath)) != NULL) {
       if (MsgArea->Read (pszKey) == TRUE) {
          if (MsgArea->Storage == ST_JAM)
             Msg = new JAM (MsgArea->Path);
          else if (MsgArea->Storage == ST_SQUISH)
             Msg = new SQUISH (MsgArea->Path);
-         else if (MsgArea->Storage == ST_USENET)
-            Msg = new USENET (Cfg->NewsServer, MsgArea->NewsGroup);
+         else if (MsgArea->Storage == ST_FIDO)
+            Msg = new FIDOSDM (MsgArea->Path);
+         else if (MsgArea->Storage == ST_ADEPT)
+            Msg = new ADEPT (MsgArea->Path);
 
          if (Msg != NULL) {
             if (Msg->Next (ulLast) == TRUE) {
@@ -479,11 +463,1470 @@ VOID TOffline::Scan (PSZ pszKey, ULONG ulLast)
                   }
                } while (Msg->Next (ulLast) == TRUE);
             }
+            Msg->Close ();
             delete Msg;
          }
       }
       delete MsgArea;
    }
+}
+
+VOID TOffline::Upload (VOID)
+{
+   DIR *dir;
+   USHORT RetVal = FALSE, i;
+   CHAR Protocol[10], File[128], *p;
+   PSZ Extensions[] = { ".su", ".mo", ".tu", ".we", ".th", ".fr", ".sa" };
+   class TTransfer *Transfer;
+   class TPacker *Packer;
+   struct dirent *ent;
+   struct stat statbuf;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   BuildPath (Work);
+   sprintf (Path, "%s%s\\", Cfg->UsersHomePath, User->MailBox);
+   BuildPath (Path);
+
+   if (RetVal == FALSE) {
+      sprintf (File, "%s%s.rep", Path, Id);
+      if (stat (File, &statbuf) == 0)
+         RetVal = TRUE;
+   }
+   if (RetVal == FALSE) {
+      sprintf (File, "%s%s.new", Path, Id);
+      if (stat (File, &statbuf) == 0)
+         RetVal = TRUE;
+   }
+
+   if (RetVal == FALSE) {
+      Embedded->Printf ("\n\x16\x01\012To start uploading %s.REP, type:\n\n", Id);
+
+      Embedded->Printf ("  \x16\x01\013A ... \x16\x01\016ASCII\n");
+      Embedded->Printf ("  \x16\x01\013M ... \x16\x01\016XMODEM (Checksum/CRC)\n");
+      Embedded->Printf ("  \x16\x01\0131 ... \x16\x01\016XMODEM-1K\n");
+      Embedded->Printf ("  \x16\x01\013Z ... \x16\x01\016ZMODEM\n");
+//      Embedded->Printf ("  \x16\x01\013F ... \x16\x01\016File Import (existing file)\n");
+
+      Embedded->Printf ("\n\x16\x01\013Choose an upload option, or RETURN to exit: ");
+      Embedded->Input (Protocol, 1, INP_HOTKEY);
+
+      if ((Transfer = new TTransfer) != NULL) {
+         Transfer->Com = Embedded->Com;
+         Transfer->Log = Log;
+         Transfer->Speed = CarrierSpeed;
+         Transfer->Progress = Progress;
+         Transfer->Telnet = Cfg->ZModemTelnet;
+
+         sprintf (File, "%s%s.REP", Path, Id);
+
+         switch (toupper (Protocol[0])) {
+            case '1':
+               if (Transfer->Receive1kXModem (File) != NULL)
+                  RetVal = TRUE;
+               break;
+
+            case 'M':
+               if (Transfer->ReceiveXModem (File) != NULL)
+                  RetVal = TRUE;
+               break;
+
+            case 'Z':
+               if ((p = Transfer->ReceiveZModem (Path)) != NULL) {
+                  RetVal = TRUE;
+                  while ((p = Transfer->ReceiveZModem (Path)) != NULL)
+                     ;
+               }
+               break;
+         }
+
+         delete Transfer;
+      }
+   }
+
+   Embedded->Printf ("\n\006\007");
+
+   if (RetVal == TRUE) {
+      if ((Packer = new TPacker (Cfg->SystemPath)) != NULL) {
+         sprintf (File, "%s%s.rep", Path, Id);
+         if (Packer->CheckArc (File) == TRUE) {
+            if (Log != NULL)
+               Log->Write ("+Unpacking %s", File);
+            if (Log != NULL)
+               Log->Write ("#Executing %s", Packer->UnpackCmd);
+            if (Packer->DoUnpack (File, Work, "*.*") == FALSE)
+               Log->Write ("!  Command returned error: %s", Packer->Error);
+            unlink (File);
+         }
+         sprintf (File, "%s%s.new", Path, Id);
+         if (Packer->CheckArc (File) == TRUE) {
+            if (Log != NULL)
+               Log->Write ("+Unpacking %s", File);
+            if (Log != NULL)
+               Log->Write ("#Executing %s", Packer->PackCmd);
+            if (Packer->DoUnpack (File, Work, "*.*") == FALSE)
+               Log->Write ("!  Command returned error: %s", Packer->Error);
+            unlink (File);
+         }
+         if ((dir = opendir (Path)) != NULL) {
+            while ((ent = readdir (dir)) != NULL) {
+               for (i = 0; i < 7; i++) {
+                  if (strstr (strlwr (ent->d_name), Extensions[i]) != NULL) {
+                     sprintf (File, "%s%s", Path, ent->d_name);
+                     if (Packer->CheckArc (File) == TRUE) {
+                        if (Log != NULL)
+                           Log->Write ("+Unpacking %s", File);
+                        if (Log != NULL)
+                           Log->Write ("#Executing %s", Packer->PackCmd);
+                        if (Packer->DoUnpack (File, Work, "*.*") == FALSE)
+                           Log->Write ("!  Command returned error: %s", Packer->Error);
+                        unlink (File);
+                     }
+                     break;
+                  }
+               }
+            }
+            closedir (dir);
+         }
+         delete Packer;
+      }
+   }
+}
+
+// ----------------------------------------------------------------------
+
+VOID TMsgAreaSelect::Begin (VOID)
+{
+   USHORT i;
+   LISTDATA ld;
+   class TMsgData *MsgData;
+
+   i = 0;
+   y = 4;
+   Found = FALSE;
+   List.Clear ();
+   Data.Clear ();
+
+   if ((MsgData = new TMsgData (Cfg->SystemPath)) != NULL) {
+      if (MsgData->First () == TRUE)
+         do {
+            if (User->Level >= MsgData->Level) {
+               if ((MsgData->AccessFlags & User->AccessFlags) == MsgData->AccessFlags) {
+                  strcpy (ld.Key, MsgData->Key);
+                  ld.ActiveMsgs = MsgData->ActiveMsgs;
+                  strcpy (ld.Display, MsgData->Display);
+                  Data.Add (&ld, sizeof (LISTDATA));
+               }
+            }
+         } while (MsgData->Next () == TRUE);
+
+      delete MsgData;
+   }
+
+   if ((pld = (LISTDATA *)Data.First ()) != NULL) {
+      do {
+         List.Add (pld->Key, (USHORT)(strlen (pld->Key) + 1));
+         i++;
+         if (i >= (User->ScreenHeight - 6)) {
+            if (Found == TRUE)
+               break;
+            List.Clear ();
+            i = 0;
+         }
+      } while ((pld = (LISTDATA *)Data.Next ()) != NULL);
+   }
+}
+
+VOID TMsgAreaSelect::PrintTitles (VOID)
+{
+   Embedded->Printf ("\x0C\n");
+   Embedded->Printf ("\026\001\012 Conference        Msgs   Description\n\026\001\017 \031=\017   \031=\005  \031=\065\n");
+
+   Embedded->PrintfAt ((USHORT)(User->ScreenHeight - 2), 1, "\026\001\017\031=\017  \031=\005  \031=\067\n");
+
+   Embedded->Printf ("\026\001\012Hit \026\001\013CTRL-V \026\001\012for next page, \026\001\013CTRL-Y \026\001\012for previous page, \026\001\013? \026\001\012for help, or \026\001\013X \026\001\012to exit.\n");
+   Embedded->Printf ("\026\001\012To highlight an area, use your \026\001\013arrow keys\026\001\012, \026\001\013SPACE \026\001\012selects it.");
+
+   Embedded->PrintfAt (4, 1, "");
+}
+
+VOID TMsgAreaSelect::PrintLine (VOID)
+{
+   USHORT Tagged = FALSE;
+
+   if (User->MsgTag->Read (pld->Key) == TRUE)
+      Tagged = User->MsgTag->Tagged;
+
+   if (Tagged == FALSE)
+      Embedded->Printf ("\026\001\013 %-15.15s   \026\001\016%5ld  %.53s\n", pld->Key, pld->ActiveMsgs, pld->Display);
+   else
+      Embedded->Printf ("\026\001\013*%-15.15s   \026\001\016%5ld  %.53s\n", pld->Key, pld->ActiveMsgs, pld->Display);
+}
+
+VOID TMsgAreaSelect::PrintCursor (USHORT y)
+{
+   Embedded->PrintfAt (y, 2, "\x16\x01\x70%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
+}
+
+VOID TMsgAreaSelect::RemoveCursor (USHORT y)
+{
+   Embedded->PrintfAt (y, 2, "\x16\x01\x0B%-15.15s\x16\x01\x0E", (PSZ)List.Value ());
+}
+
+VOID TMsgAreaSelect::Select (VOID)
+{
+   RetVal = End = TRUE;
+}
+
+VOID TMsgAreaSelect::Tag (VOID)
+{
+   if (User->MsgTag->Read ((PSZ)List.Value ()) == FALSE) {
+      User->MsgTag->New ();
+      strcpy (User->MsgTag->Area, (PSZ)List.Value ());
+      User->MsgTag->Tagged = TRUE;
+      User->MsgTag->Add ();
+   }
+   else {
+      if (User->MsgTag->Tagged == TRUE)
+         User->MsgTag->Tagged = FALSE;
+      else
+         User->MsgTag->Tagged = TRUE;
+      User->MsgTag->Update ();
+   }
+
+   if (User->MsgTag->Tagged == TRUE)
+      Embedded->PrintfAt (y, 1, "*\x16\x01\x70%-15.15s\x16\x01\x0E*", (PSZ)List.Value ());
+   else
+      Embedded->PrintfAt (y, 1, " \x16\x01\x70%-15.15s\x16\x01\x0E ", (PSZ)List.Value ());
+}
+
+// ----------------------------------------------------------------------
+
+PSZ Extensions[] = {
+   ".su0", ".mo0", ".tu0", ".we0", ".th0", ".fr0", ".sa0"
+};
+
+TBlueWave::TBlueWave (void)
+{
+}
+
+TBlueWave::~TBlueWave (void)
+{
+}
+
+USHORT TBlueWave::Create (VOID)
+{
+   int fd;
+   USHORT RetVal = FALSE;
+   CHAR Temp[128], PktName[32];
+   struct dosdate_t date;
+   class TMsgTag *MsgTag;
+
+   Log->Write ("+Preparing BlueWave packet");
+   MsgTag = User->MsgTag;
+   _dos_getdate (&date);
+   sprintf (PktName, "%s%s", Id, Extensions[date.dayofweek]);
+
+   Total = 0L;
+   TotalPersonal = 0L;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   sprintf (Path, "%s%s\\", Cfg->UsersHomePath, User->MailBox);
+
+   NewMsgTag.Clear ();
+
+   if (BuildPath (Work) == TRUE) {
+      sprintf (Temp, "%s%s.INF", Work, Id);
+      if ((fd = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+         memset (&Inf, 0, sizeof (Inf));
+         Inf.ver = PACKET_LEVEL;
+         strcpy ((PSZ)Inf.loginname, User->Name);
+         strcpy ((PSZ)Inf.aliasname, User->RealName);
+         if (Cfg->MailAddress.First () == TRUE) {
+            Inf.zone = Cfg->MailAddress.Zone;
+            Inf.net = Cfg->MailAddress.Net;
+            Inf.node = Cfg->MailAddress.Node;
+            Inf.point = Cfg->MailAddress.Point;
+         }
+         strcpy ((PSZ)Inf.sysop, Cfg->SysopName);
+         strcpy ((PSZ)Inf.systemname, Cfg->SystemName);
+         Inf.inf_header_len = sizeof (INF_HEADER);
+         Inf.inf_areainfo_len = sizeof (INF_AREA_INFO);
+         Inf.mix_structlen = sizeof (MIX_REC);
+         Inf.fti_structlen = sizeof (FTI_REC);
+         Inf.uses_upl_file = TRUE;
+         Inf.can_forward = TRUE;
+         strcpy ((PSZ)Inf.packet_id, Id);
+         write (fd, &Inf, sizeof (INF_HEADER));
+
+         memset (&AreaInf, 0, sizeof (INF_AREA_INFO));
+
+         if ((MsgArea = new TMsgData (Cfg->SystemPath)) != NULL) {
+            Area = 1;
+            if (MsgArea->First () == TRUE)
+               do {
+                  memset (&AreaInf, 0, sizeof (AreaInf));
+                  sprintf ((PSZ)AreaInf.areanum, "%u", Area++);
+                  if (strlen (MsgArea->Key) > sizeof (AreaInf.echotag))
+                     MsgArea->Key[sizeof (AreaInf.echotag) - 1] = '\0';
+                  strcpy ((PSZ)AreaInf.echotag, MsgArea->Key);
+                  MsgArea->Display[sizeof (AreaInf.title) - 1] = '\0';
+                  strcpy ((PSZ)AreaInf.title, MsgArea->Display);
+                  AreaInf.area_flags |= INF_POST|INF_NO_PRIVATE;
+                  if (MsgTag->Read (MsgArea->Key) == TRUE)
+                     AreaInf.area_flags |= INF_SCANNING;
+                  write (fd, &AreaInf, sizeof (AreaInf));
+               } while (MsgArea->Next () == TRUE);
+            delete MsgArea;
+         }
+
+         close (fd);
+      }
+
+      if (MsgTag->First () == TRUE)
+         do {
+            if (MsgTag->Tagged == TRUE)
+               RetVal = TRUE;
+         } while (RetVal == FALSE && MsgTag->Next () == TRUE);
+
+      if (RetVal == TRUE) {
+         Embedded->Printf ("\n\x16\x01\012Preparing %s packet...\n\n", PktName);
+
+         Embedded->Printf ("\x16\x01\0170%%    10%%  20%%   30%%   40%%   50%%   60%%   70%%   80%%   90%%   100%%\n|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|\r");
+
+         if ((MsgArea = new TMsgData (Cfg->SystemPath)) != NULL) {
+            Area = 1;
+            if (MsgArea->First () == TRUE)
+               do {
+                  if (MsgTag->First () == TRUE)
+                     do {
+                        if (!stricmp (MsgArea->Key, MsgTag->Area) && MsgTag->Tagged == TRUE) {
+                           NewMsgTag.New ();
+                           strcpy (NewMsgTag.Area, MsgTag->Area);
+                           NewMsgTag.LastRead = MsgTag->LastRead;
+                           NewMsgTag.Add ();
+
+                           PackArea (NewMsgTag.LastRead);
+                           if (Log != NULL)
+                              Log->Write (":  Area %s, %ld msgs. (%ld personal)", NewMsgTag.Area, Current, Personal);
+
+                           NewMsgTag.LastPacked = time (NULL);
+                           NewMsgTag.Update ();
+                        }
+                     } while (MsgTag->Next () == TRUE);
+                  Area++;
+               } while (MsgArea->Next () == TRUE);
+            delete MsgArea;
+         }
+
+         if (Log != NULL)
+            Log->Write ("*Packed %ld messages (%ld personal)", Total, TotalPersonal);
+
+         if (Total > 0L) {
+            if (BuildPath (Path) == TRUE) {
+               sprintf (Temp, "%s%s", Path, PktName);
+               if (Compress (Temp) == TRUE)
+                  Download (Temp, PktName);
+            }
+         }
+      }
+   }
+   else
+      Log->Write ("!Path Error: %s", Work);
+
+   return (RetVal);
+}
+
+USHORT TBlueWave::FetchReply (VOID)
+{
+   FILE *fp;
+   int fdh;
+   USHORT RetVal = FALSE;
+   CHAR Temp[128], *p;
+   ULONG t, Number;
+   struct tm *ltm;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   BuildPath (Work);
+
+   MsgArea = new TMsgData (Cfg->SystemPath);
+
+   sprintf (Temp, "%s%s.UPL", Work, Id);
+   if ((fdh = sopen (Temp, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+      read (fdh, &Uplh, sizeof (UPL_HEADER));
+      while (read (fdh, &Uplr, sizeof (UPL_REC)) == sizeof (UPL_REC)) {
+         if (MsgArea->Read ((PSZ)Uplr.echotag) == TRUE) {
+            if (Log != NULL)
+               Log->Write (":Message Area: %s - %s", MsgArea->Key, MsgArea->Display);
+
+            Msg = NULL;
+            if (MsgArea->Storage == ST_JAM)
+               Msg = new JAM (MsgArea->Path);
+            else if (MsgArea->Storage == ST_SQUISH)
+               Msg = new SQUISH (MsgArea->Path);
+            else if (MsgArea->Storage == ST_FIDO)
+               Msg = new FIDOSDM (MsgArea->Path);
+            else if (MsgArea->Storage == ST_ADEPT)
+               Msg = new ADEPT (MsgArea->Path);
+            if (Msg != NULL) {
+               Msg->New ();
+               if (!stricmp ((PSZ)Uplr.from, User->Name) || !stricmp ((PSZ)Uplr.from, User->RealName))
+                  strcpy (Msg->From, (PSZ)Uplr.from);
+               else
+                  strcpy (Msg->From, User->Name);
+               strcpy (Msg->To, (PSZ)Uplr.to);
+               strcpy (Msg->Subject, (PSZ)Uplr.subj);
+               ltm = localtime ((time_t *)&Uplr.unix_date);
+               Msg->Written.Day = (UCHAR)ltm->tm_mday;
+               Msg->Written.Month = (UCHAR)(ltm->tm_mon + 1);
+               Msg->Written.Year = (USHORT)(ltm->tm_year + 1900);
+               Msg->Written.Hour = (UCHAR)ltm->tm_hour;
+               Msg->Written.Minute = (UCHAR)ltm->tm_min;
+               Msg->Written.Second = (UCHAR)ltm->tm_sec;
+               t = time (NULL);
+               ltm = localtime ((time_t *)&t);
+               Msg->Arrived.Day = (UCHAR)ltm->tm_mday;
+               Msg->Arrived.Month = (UCHAR)(ltm->tm_mon + 1);
+               Msg->Arrived.Year = (USHORT)(ltm->tm_year + 1900);
+               Msg->Arrived.Hour = (UCHAR)ltm->tm_hour;
+               Msg->Arrived.Minute = (UCHAR)ltm->tm_min;
+               Msg->Arrived.Second = (UCHAR)ltm->tm_sec;
+
+               sprintf (Temp, "%s%s", Work, Uplr.filename);
+               if ((fp = _fsopen (Temp, "rt", SH_DENYNO)) != NULL) {
+                  while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+                     while ((p = strchr (Temp, '\n')) != NULL)
+                        *p = '\0';
+                     while ((p = strchr (Temp, '\r')) != NULL)
+                        *p = '\0';
+                     Msg->Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                  }
+                  fclose (fp);
+
+                  Msg->Add ();
+                  MsgArea->ActiveMsgs++;
+                  MsgArea->Update ();
+
+                  Number = Msg->Highest ();
+                  Log->Write (":Written message #%lu", Number);
+                  Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Number);
+               }
+               Msg->Close ();
+               delete Msg;
+
+               sprintf (Temp, "%s%s", Work, Uplr.filename);
+               unlink (Temp);
+            }
+         }
+      }
+      close (fdh);
+   }
+
+   if (MsgArea != NULL)
+      delete MsgArea;
+
+   sprintf (Temp, "%s%s.UPL", Work, Id);
+   unlink (Temp);
+
+   return (RetVal);
+}
+
+VOID TBlueWave::PackArea (ULONG &ulLast)
+{
+   int fdm, fdfti, fdmix;
+   CHAR Temp[128], *Text;
+   ULONG Number;
+
+   Number = ulLast;
+   Current = Personal = 0L;
+
+   if (Limit == 0 || Total < Limit) {
+      if (MsgArea->Storage == ST_JAM)
+         Msg = new JAM (MsgArea->Path);
+      else if (MsgArea->Storage == ST_SQUISH)
+         Msg = new SQUISH (MsgArea->Path);
+      else if (MsgArea->Storage == ST_FIDO)
+         Msg = new FIDOSDM (MsgArea->Path);
+      else if (MsgArea->Storage == ST_ADEPT)
+         Msg = new ADEPT (MsgArea->Path);
+
+      sprintf (Temp, "%s%s.fti", Work, Id);
+      fdfti = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_APPEND, SH_DENYNO, S_IREAD|S_IWRITE);
+      lseek (fdfti, 0L, SEEK_END);
+
+      sprintf (Temp, "%s%s.mix", Work, Id);
+      fdmix = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_APPEND, SH_DENYNO, S_IREAD|S_IWRITE);
+      lseek (fdmix, 0L, SEEK_END);
+
+      sprintf (Temp, "%s%s.dat", Work, Id);
+      fdm = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_APPEND, SH_DENYNO, S_IREAD|S_IWRITE);
+      lseek (fdm, 0L, SEEK_END);
+
+      memset (&Mix, 0, sizeof (MIX_REC));
+      sprintf ((PSZ)Mix.areanum, "%u", Area);
+      Mix.msghptr = tell (fdfti);
+
+      if (Msg != NULL && fdfti != -1 && fdmix != -1 && fdm != -1) {
+         Msg->Lock (0L);
+         if (Msg->Next (Number) == TRUE) {
+            do {
+               Msg->Read (Number);
+
+               Current++;
+               Total++;
+               if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                  Personal++;
+                  TotalPersonal++;
+               }
+
+               memset (&Fti, 0, sizeof (FTI_REC));
+
+               Msg->From[sizeof (Fti.from) - 1] = '\0';
+               strcpy ((PSZ)Fti.from, Msg->From);
+               Msg->To[sizeof (Fti.to) - 1] = '\0';
+               strcpy ((PSZ)Fti.to, Msg->To);
+               Msg->Subject[sizeof (Fti.subject) - 1] = '\0';
+               strcpy ((PSZ)Fti.subject, Msg->Subject);
+               sprintf ((PSZ)Fti.date, "%2d %.3s %2d %2d:%02d:%02d", Msg->Written.Day, Lang->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute, Msg->Written.Second);
+               Fti.msgnum = (tWORD)Number;
+               Fti.msgptr = tell (fdm);
+               if (Cfg->MailAddress.First () == TRUE) {
+                  Fti.orig_zone = Cfg->MailAddress.Zone;
+                  Fti.orig_net = Cfg->MailAddress.Net;
+                  Fti.orig_node = Cfg->MailAddress.Node;
+               }
+
+               Fti.msglength += write (fdm, " ", 1);
+
+               if ((Text = (PSZ)Msg->Text.First ()) != NULL)
+                  do {
+                     if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9)) {
+                        Fti.msglength += write (fdm, Text, strlen (Text));
+                        Fti.msglength += write (fdm, "\r\n", 2);
+                     }
+                  } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
+
+               write (fdfti, &Fti, sizeof (Fti));
+
+               if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
+                  BarWidth = (USHORT)((Total * 61L) / TotalPack);
+                  Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
+               }
+
+               Embedded->Idle ();
+            } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
+         }
+         Msg->UnLock ();
+      }
+
+      Mix.totmsgs = (tWORD)Current;
+      Mix.numpers = (tWORD)Personal;
+      write (fdmix, &Mix, sizeof (Mix));
+
+      if (Msg != NULL) {
+         Msg->Close ();
+         delete Msg;
+      }
+      if (fdfti != -1)
+         close (fdfti);
+      if (fdmix != -1)
+         close (fdmix);
+      if (fdm != -1)
+         close (fdm);
+   }
+
+   ulLast = Number;
+}
+
+// ----------------------------------------------------------------------
+
+TQWK::TQWK (void)
+{
+}
+
+TQWK::~TQWK (void)
+{
+}
+
+USHORT TQWK::Create (VOID)
+{
+   int i;
+   FILE *fp;
+   USHORT RetVal = FALSE;
+   CHAR Temp[128], PktName[32];
+   struct dosdate_t date;
+   struct dostime_t dtime;
+   class TMsgTag *MsgTag;
+
+   if (Log != NULL)
+      Log->Write ("+Preparing QWK packet");
+   MsgTag = User->MsgTag;
+   sprintf (PktName, "%s.QWK", Id);
+
+   Total = 0L;
+   TotalPersonal = 0L;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   sprintf (Path, "%s%s\\", Cfg->UsersHomePath, User->MailBox);
+
+   if (BuildPath (Work) == TRUE) {
+      if (MsgTag->First () == TRUE)
+         do {
+            if (MsgTag->Tagged == TRUE)
+               RetVal = TRUE;
+         } while (RetVal == FALSE && MsgTag->Next () == TRUE);
+
+      if (RetVal == TRUE) {
+         Embedded->Printf ("\n\x16\x01\012Preparing %s packet...\n\n", PktName);
+
+         Embedded->Printf ("\x16\x01\0170%%    10%%  20%%   30%%   40%%   50%%   60%%   70%%   80%%   90%%   100%%\n|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|\r");
+         Area = 1;
+         NewMsgTag.Clear ();
+         Blocks = 2L;
+
+         if ((MsgArea = new TMsgData (Cfg->SystemPath)) != NULL) {
+            if (MsgTag->First () == TRUE)
+               do {
+                  if (MsgTag->Tagged == TRUE) {
+                     if (MsgArea->Read (MsgTag->Area) == TRUE) {
+                        strcpy (NewMsgTag.Area, MsgTag->Area);
+                        NewMsgTag.LastRead = MsgTag->LastRead;
+                        NewMsgTag.Add ();
+
+                        PackArea (NewMsgTag.LastRead);
+                        if (Log != NULL)
+                           Log->Write (":  Area %s, %ld msgs. (%ld personal)", NewMsgTag.Area, Current, Personal);
+
+                        NewMsgTag.LastPacked = time (NULL);
+                        NewMsgTag.Update ();
+                     }
+                     Area++;
+                  }
+               } while (MsgTag->Next () == TRUE);
+
+            delete MsgArea;
+         }
+
+         sprintf (Temp, "%sCONTROL.DAT", Work);
+         if ((fp = _fsopen (Temp, "wt", SH_DENYNO)) != NULL) {
+            fprintf (fp, "%s\n", Cfg->SystemName);
+            fprintf (fp, " \n");
+            fprintf (fp, " \n");
+            fprintf (fp, "%s\n", Cfg->SysopName);
+            fprintf (fp, "00000,%s\n", Id);
+            _dos_getdate (&date);
+            _dos_gettime (&dtime);
+            fprintf (fp, "%02d-%02d-%04d,%02d:%02d:%02d\n", date.month, date.day, date.year, dtime.hour, dtime.minute, dtime.second);
+            strcpy (Temp, User->Name);
+            fprintf (fp, "%s\n", strupr (Temp));
+            fprintf (fp, " \n");
+            fprintf (fp, "0\n");
+            fprintf (fp, "%lu\n", Total);
+
+            i = 0;
+            if (MsgTag->First () == TRUE)
+               do {
+                  if (MsgTag->Tagged == TRUE)
+                     i++;
+               } while (MsgTag->Next () == TRUE);
+            fprintf (fp, "%d\n", i - 1);
+
+            i = 1;
+            if (MsgTag->First () == TRUE)
+               do {
+                  if (MsgTag->Tagged == TRUE)
+                     fprintf (fp, "%d\n%s\n", i++, MsgTag->Area);
+               } while (MsgTag->Next () == TRUE);
+
+            fprintf (fp, "WELCOME\n");
+            fprintf (fp, "NEWS\n");
+            fprintf (fp, "GOODBYE\n");
+
+            fclose (fp);
+         }
+
+         sprintf (Temp, "%sDOOR.ID", Work);
+         if ((fp = _fsopen (Temp, "wt", SH_DENYNO)) != NULL) {
+            fprintf (fp, "DOOR = %s\n", NAME);
+            fprintf (fp, "VERSION = %s\n", VERSION);
+            fprintf (fp, "SYSTEM = %s\n", NAME);
+            fprintf (fp, "CONTROLNAME = LoraQWK\n");
+            fprintf (fp, "CONTROLTYPE = ADD\n");
+            fprintf (fp, "CONTROLTYPE = DROP\n");
+            fclose (fp);
+         }
+
+         Log->Write ("*Packed %ld messages (%ld personal)", Total, TotalPersonal);
+
+         if (Total > 0L) {
+            if (BuildPath (Path) == TRUE) {
+               sprintf (Temp, "%s%s", Path, PktName);
+               if (Compress (Temp) == TRUE)
+                  Download (Temp, PktName);
+            }
+         }
+      }
+   }
+   else
+      Log->Write ("!Path Error: %s", Work);
+
+   return (RetVal);
+}
+
+USHORT TQWK::FetchReply (VOID)
+{
+   int fdh;
+   USHORT RetVal = FALSE, i, r, x, nCol, nWidth, nReaded, nRec;
+   CHAR Temp[128], szLine[132], szWrp[132], *pLine, *pBuff;
+   ULONG t, Number;
+   struct tm *ltm;
+   class TMsgTag *MsgTag = User->MsgTag;
+   class TCollection MsgText;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   BuildPath (Work);
+
+   nWidth = (USHORT)(sizeof (szLine) - 1);
+   MsgArea = new TMsgData (Cfg->SystemPath);
+
+   sprintf (Temp, "%s%s.msg", Work, Id);
+   if ((fdh = sopen (Temp, O_RDONLY|O_BINARY, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+      read (fdh, Temp, 128);
+      Temp[8] = '\0';
+
+      while (read (fdh, &Qwk, sizeof (Qwk)) == sizeof (Qwk)) {
+         Msg = NULL;
+
+         Area = 1;
+         strcpy (Temp, StripSpaces ((PSZ)Qwk.Msgnum, (USHORT)sizeof (Qwk.Msgnum)));
+
+         if (MsgTag->First () == TRUE)
+            do {
+               if (MsgTag->Tagged == TRUE && Area == (USHORT)atoi (Temp)) {
+                  if (MsgArea->Read (MsgTag->Area) == TRUE) {
+                     if (Log != NULL)
+                        Log->Write (":Message Area: %s - %s", MsgArea->Key, MsgArea->Display);
+
+                     Msg = NULL;
+                     if (MsgArea->Storage == ST_JAM)
+                        Msg = new JAM (MsgArea->Path);
+                     else if (MsgArea->Storage == ST_SQUISH)
+                        Msg = new SQUISH (MsgArea->Path);
+                     else if (MsgArea->Storage == ST_FIDO)
+                        Msg = new FIDOSDM (MsgArea->Path);
+                     else if (MsgArea->Storage == ST_ADEPT)
+                        Msg = new ADEPT (MsgArea->Path);
+                  }
+                  break;
+               }
+               if (MsgTag->Tagged == TRUE)
+                  Area++;
+            } while (MsgTag->Next () == TRUE);
+
+         if (Msg == NULL && Log != NULL)
+            Log->Write ("!Unknown Forum %s, Skipping", Temp);
+
+         MsgText.Clear ();
+         nRec = (USHORT)atoi (StripSpaces ((PSZ)Qwk.Msgrecs, (USHORT)sizeof (Qwk.Msgrecs)));
+
+         for (r = 1; r < nRec; r++) {
+            nReaded = (USHORT)read (fdh, Temp, 128);
+            if (r == (USHORT)(nRec - 1)) {
+               x = 127;
+               while (x > 0 && Temp[x] == ' ') {
+                  nReaded--;
+                  x--;
+               }
+            }
+
+            for (i = 0, pBuff = Temp; i < nReaded; i++, pBuff++) {
+               if (*pBuff == '\r' || *pBuff == (CHAR)0xE3) {
+                  *pLine = '\0';
+                  MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+                  pLine = szLine;
+                  nCol = 0;
+               }
+               else if (*pBuff != '\n') {
+                  *pLine++ = *pBuff;
+                  nCol++;
+                  if (nCol >= nWidth) {
+                     *pLine = '\0';
+                     while (nCol > 1 && *pLine != ' ') {
+                        nCol--;
+                        pLine--;
+                     }
+                     if (nCol > 0) {
+                        while (*pLine == ' ')
+                           pLine++;
+                        strcpy (szWrp, pLine);
+                     }
+                     *pLine = '\0';
+                     MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+                     strcpy (szLine, szWrp);
+                     pLine = strchr (szLine, '\0');
+                     nCol = (SHORT)strlen (szLine);
+                  }
+               }
+            }
+         }
+
+         if (Msg != NULL) {
+            Msg->New ();
+
+            strcpy (Msg->From, StripSpaces ((PSZ)Qwk.MsgFrom, (USHORT)sizeof (Qwk.MsgFrom)));
+            if (stricmp (Msg->From, User->Name) && stricmp (Msg->From, User->RealName))
+               strcpy (Msg->From, User->Name);
+            strcpy (Msg->To, StripSpaces ((PSZ)Qwk.MsgTo, (USHORT)sizeof (Qwk.MsgTo)));
+            strcpy (Msg->Subject, StripSpaces ((PSZ)Qwk.MsgSubj, (USHORT)sizeof (Qwk.MsgSubj)));
+
+            strcpy (Temp, StripSpaces ((PSZ)Qwk.Msgdate, (USHORT)sizeof (Qwk.Msgdate)));
+            Msg->Written.Day = (UCHAR)(atoi (&Temp[3]));
+            Msg->Written.Month = (UCHAR)(atoi (Temp));
+            Msg->Written.Year = (USHORT)(atoi (&Temp[6]));
+            if (Msg->Written.Year < 96)
+               Msg->Written.Year += 2000;
+            else
+               Msg->Written.Year += 1900;
+
+            strcpy (Temp, StripSpaces ((PSZ)Qwk.Msgtime, (USHORT)sizeof (Qwk.Msgtime)));
+            Msg->Written.Hour = (UCHAR)(atoi (Temp));
+            Msg->Written.Minute = (UCHAR)(atoi (&Temp[3]));
+            Msg->Written.Second = 0;
+
+            t = time (NULL);
+            ltm = localtime ((time_t *)&t);
+            Msg->Arrived.Day = (UCHAR)ltm->tm_mday;
+            Msg->Arrived.Month = (UCHAR)(ltm->tm_mon + 1);
+            Msg->Arrived.Year = (USHORT)(ltm->tm_year + 1900);
+            Msg->Arrived.Hour = (UCHAR)ltm->tm_hour;
+            Msg->Arrived.Minute = (UCHAR)ltm->tm_min;
+            Msg->Arrived.Second = (UCHAR)ltm->tm_sec;
+
+            Msg->Add (MsgText);
+            MsgArea->ActiveMsgs++;
+            MsgArea->Update ();
+
+            Number = Msg->Highest ();
+            Log->Write (":Written message #%lu", Number);
+            Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Number);
+
+            Msg->Close ();
+            delete Msg;
+         }
+
+         MsgText.Clear ();
+      }
+
+      RetVal = TRUE;
+      close (fdh);
+   }
+
+   if (MsgArea != NULL)
+      delete MsgArea;
+
+   sprintf (Temp, "%s%s.msg", Work, Id);
+   unlink (Temp);
+
+   return (RetVal);
+}
+
+float TQWK::IEEToMSBIN (float f)
+{
+   short sign, exp;
+   QWKCONV t;
+
+   t.f[0] = f;
+   sign = (short)(t.uc[3] / 0x80);
+   exp = (short)(((t.ui[1] >> 7) - 0x7F + 0x81) & 0xFF);
+   t.ui[1] = (USHORT)((t.ui[1] & 0x7F) | (sign << 7) | (exp << 8));
+
+   return (t.f[0]);
+}
+
+VOID TQWK::PackArea (ULONG &ulLast)
+{
+   int fdm, fdi, fdp;
+   float out, in;
+   CHAR Temp[128], *Text;
+   ULONG Number, Pos, Size;
+
+   Number = ulLast;
+   Current = Personal = 0L;
+
+   if (Limit == 0 || Total < Limit) {
+      Msg = NULL;
+      if (MsgArea->Storage == ST_JAM)
+         Msg = new JAM (MsgArea->Path);
+      else if (MsgArea->Storage == ST_SQUISH)
+         Msg = new SQUISH (MsgArea->Path);
+      else if (MsgArea->Storage == ST_FIDO)
+         Msg = new FIDOSDM (MsgArea->Path);
+      else if (MsgArea->Storage == ST_ADEPT)
+         Msg = new ADEPT (MsgArea->Path);
+
+      sprintf (Temp, "%s%03d.NDX", Work, Area);
+      fdi = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
+      lseek (fdi, 0L, SEEK_END);
+
+      sprintf (Temp, "%sPERSONAL.NDX", Work);
+      fdp = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT|O_APPEND, SH_DENYNO, S_IREAD|S_IWRITE);
+      lseek (fdp, 0L, SEEK_END);
+
+      sprintf (Temp, "%sMESSAGES.DAT", Work);
+      if ((fdm = sopen (Temp, O_WRONLY|O_BINARY|O_CREAT, SH_DENYNO, S_IREAD|S_IWRITE)) != -1) {
+         lseek (fdm, 0L, SEEK_END);
+         if (tell (fdm) == 0L) {
+// ----------------------------------------------------------------------
+// The first record of the MESSAGE.DAT file must be the Sparkware id
+// block, otherwise some applications may complain.
+// ----------------------------------------------------------------------
+            write (fdm, "Produced by Qmail...", 20);
+            write (fdm, "Copywright (c) 1987 by Sparkware.  ", 35);
+            write (fdm, "All Rights Reserved", 19);
+            memset (Temp, ' ', 54);
+            write (fdm, Temp, 54);
+         }
+      }
+
+      if (Msg != NULL && fdi != -1 && fdp != -1 && fdm != -1) {
+         Msg->Lock (0L);
+         if (Msg->Next (Number) == TRUE) {
+            do {
+               Msg->Read (Number);
+
+               Current++;
+               Total++;
+               sprintf (Temp, "%lu", Blocks);
+               in = atof (Temp);
+               out = IEEToMSBIN (in);
+               write (fdi, &out, sizeof (float));
+               write (fdi, "", 1);
+               if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                  Personal++;
+                  TotalPersonal++;
+                  write (fdp, &out, sizeof (float));
+                  write (fdp, "", 1);
+               }
+
+               memset (&Qwk, ' ', sizeof (Qwk));
+               sprintf (Temp, "%-*lu", sizeof (Qwk.Msgnum), Number);
+               memcpy (Qwk.Msgnum, Temp, sizeof (Qwk.Msgnum));
+               sprintf (Temp, "%02d-%02d-%02d", Msg->Written.Month, Msg->Written.Day, Msg->Written.Year % 100);
+               memcpy (Qwk.Msgdate, Temp, sizeof (Qwk.Msgdate));
+               sprintf (Temp, "%02d:%02d", Msg->Written.Hour, Msg->Written.Minute);
+               memcpy (Qwk.Msgtime, Temp, sizeof (Qwk.Msgtime));
+               Msg->From[sizeof (Qwk.MsgFrom) - 1] = '\0';
+               memcpy (Qwk.MsgFrom, Msg->From, strlen (Msg->From));
+               Msg->To[sizeof (Qwk.MsgTo) - 1] = '\0';
+               memcpy (Qwk.MsgTo, Msg->To, strlen (Msg->To));
+               Msg->Subject[sizeof (Qwk.MsgSubj) - 1] = '\0';
+               memcpy (Qwk.MsgSubj, Msg->Subject, strlen (Msg->Subject));
+               Qwk.Msglive = 0xE1;
+               Qwk.Msgarealo = (UCHAR)(Area & 0xFF);
+               Qwk.Msgareahi = (UCHAR)((Area & 0xFF00) >> 8);
+
+               Pos = tell (fdm);
+               write (fdm, &Qwk, sizeof (Qwk));
+
+               Size = 128L;
+               if ((Text = (PSZ)Msg->Text.First ()) != NULL)
+                  do {
+                     if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9)) {
+                        Size += (ULONG)write (fdm, Text, strlen (Text));
+                        Size += (ULONG)write (fdm, "\xE3", 1);
+                     }
+                  } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
+
+               if ((Size % 128L) != 0) {
+                  memset (Temp, ' ', 128);
+                  Size += (ULONG)write (fdm, Temp, (int)(128L - (Size % 128L)));
+               }
+
+               Blocks += (Size / 128L);
+               sprintf (Temp, "%-*lu", sizeof (Qwk.Msgrecs), Size / 128L);
+               memcpy (Qwk.Msgrecs, Temp, sizeof (Qwk.Msgrecs));
+               lseek (fdm, Pos, SEEK_SET);
+               write (fdm, &Qwk, sizeof (Qwk));
+               lseek (fdm, 0L, SEEK_END);
+
+               if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
+                  BarWidth = (USHORT)((Total * 61L) / TotalPack);
+                  Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
+               }
+
+               Embedded->Idle ();
+            } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
+         }
+         Msg->UnLock ();
+      }
+
+      if (Msg != NULL) {
+         Msg->Close ();
+         delete Msg;
+      }
+      if (fdm != -1)
+         close (fdm);
+      if (fdi != -1)
+         close (fdi);
+      if (fdp != -1)
+         close (fdp);
+   }
+
+   ulLast = Number;
+}
+
+PSZ TQWK::StripSpaces (PSZ pszString, USHORT usSize)
+{
+   USHORT x;
+
+   memcpy (TempStr, pszString, usSize);
+   TempStr[usSize] = '\0';
+   if ((x = (USHORT)(usSize - 1)) > 0) {
+      while (x > 0 && TempStr[x] == ' ')
+         TempStr[x--] = '\0';
+   }
+
+   return (TempStr);
+}
+
+// ----------------------------------------------------------------------
+
+TAscii::TAscii (void)
+{
+}
+
+TAscii::~TAscii (void)
+{
+}
+
+USHORT TAscii::Create (VOID)
+{
+   USHORT RetVal = FALSE;
+   CHAR Temp[128], PktName[32];
+   class TMsgTag *MsgTag;
+
+   if (Log != NULL)
+      Log->Write ("+Preparing Ascii packet");
+   MsgTag = User->MsgTag;
+   sprintf (PktName, "%s.MSG", Id);
+
+   Total = 0L;
+   TotalPersonal = 0L;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   sprintf (Path, "%s%s\\", Cfg->UsersHomePath, User->MailBox);
+
+   if (BuildPath (Work) == TRUE) {
+      if (MsgTag->First () == TRUE)
+         do {
+            if (MsgTag->Tagged == TRUE)
+               RetVal = TRUE;
+         } while (RetVal == FALSE && MsgTag->Next () == TRUE);
+
+      if (RetVal == TRUE) {
+         Embedded->Printf ("\n\x16\x01\012Preparing %s packet...\n\n", PktName);
+
+         Embedded->Printf ("\x16\x01\0170%%    10%%  20%%   30%%   40%%   50%%   60%%   70%%   80%%   90%%   100%%\n|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|\r");
+         Area = 1;
+         NewMsgTag.Clear ();
+
+         if ((MsgArea = new TMsgData (Cfg->SystemPath)) != NULL) {
+            if (MsgTag->First () == TRUE)
+               do {
+                  if (MsgTag->Tagged == TRUE) {
+                     if (MsgArea->Read (MsgTag->Area) == TRUE) {
+                        strcpy (NewMsgTag.Area, MsgTag->Area);
+                        NewMsgTag.LastRead = MsgTag->LastRead;
+                        NewMsgTag.Add ();
+
+                        PackArea (NewMsgTag.LastRead);
+                        if (Log != NULL)
+                           Log->Write (":  Area %s, %ld msgs. (%ld personal)", NewMsgTag.Area, Current, Personal);
+
+                        NewMsgTag.LastPacked = time (NULL);
+                        NewMsgTag.Update ();
+                        Area++;
+                     }
+                  }
+               } while (MsgTag->Next () == TRUE);
+
+            delete MsgArea;
+         }
+
+         if (Log != NULL)
+            Log->Write ("*Packed %ld messages (%ld personal)", Total, TotalPersonal);
+
+         if (Total > 0L) {
+            if (BuildPath (Path) == TRUE) {
+               sprintf (Temp, "%s%s", Path, PktName);
+               if (Compress (Temp) == TRUE)
+                  Download (Temp, PktName);
+            }
+         }
+      }
+   }
+   else if (Log != NULL)
+      Log->Write ("!Path Error: %s", Work);
+
+   return (RetVal);
+}
+
+VOID TAscii::PackArea (ULONG &ulLast)
+{
+   FILE *fp;
+   CHAR Temp[128], *Text;
+   ULONG Number;
+
+   Number = ulLast;
+   Current = Personal = 0L;
+
+   if (Limit == 0 || Total < Limit) {
+      if (MsgArea->Storage == ST_JAM)
+         Msg = new JAM (MsgArea->Path);
+      else if (MsgArea->Storage == ST_SQUISH)
+         Msg = new SQUISH (MsgArea->Path);
+      else if (MsgArea->Storage == ST_FIDO)
+         Msg = new FIDOSDM (MsgArea->Path);
+      else if (MsgArea->Storage == ST_ADEPT)
+         Msg = new ADEPT (MsgArea->Path);
+
+      sprintf (Temp, "%s%03d.TXT", Work, Area);
+      fp = _fsopen (Temp, "wt", SH_DENYNO);
+
+      if (Msg != NULL && fp != NULL) {
+         Msg->Lock (0L);
+         if (Msg->Next (Number) == TRUE) {
+            do {
+               Msg->Read (Number);
+
+               fprintf (fp, "\n==============================================\n    Msg. #%ld of %ld (%s)\n", Number, Msg->Highest (), MsgArea->Display);
+               fprintf (fp, "   Date: %d %s %d %2d:%02d\n", Msg->Written.Day, Lang->Months[Msg->Written.Month - 1], Msg->Written.Year, Msg->Written.Hour, Msg->Written.Minute);
+               fprintf (fp, "   From: %s\n", Msg->From);
+               if (Msg->To[0])
+                  fprintf (fp, "     To: %s\n", Msg->To);
+               fprintf (fp, "Subject: %s\n----------------------------------------------\n", Msg->Subject);
+
+               Current++;
+               Total++;
+               if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                  Personal++;
+                  TotalPersonal++;
+               }
+
+               if ((Text = (PSZ)Msg->Text.First ()) != NULL)
+                  do {
+                     if (Text[0] != 0x01 && strnicmp (Text, "SEEN-BY: ", 9))
+                        fprintf (fp, "%s\n", Text);
+                  } while ((Text = (PSZ)Msg->Text.Next ()) != NULL);
+
+               if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
+                  BarWidth = (USHORT)((Total * 61L) / TotalPack);
+                  Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
+               }
+
+               Embedded->Idle ();
+            } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
+         }
+         Msg->UnLock ();
+      }
+
+      if (Msg != NULL) {
+         Msg->Close ();
+         delete Msg;
+      }
+      if (fp != NULL)
+         fclose (fp);
+   }
+
+   ulLast = Number;
+}
+
+// ----------------------------------------------------------------------
+
+TPoint::TPoint (void)
+{
+}
+
+TPoint::~TPoint (void)
+{
+}
+
+USHORT TPoint::Create (VOID)
+{
+   USHORT RetVal = FALSE;
+   CHAR Temp[128], PktName[32];
+   struct dosdate_t date;
+   class TMsgTag *MsgTag;
+
+   if (Log != NULL)
+      Log->Write ("+Preparing PointMail packet");
+   MsgTag = User->MsgTag;
+   _dos_getdate (&date);
+   sprintf (PktName, "%08lX%s", StringCrc32 (Id, 0xFFFFFFFFL), Extensions[date.dayofweek]);
+
+   Total = 0L;
+   TotalPersonal = 0L;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   sprintf (Path, "%s%s\\", Cfg->UsersHomePath, User->MailBox);
+
+   if (BuildPath (Work) == TRUE) {
+      if (MsgTag->First () == TRUE)
+         do {
+            if (MsgTag->Tagged == TRUE)
+               RetVal = TRUE;
+         } while (RetVal == FALSE && MsgTag->Next () == TRUE);
+
+      if (RetVal == TRUE) {
+         Embedded->Printf ("\n\x16\x01\012Preparing %s packet...\n\n", PktName);
+
+         Embedded->Printf ("\x16\x01\0170%%    10%%  20%%   30%%   40%%   50%%   60%%   70%%   80%%   90%%   100%%\n|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|\r");
+         Area = 1;
+         NewMsgTag.Clear ();
+
+         if ((MsgArea = new TMsgData (Cfg->SystemPath)) != NULL) {
+            if (MsgTag->First () == TRUE)
+               do {
+                  if (MsgTag->Tagged == TRUE) {
+                     if (MsgArea->Read (MsgTag->Area) == TRUE) {
+                        strcpy (NewMsgTag.Area, MsgTag->Area);
+                        NewMsgTag.LastRead = MsgTag->LastRead;
+                        NewMsgTag.Add ();
+
+                        PackArea (NewMsgTag.LastRead);
+                        if (Log != NULL)
+                           Log->Write (":  Area %s, %ld msgs. (%ld personal)", NewMsgTag.Area, Current, Personal);
+
+                        NewMsgTag.LastPacked = time (NULL);
+                        NewMsgTag.Update ();
+                        Area++;
+                     }
+                  }
+               } while (MsgTag->Next () == TRUE);
+
+            delete MsgArea;
+         }
+
+         if (Log != NULL)
+            Log->Write ("*Packed %ld messages (%ld personal)", Total, TotalPersonal);
+
+         if (Total > 0L) {
+            if (BuildPath (Path) == TRUE) {
+               sprintf (Temp, "%s%s", Path, PktName);
+               if (Compress (Temp) == TRUE)
+                  Download (Temp, PktName);
+            }
+         }
+      }
+   }
+   else if (Log != NULL)
+      Log->Write ("!Path Error: %s", Work);
+
+   return (RetVal);
+}
+
+VOID TPoint::PackArea (ULONG &ulLast)
+{
+   CHAR Temp[128], *Text;
+   ULONG Number;
+   class PACKET *Packet;
+
+   Number = ulLast;
+   Current = Personal = 0L;
+
+   if (Limit == 0 || Total < Limit) {
+      if (MsgArea->Storage == ST_JAM)
+         Msg = new JAM (MsgArea->Path);
+      else if (MsgArea->Storage == ST_SQUISH)
+         Msg = new SQUISH (MsgArea->Path);
+      else if (MsgArea->Storage == ST_FIDO)
+         Msg = new FIDOSDM (MsgArea->Path);
+      else if (MsgArea->Storage == ST_ADEPT)
+         Msg = new ADEPT (MsgArea->Path);
+
+      if ((Packet = new PACKET) != NULL) {
+         if (Cfg->MailAddress.First () == TRUE) {
+            strcpy (Packet->FromAddress, Cfg->MailAddress.String);
+            strcpy (Packet->ToAddress, Cfg->MailAddress.String);
+         }
+         sprintf (Temp, "%s%08lX.PKT", Work, time (NULL));
+         Packet->Open (Temp);
+      }
+
+      if (Msg != NULL && Packet != NULL) {
+         Msg->Lock (0L);
+         if (Msg->Next (Number) == TRUE) {
+            do {
+               if (Msg->Read (Number) == TRUE) {
+                  Current++;
+                  Total++;
+                  if (!stricmp (Msg->To, User->Name) || !stricmp (Msg->To, User->RealName)) {
+                     Personal++;
+                     TotalPersonal++;
+                  }
+
+                  if ((Text = (CHAR *)Msg->Text.First ()) != NULL)
+                     do {
+                        if (!strncmp (Text, "SEEN-BY: ", 9) || !strncmp (Text, "\001PATH: ", 7)) {
+                           Msg->Text.Remove ();
+                           Text = (CHAR *)Msg->Text.Value ();
+                        }
+                        else
+                           Text = (CHAR *)Msg->Text.Next ();
+                     } while (Text != NULL);
+
+                  if (Cfg->MailAddress.First () == TRUE) {
+                     sprintf (Temp, "SEEN-BY: %u/%u", Cfg->MailAddress.Net, Cfg->MailAddress.Node);
+                     Msg->Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                     sprintf (Temp, "\001PATH: %u/%u", Cfg->MailAddress.Net, Cfg->MailAddress.Node);
+                     Msg->Text.Add (Temp, (USHORT)(strlen (Temp) + 1));
+                  }
+
+                  if ((Text = (CHAR *)Msg->Text.First ()) != NULL) {
+                     if (MsgArea->EchoTag[0] != '\0')
+                        sprintf (Temp, "AREA:%s", MsgArea->EchoTag);
+                     else
+                        sprintf (Temp, "AREA:%s", MsgArea->Key);
+                     Msg->Text.Insert (Temp, (USHORT)(strlen (Temp) + 1));
+                     Msg->Text.Insert (Text, (USHORT)(strlen (Text) + 1));
+                     Msg->Text.First ();
+                     Msg->Text.Remove ();
+                  }
+
+                  Packet->Add (Msg);
+               }
+
+               if (BarWidth != (USHORT)((Total * 61L) / TotalPack)) {
+                  BarWidth = (USHORT)((Total * 61L) / TotalPack);
+                  Embedded->Printf ("\r%.*s", BarWidth, "ллллллллллллллллллллллллллллллллллллллллллллллллллллллллллллл");
+               }
+
+               Embedded->Idle ();
+            } while ((Limit == 0 || Total < Limit) && Msg->Next (Number) == TRUE);
+         }
+         Msg->UnLock ();
+      }
+
+      if (Msg != NULL) {
+         Msg->Close ();
+         delete Msg;
+      }
+      if (Packet != NULL) {
+         Packet->Close ();
+         delete Packet;
+      }
+   }
+
+   ulLast = Number;
+}
+
+USHORT TPoint::FetchReply (VOID)
+{
+   DIR *dir;
+   USHORT RetVal = FALSE, Found;
+   CHAR Temp[128], LastTag[64], *Text;
+   ULONG Number, Written;
+   class PACKET *Packet;
+   class dirent *ent;
+
+   sprintf (Work, "%s%s\\", Cfg->TempPath, User->MailBox);
+   BuildPath (Work);
+
+   MsgArea = new TMsgData (Cfg->SystemPath);
+   LastTag[0] = '\0';
+   Msg = NULL;
+
+   if ((dir = opendir (Work)) != NULL) {
+      while ((ent = readdir (dir)) != NULL) {
+         if (strstr (ent->d_name, ".pk") != NULL || strstr (ent->d_name, ".PK") != NULL) {
+            sprintf (Temp, "%s%s", Work, ent->d_name);
+            if ((Packet = new PACKET) != NULL) {
+               if (Packet->Open (Temp) == TRUE) {
+                  Number = Packet->Lowest ();
+                  do {
+                     if (Packet->Read (Number) == TRUE) {
+                        if ((Text = (CHAR *)Packet->Text.First ()) != NULL) {
+                           if (!strncmp (Text, "AREA:", 5)) {
+                              if (stricmp (&Text[5], LastTag)) {
+                                 if (Msg != NULL) {
+                                    Msg->Close ();
+                                    delete Msg;
+                                    Msg = NULL;
+                                 }
+                                 strcpy (LastTag, &Text[5]);
+                                 Found = FALSE;
+                                 if (MsgArea->First () == TRUE)
+                                    do {
+                                       if (MsgArea->EchoTag[0] != '\0' && !stricmp (MsgArea->EchoTag, LastTag)) {
+                                          Found = TRUE;
+                                          break;
+                                       }
+                                       else if (MsgArea->EchoTag[0] == '\0' && !stricmp (MsgArea->Key, LastTag)) {
+                                          Found = TRUE;
+                                          break;
+                                       }
+                                    } while (MsgArea->Next () == TRUE);
+                                 if (Found == TRUE) {
+                                    if (Log != NULL)
+                                       Log->Write (":Message Area: %s - %s", MsgArea->Key, MsgArea->Display);
+
+                                    Msg = NULL;
+                                    if (MsgArea->Storage == ST_JAM)
+                                       Msg = new JAM (MsgArea->Path);
+                                    else if (MsgArea->Storage == ST_SQUISH)
+                                       Msg = new SQUISH (MsgArea->Path);
+                                    else if (MsgArea->Storage == ST_FIDO)
+                                       Msg = new FIDOSDM (MsgArea->Path);
+                                    else if (MsgArea->Storage == ST_ADEPT)
+                                       Msg = new ADEPT (MsgArea->Path);
+                                 }
+                              }
+
+                              Packet->Text.Remove ();
+
+                              if (Msg != NULL) {
+                                 if (stricmp (Packet->From, User->Name) && stricmp (Packet->From, User->RealName))
+                                    strcpy (Packet->From, User->Name);
+                                 if ((Text = (CHAR *)Packet->Text.First ()) != NULL)
+                                    do {
+                                       if (!strncmp (Text, "SEEN-BY: ", 9) || !strncmp (Text, "\001PATH: ", 7)) {
+                                          Packet->Text.Remove ();
+                                          Text = (CHAR *)Packet->Text.Value ();
+                                       }
+                                       else
+                                          Text = (CHAR *)Packet->Text.Next ();
+                                    } while (Text != NULL);
+
+                                 Msg->Add (Packet);
+                                 MsgArea->ActiveMsgs++;
+                                 MsgArea->Update ();
+
+                                 Written = Msg->Highest ();
+                                 Log->Write (":Written message #%lu", Written);
+                                 Embedded->Printf ("\n\x16\x01\x0E<<< CONFIRMED: MESSAGE #%lu WRITTEN TO DISK >>>\n\006\007", Written);
+                              }
+                           }
+                        }
+                     }
+                  } while (Packet->Next (Number) == TRUE);
+               }
+               Packet->Close ();
+               delete Packet;
+            }
+            sprintf (Temp, "%s%s", Work, ent->d_name);
+            unlink (Temp);
+         }
+      }
+      closedir (dir);
+   }
+
+   if (Msg != NULL) {
+      Msg->Close ();
+      delete Msg;
+   }
+   if (MsgArea != NULL)
+      delete MsgArea;
+
+   return (RetVal);
 }
 
 

@@ -19,9 +19,19 @@ TPipe::TPipe (void)
 TPipe::~TPipe (void)
 {
 #if defined(__OS2__)
-   if (hFile != NULL)
+   if (hFile != NULL) {
+      DosDisConnectNPipe (hFile);
       DosClose (hFile);
+   }
 #elif defined(__NT__)
+   if (hServerR != INVALID_HANDLE_VALUE)
+      CloseHandle (hServerR);
+   if (hServerW != INVALID_HANDLE_VALUE)
+      CloseHandle (hServerW);
+   if (hClientR != INVALID_HANDLE_VALUE)
+      CloseHandle (hClientR);
+   if (hClientW != INVALID_HANDLE_VALUE)
+      CloseHandle (hClientW);
 #endif
 }
 
@@ -42,23 +52,28 @@ VOID TPipe::BufferBytes (UCHAR *bytes, USHORT len)
    }
 }
 
-SHORT TPipe::BytesReady (VOID)
+USHORT TPipe::BytesReady (VOID)
 {
-   SHORT RetVal = FALSE;
+   USHORT RetVal = FALSE;
 #if defined(__OS2__)
-   ULONG data, Temp, bytesRead;
+   ULONG data, Temp, pipeState;
    struct _AVAILDATA Available;
 
    if (hFile != NULLHANDLE) {
-      DosPeekNPipe (hFile, (PVOID)&Temp, sizeof (Temp), &data, &Available, &bytesRead);
+      DosPeekNPipe (hFile, (PVOID)&Temp, sizeof (Temp), &data, &Available, &pipeState);
       if (data > 0)
          RetVal = TRUE;
+      EndRun = FALSE;
+      if (pipeState == NP_STATE_CLOSING)
+         EndRun = TRUE;
    }
 #elif defined(__NT__)
    ULONG Available;
 
-   if (hFile != INVALID_HANDLE_VALUE) {
-      PeekNamedPipe (hFile, NULL, 0L, NULL, &Available, NULL);
+   if (hServerR != INVALID_HANDLE_VALUE) {
+      EndRun = FALSE;
+      if (PeekNamedPipe (hServerR, NULL, 0L, NULL, &Available, NULL) == FALSE)
+         EndRun = TRUE;
       if (Available > 0)
          RetVal = TRUE;
    }
@@ -67,9 +82,10 @@ SHORT TPipe::BytesReady (VOID)
    return (RetVal);
 }
 
-SHORT TPipe::Carrier (VOID)
+USHORT TPipe::Carrier (VOID)
 {
-   return ((EndRun == FALSE) ? TRUE : FALSE);
+//   return ((EndRun == FALSE) ? TRUE : FALSE);
+   return (TRUE);
 }
 
 VOID TPipe::ClearInbound (VOID)
@@ -78,30 +94,67 @@ VOID TPipe::ClearInbound (VOID)
 
 VOID TPipe::ClearOutbound (VOID)
 {
+   TxBytes = 0;
 }
 
-SHORT TPipe::Initialize (PSZ pszPipeName, USHORT usInstances)
-{
-   SHORT RetVal = FALSE;
-
 #if defined(__OS2__)
+USHORT TPipe::Initialize (PSZ pszPipeName, USHORT usInstances)
+{
+   USHORT RetVal = FALSE;
+
    hFile = NULLHANDLE;
 
    if (DosCreateNPipe (pszPipeName, &hFile, NP_ACCESS_DUPLEX, NP_NOWAIT|usInstances, TSIZE, RSIZE, 1000) == 0) {
       RetVal = TRUE;
-      while (DosConnectNPipe (hFile))
-         DosSleep (1L);
    }
-#elif defined(__NT__)
-   if ((hFile = CreateNamedPipe (pszPipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE|PIPE_NOWAIT, usInstances, TSIZE, RSIZE, 1000, NULL)) != INVALID_HANDLE_VALUE) {
-      RetVal = TRUE;
-      while (ConnectNamedPipe (hFile, NULL))
-         ;
-   }
-#endif
 
    return (RetVal);
 }
+
+USHORT TPipe::ConnectServer (PSZ pszPipeName)
+{
+   USHORT RetVal = FALSE;
+   ULONG Action;
+
+   hFile = NULLHANDLE;
+
+   if (DosOpen (pszPipeName, &hFile, &Action, 0, FILE_NORMAL, FILE_OPEN, OPEN_ACCESS_READWRITE|OPEN_SHARE_DENYNONE, NULL) == 0)
+      RetVal = TRUE;
+
+   return (RetVal);
+}
+
+#elif defined(__NT__)
+
+USHORT TPipe::Initialize (VOID)
+{
+   USHORT RetVal = FALSE;
+   SECURITY_ATTRIBUTES sa;
+
+   sa.nLength = sizeof (SECURITY_ATTRIBUTES);
+   sa.lpSecurityDescriptor = NULL;
+   sa.bInheritHandle = TRUE;
+   if (CreatePipe (&hServerR, &hClientW, &sa, 0L)) {
+      sa.nLength = sizeof (SECURITY_ATTRIBUTES);
+      sa.lpSecurityDescriptor = NULL;
+      sa.bInheritHandle = TRUE;
+      if (CreatePipe (&hClientR, &hServerW, &sa, 0L))
+         RetVal = TRUE;
+   }
+
+   return (RetVal);
+}
+
+USHORT TPipe::ConnectServer (HANDLE hRead, HANDLE hWrite)
+{
+   USHORT RetVal = TRUE;
+
+   hServerR = hRead;
+   hServerW = hWrite;
+
+   return (RetVal);
+}
+#endif
 
 UCHAR TPipe::ReadByte (VOID)
 {
@@ -112,8 +165,8 @@ UCHAR TPipe::ReadByte (VOID)
    if (hFile != NULLHANDLE)
       DosRead (hFile, (PVOID)&c, 1L, &bytesRead);
 #elif defined(__NT__)
-   if (hFile != INVALID_HANDLE_VALUE)
-      ReadFile (hFile, (PVOID)&c, 1L, &bytesRead, NULL);
+   if (hServerR != INVALID_HANDLE_VALUE)
+      ReadFile (hServerR, (PVOID)&c, 1L, &bytesRead, NULL);
 #endif
 
    return ((UCHAR)c);
@@ -125,10 +178,10 @@ USHORT TPipe::ReadBytes (UCHAR *bytes, USHORT len)
 
 #if defined(__OS2__)
    if (hFile != NULLHANDLE)
-      DosRead (hFile, (PVOID)&bytes, len, &bytesRead);
+      DosRead (hFile, (PVOID)bytes, len, &bytesRead);
 #elif defined(__NT__)
-   if (hFile != INVALID_HANDLE_VALUE)
-      ReadFile (hFile, (PVOID)&bytes, len, &bytesRead, NULL);
+   if (hServerR != INVALID_HANDLE_VALUE)
+      ReadFile (hServerR, (PVOID)&bytes, len, &bytesRead, NULL);
 #endif
 
    return ((USHORT)bytesRead);
@@ -142,9 +195,9 @@ VOID TPipe::SendByte (UCHAR byte)
    if (hFile != NULLHANDLE && EndRun == FALSE)
       DosWrite (hFile, (PVOID)&byte, 1L, &written);
 #elif defined(__NT__)
-   if (hFile != INVALID_HANDLE_VALUE && EndRun == FALSE)
+   if (hServerW != INVALID_HANDLE_VALUE && EndRun == FALSE)
       do {
-         WriteFile (hFile, (LPCVOID)&byte, 1L, &written, NULL);
+         WriteFile (hServerW, (LPCVOID)&byte, 1L, &written, NULL);
       } while (written != 1L);
 #endif
 }
@@ -157,9 +210,9 @@ VOID TPipe::SendBytes (UCHAR *bytes, USHORT len)
    if (hFile != NULLHANDLE)
       DosWrite (hFile, (PVOID)bytes, (long)len, &written);
 #elif defined(__NT__)
-   if (hFile != INVALID_HANDLE_VALUE && EndRun == FALSE)
+   if (hServerW != INVALID_HANDLE_VALUE && EndRun == FALSE)
       do {
-         WriteFile (hFile, (LPCVOID)bytes, (long)len, &written, NULL);
+         WriteFile (hServerW, (LPCVOID)bytes, (long)len, &written, NULL);
          bytes += written;
          len -= written;
       } while (len > 0 && EndRun == FALSE);
@@ -183,14 +236,30 @@ VOID TPipe::UnbufferBytes (VOID)
       } while (TxBytes > 0 && EndRun == FALSE);
    }
 #elif defined(__NT__)
-   if (hFile != INVALID_HANDLE_VALUE && TxBytes > 0 && EndRun == FALSE) {
+   if (hServerW != INVALID_HANDLE_VALUE && TxBytes > 0 && EndRun == FALSE) {
       p = TxBuffer;
       do {
-         WriteFile (hFile, (LPCVOID)p, (long)TxBytes, &Written, NULL);
+         WriteFile (hServerW, (LPCVOID)p, (long)TxBytes, &Written, NULL);
          p += Written;
+         if (Written < TxBytes)
+            Sleep (10L);
          TxBytes -= (USHORT)Written;
       } while (TxBytes > 0 && EndRun == FALSE);
+   }
 #endif
+}
+
+USHORT TPipe::WaitClient (VOID)
+{
+   USHORT RetVal = FALSE;
+
+#if defined(__OS2__)
+   if (DosConnectNPipe (hFile) == 0)
+      RetVal = TRUE;
+#elif defined(__NT__)
+#endif
+
+   return (RetVal);
 }
 
 

@@ -1,15 +1,15 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.19
+// Lora BBS Professional Edition - Version 3.00.1
 // Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
 // ----------------------------------------------------------------------
 
-//#if !defined(__OS2__) && !defined(__NT__)
-//#error This module is for use with OS/2 and Windows NT only!
-//#endif
+#if defined(__OS2__) && defined(__BORLANDC__)
+#define _System      _pascal
+#endif
 
 #include "_ldefs.h"
 #include "combase.h"
@@ -20,7 +20,13 @@
 #include <sys\socket.h>
 #include <netdb.h>
 #include <sys\ioctl.h>
-#elif defined(__DOS__)
+#elif defined(__NT__)
+#elif defined(__LINUX__)
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#else
 extern "C" {
 #include <sys\types.h>
 #include <netdb.h>
@@ -32,8 +38,50 @@ extern "C" {
 #include <pctcp/pctcp.h>
 #include <pctcp/syscalls.h>
 };
-#else
-#error This module is for use with OS/2 and Windows NT only!
+#endif
+
+#if defined(__OS2__)
+VOID WaitThread (PVOID Args)
+{
+   FILE *fp;
+   int i, s, namelen;
+   struct sockaddr_in client, sock;
+   struct hostent *host;
+   class TTcpip *Tcp = (class TTcpip *)Args;
+
+   Tcp->Accepted = 0;
+
+   namelen = sizeof (client);
+   if ((s = accept (Tcp->LSock, (struct sockaddr *)&client, &namelen)) > 0) {
+      sprintf (Tcp->ClientIP, "%ld.%ld.%ld.%ld", (client.sin_addr.s_addr & 0xFFL), (client.sin_addr.s_addr & 0xFF00L) >> 8, (client.sin_addr.s_addr & 0xFF0000L) >> 16, (client.sin_addr.s_addr & 0xFF000000L) >> 24);
+#if defined(__OS2__) || defined(__DOS__)
+      if ((host = gethostbyaddr ((char *)&client.sin_addr.s_addr, sizeof (client.sin_addr.s_addr), AF_INET)) != NULL)
+         strcpy (Tcp->ClientName, host->h_name);
+      else
+#endif
+         strcpy (Tcp->ClientName, Tcp->ClientIP);
+      Tcp->Accepted = (USHORT)s;
+      i = 1;
+#if defined(__OS2__) || defined(__DOS__) || defined(__LINUX__)
+      ioctl (Tcp->Accepted, FIONBIO, (char *)&i, sizeof (int));
+#elif defined(__NT__)
+      ioctlsocket (Tcp->Accepted, FIONBIO, (unsigned long *)&i);
+#endif
+
+      namelen = sizeof (struct sockaddr_in);
+      getsockname (Tcp->Accepted, (struct sockaddr *)&sock, &namelen);
+      Tcp->HostID = (sock.sin_addr.s_addr & 0xFF000000L) >> 24;
+      Tcp->HostID |= (sock.sin_addr.s_addr & 0x00FF0000L) >> 8;
+      Tcp->HostID |= (sock.sin_addr.s_addr & 0x0000FF00L) << 8;
+      Tcp->HostID |= (sock.sin_addr.s_addr & 0x000000FFL) << 24;
+      if ((fp = fopen ("sock.log", "wt")) != NULL) {
+         fprintf (fp, "HOSTID %ld,%ld,%ld,%ld", (Tcp->HostID & 0xFF000000L) >> 24, (Tcp->HostID & 0xFF0000L) >> 16, (Tcp->HostID & 0xFF00L) >> 8, (Tcp->HostID & 0xFFL));
+         fclose (fp);
+      }
+   }
+
+   _endthread ();
+}
 #endif
 
 TTcpip::TTcpip (void)
@@ -71,13 +119,13 @@ VOID TTcpip::BufferBytes (UCHAR *bytes, USHORT len)
          len -= ToCopy;
          if (TxBytes >= TSIZE)
             UnbufferBytes ();
-      } while (len > 0 && EndRun == FALSE);
+      } while (len > 0 && EndRun == FALSE && Carrier () == TRUE);
 }
 
-SHORT TTcpip::BytesReady (VOID)
+USHORT TTcpip::BytesReady (VOID)
 {
    int i;
-   SHORT RetVal = FALSE;
+   USHORT RetVal = FALSE;
 
    if (Sock != 0 && fCarrierDown == FALSE && EndRun == FALSE) {
       if (RxBytes != 0)
@@ -91,6 +139,8 @@ SHORT TTcpip::BytesReady (VOID)
             if (sock_errno () != SOCEWOULDBLOCK)
 #elif defined(__NT__)
             if (WSAGetLastError () != WSAEWOULDBLOCK)
+#elif defined(__LINUX__)
+            if (errno != EWOULDBLOCK)
 #endif
                fCarrierDown = TRUE;
          }
@@ -105,23 +155,9 @@ SHORT TTcpip::BytesReady (VOID)
    return (RetVal);
 }
 
-SHORT TTcpip::Carrier (VOID)
+USHORT TTcpip::Carrier (VOID)
 {
-   SHORT RetVal = FALSE;
-   CHAR Data[1];
-
-   if (Sock != 0 && fCarrierDown == FALSE && EndRun == FALSE) {
-      if (recv (Sock, (char *)Data, sizeof (Data), MSG_PEEK) > 0)
-         RetVal = TRUE;
-#if defined(__OS2__)
-      else if (sock_errno () == SOCEWOULDBLOCK)
-#elif defined(__NT__)
-      else if (WSAGetLastError () != WSAEWOULDBLOCK)
-#endif
-         RetVal = TRUE;
-   }
-
-   return (RetVal);
+   return ((fCarrierDown == TRUE) ? FALSE : TRUE);
 }
 
 VOID TTcpip::ClearInbound (VOID)
@@ -140,7 +176,7 @@ VOID TTcpip::ClosePort (VOID)
       closesocket (Sock);
 #elif defined(__OS2__)
       soclose (Sock);
-#elif defined(__DOS__)
+#elif defined(__DOS__) || defined(__LINUX__)
       close (Sock);
 #endif
       Sock = 0;
@@ -150,40 +186,48 @@ VOID TTcpip::ClosePort (VOID)
       closesocket (LSock);
 #elif defined(__OS2__)
       soclose (LSock);
-#elif defined(__DOS__)
+#elif defined(__DOS__) || defined(__LINUX__)
       close (LSock);
 #endif
       LSock = 0;
    }
 }
 
-SHORT TTcpip::ConnectServer (PSZ pszServer, USHORT usPort)
+USHORT TTcpip::ConnectServer (PSZ pszServer, USHORT usPort)
 {
-   INT i;
-   SHORT RetVal = FALSE;
-   USHORT Port;
+   int i, namelen;
+   USHORT RetVal = FALSE, Port;
    struct hostent *hostnm;
-   struct sockaddr_in server;
+   struct sockaddr_in server, sock;
+#if defined(__NT__)
+   WSADATA wsaData;
+#endif
 
 #if defined(__OS2__)
    if (sock_init () == 0) {
-      HostID = gethostid ();
-      sprintf (HostIP, "%ld.%ld.%ld.%ld", (HostID & 0xFF000000L) >> 24, (HostID & 0xFF0000L) >> 16, (HostID & 0xFF00L) >> 8, (HostID & 0xFFL));
 #elif defined(__DOS__)
    if (vec_search () != 0) {
+#elif defined(__NT__)
+   if (WSAStartup (MAKEWORD(1, 1), &wsaData) == 0) {
 #endif
 
       Port = usPort;
       server.sin_family = AF_INET;
       server.sin_port = htons (Port);
-#if defined(__OS2__) || defined(__NT__)
+#if defined(__OS2__) || defined(__NT__) || defined(__LINUX__)
+#if !defined(__LINUX__)
       if (isdigit (pszServer[0]))
          server.sin_addr.s_addr = inet_addr (pszServer);
       else {
-         if ((hostnm = gethostbyname (pszServer)) == NULL)
+#endif
+         if ((hostnm = gethostbyname (pszServer)) == NULL) {
+            fCarrierDown = TRUE;
             return (FALSE);
+         }
          server.sin_addr.s_addr = *((unsigned long *)hostnm->h_addr);
+#if !defined(__LINUX__)
       }
+#endif
 #elif defined(__DOS__)
       hostnm = gethostbyname (pszServer);
       bcopy(hostnm->h_addr, &server.sin_addr, hostnm->h_length);
@@ -192,17 +236,28 @@ SHORT TTcpip::ConnectServer (PSZ pszServer, USHORT usPort)
       if ((Sock = socket (AF_INET, SOCK_STREAM, 0)) >= 0) {
          if (connect (Sock, (struct sockaddr *)&server, sizeof (server)) >= 0) {
             i = 1;
-#if defined(__OS2__) || defined(__DOS__)
+#if defined(__OS2__) || defined(__DOS__) || defined(__LINUX__)
             ioctl (Sock, FIONBIO, (char *)&i, sizeof (int));
 #elif defined(__NT__)
             ioctlsocket (Sock, FIONBIO, (unsigned long *)&i);
 #endif
+
+            namelen = sizeof (struct sockaddr_in);
+            getsockname (Sock, (struct sockaddr *)&sock, &namelen);
+            HostID = (sock.sin_addr.s_addr & 0xFF000000L) >> 24;
+            HostID |= (sock.sin_addr.s_addr & 0x00FF0000L) >> 8;
+            HostID |= (sock.sin_addr.s_addr & 0x0000FF00L) << 8;
+            HostID |= (sock.sin_addr.s_addr & 0x000000FFL) << 24;
+
             RetVal = TRUE;
          }
-      }
-#if defined(__OS2__) || defined(__DOS__)
+     }
+#if !defined(__LINUX__)
    }
 #endif
+
+   if (RetVal == FALSE)
+      fCarrierDown = TRUE;
 
    return (RetVal);
 }
@@ -212,14 +267,37 @@ USHORT TTcpip::Initialize (USHORT usPort, USHORT usSocket)
    int i;
    USHORT RetVal = FALSE;
    struct sockaddr_in server;
+#if defined(__NT__)
+   int addrSize;
+   char sHostName[64];
+   struct hostent *pHostEnt;
+   WSADATA wsaData;
+#endif
 
 #if defined(__OS2__)
    if (sock_init () == 0) {
-      HostID = gethostid ();
-      sprintf (HostIP, "%ld.%ld.%ld.%ld", (HostID & 0xFF000000L) >> 24, (HostID & 0xFF0000L) >> 16, (HostID & 0xFF00L) >> 8, (HostID & 0xFFL));
 #elif defined(__DOS__)
    if (vec_search () != 0) {
+#elif defined(__NT__)
+   if (WSAStartup (MAKEWORD(1, 1), &wsaData) == 0) {
 #endif
+
+#if defined(__OS2__)
+      HostID = gethostid ();
+#elif defined(__LINUX__)
+      HostID = (gethostid () & 0x00FF0000L) << 8;
+      HostID |= (gethostid () & 0xFF000000L) >> 8;
+      HostID |= (gethostid () & 0x000000FFL) << 8;
+      HostID |= (gethostid () & 0x0000FF00L) >> 8;
+#elif defined(__NT__)
+      gethostname (sHostName, sizeof (sHostName));
+      pHostEnt = gethostbyname (sHostName);
+      HostID = *(unsigned long *)pHostEnt->h_addr;
+#else
+      HostID = 0x7F000001L;
+#endif
+      sprintf (HostIP, "%ld.%ld.%ld.%ld", (HostID & 0xFF000000L) >> 24, (HostID & 0xFF0000L) >> 16, (HostID & 0xFF00L) >> 8, (HostID & 0xFFL));
+
       if (usSocket == 0) {
          if ((LSock = socket (AF_INET, SOCK_STREAM, 0)) >= 0) {
             server.sin_family = AF_INET;
@@ -228,15 +306,23 @@ USHORT TTcpip::Initialize (USHORT usPort, USHORT usSocket)
             if (bind (LSock, (struct sockaddr *)&server, sizeof (server)) >= 0) {
 #if defined(__NT__)
                sprintf (ClientIP, "%ld.%ld.%ld.%ld", (server.sin_addr.s_addr & 0xFFL), (server.sin_addr.s_addr & 0xFF00L) >> 8, (server.sin_addr.s_addr & 0xFF0000L) >> 16, (server.sin_addr.s_addr & 0xFF000000L) >> 24);
+               addrSize = sizeof (struct sockaddr);
+               getsockname (LSock, (struct sockaddr *)&server, &addrSize);
 #endif
                i = 1;
-#if defined(__OS2__) || defined(__DOS__)
+#if defined(__DOS__)
                ioctl (LSock, FIONBIO, (char *)&i, sizeof (int));
 #elif defined(__NT__)
                ioctlsocket (LSock, FIONBIO, (unsigned long *)&i);
 #endif
-               if (listen (LSock, 1) >= 0)
+               if (listen (LSock, 1) >= 0) {
+                  Sock = 0;
+#if defined(__OS2__)
+                  Accepted = 0;
+                  _beginthread (WaitThread, NULL, 32767, (PVOID)this);
+#endif
                   RetVal = TRUE;
+               }
             }
          }
       }
@@ -250,7 +336,7 @@ USHORT TTcpip::Initialize (USHORT usPort, USHORT usSocket)
 #endif
          RetVal = TRUE;
       }
-#if defined(__OS2__) || defined(__DOS__)
+#if !defined(__LINUX__)
    }
 #endif
 
@@ -272,6 +358,8 @@ UCHAR TTcpip::ReadByte (VOID)
             if (sock_errno () != SOCEWOULDBLOCK)
 #elif defined(__NT__)
             if (WSAGetLastError () != WSAEWOULDBLOCK)
+#elif defined(__LINUX__)
+            if (errno != EWOULDBLOCK)
 #endif
                fCarrierDown = TRUE;
          }
@@ -305,6 +393,8 @@ USHORT TTcpip::ReadBytes (UCHAR *bytes, USHORT len)
             if (sock_errno () != SOCEWOULDBLOCK)
 #elif defined(__NT__)
             if (WSAGetLastError () != WSAEWOULDBLOCK)
+#elif defined(__LINUX__)
+            if (errno != EWOULDBLOCK)
 #endif
                fCarrierDown = TRUE;
          }
@@ -328,6 +418,14 @@ USHORT TTcpip::ReadBytes (UCHAR *bytes, USHORT len)
 
 USHORT TTcpip::WaitClient (VOID)
 {
+#if defined(__OS2__)
+   if (Accepted != 0 && Sock == 0)
+      Sock = Accepted;
+   else if (Sock != 0 && Accepted != 0) {
+      Sock = Accepted = 0;
+      _beginthread (WaitThread, NULL, 32767, (PVOID)this);
+   }
+#else
    int i, s, namelen;
    struct sockaddr_in client;
    struct hostent *host;
@@ -338,17 +436,20 @@ USHORT TTcpip::WaitClient (VOID)
    if ((s = accept (LSock, (struct sockaddr *)&client, &namelen)) > 0) {
       Sock = (USHORT)s;
       sprintf (ClientIP, "%ld.%ld.%ld.%ld", (client.sin_addr.s_addr & 0xFFL), (client.sin_addr.s_addr & 0xFF00L) >> 8, (client.sin_addr.s_addr & 0xFF0000L) >> 16, (client.sin_addr.s_addr & 0xFF000000L) >> 24);
+#if defined(__OS2__) || defined(__DOS__)
       if ((host = gethostbyaddr ((char *)&client.sin_addr.s_addr, sizeof (client.sin_addr.s_addr), AF_INET)) != NULL)
          strcpy (ClientName, host->h_name);
       else
+#endif
          strcpy (ClientName, ClientIP);
       i = 1;
-#if defined(__OS2__) || defined(__DOS__)
+#if defined(__OS2__) || defined(__DOS__) || defined(__LINUX__)
       ioctl (Sock, FIONBIO, (char *)&i, sizeof (int));
 #elif defined(__NT__)
       ioctlsocket (Sock, FIONBIO, (unsigned long *)&i);
 #endif
    }
+#endif
 
    return ((USHORT)Sock);
 }
@@ -366,34 +467,56 @@ VOID TTcpip::SendBytes (UCHAR *bytes, USHORT len)
    if (Sock != 0 && fCarrierDown == FALSE && EndRun == FALSE) {
       do {
          if ((i = send (Sock, (char *)bytes, len, 0)) > 0) {
-#if defined(__OS2__)
-            if (i < TxBytes)
-               DosSleep (10L);
-#endif
             len -= (USHORT)i;
             bytes += i;
          }
-      } while (i >= 0 && len > 0 && EndRun == FALSE);
+         else if (i < 0) {
+#if defined(__OS2__)
+            if (sock_errno () != SOCEWOULDBLOCK && sock_errno () != SOCENOBUFS)
+#elif defined(__NT__)
+            if (WSAGetLastError () != WSAEWOULDBLOCK && WSAGetLastError () != WSAENOBUFS)
+#elif defined(__LINUX__)
+            if (errno != EWOULDBLOCK && errno != ENOBUFS)
+#endif
+               fCarrierDown = TRUE;
+         }
+#if defined(__OS2__)
+         DosSleep (1L);
+#elif defined(__NT__)
+         Sleep (1L);
+#endif
+      } while (len > 0 && EndRun == FALSE && Carrier () == TRUE);
    }
 }
 
 VOID TTcpip::UnbufferBytes (VOID)
 {
-   int i;
+   int Written;
    UCHAR *p;
 
    while (Sock != 0 && fCarrierDown == FALSE && EndRun == FALSE && TxBytes > 0) {
       p = TxBuffer;
       do {
-         if ((i = send (Sock, (char *)p, TxBytes, 0)) > 0) {
-#if defined(__OS2__)
-            if (i < TxBytes)
-               DosSleep (10L);
-#endif
-            p += i;
-            TxBytes -= (USHORT)i;
+         if ((Written = send (Sock, (char *)p, TxBytes, 0)) > 0) {
+            p += Written;
+            TxBytes -= (USHORT)Written;
          }
-      } while (TxBytes > 0 && i > 0 && EndRun == FALSE);
+         else if (Written < 0) {
+#if defined(__OS2__)
+            if (sock_errno () != SOCEWOULDBLOCK && sock_errno () != SOCENOBUFS)
+#elif defined(__NT__)
+            if (WSAGetLastError () != WSAEWOULDBLOCK && WSAGetLastError () != WSAENOBUFS)
+#elif defined(__LINUX__)
+            if (errno != EWOULDBLOCK && errno != ENOBUFS)
+#endif
+               fCarrierDown = TRUE;
+         }
+#if defined(__OS2__)
+         DosSleep (1L);
+#elif defined(__NT__)
+         Sleep (1L);
+#endif
+      } while (TxBytes > 0 && EndRun == FALSE && Carrier () == TRUE);
    }
 }
 

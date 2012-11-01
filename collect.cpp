@@ -1,14 +1,14 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.19
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// LoraBBS Professional Edition - Version 3.00.1
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
 // ----------------------------------------------------------------------
 
 #include "_ldefs.h"
-#include "tools.h"
+#include "collect.h"
 
 TCollection::TCollection (void)
 {
@@ -48,6 +48,11 @@ USHORT TCollection::Add (PVOID lpData)
    }
 
    return (RetVal);
+}
+
+USHORT TCollection::Add (PSZ lpData)
+{
+   return (Add ((PVOID)lpData, (USHORT)(strlen (lpData) + 1)));
 }
 
 USHORT TCollection::Add (PVOID lpData, USHORT usSize)
@@ -269,6 +274,4 @@ PVOID TCollection::Value (VOID)
 {
    return ((List == NULL) ? NULL : List->Value);
 }
-
-
 

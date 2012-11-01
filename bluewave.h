@@ -1,10 +1,10 @@
 /*****************************************************************************/
 /*                                                                           */
 /*           The Blue Wave Offline Mail System Packet Structures             */
-/*     Copyright 1990-1994 by George Hatchew and Cutting Edge Computing      */
-/*                 All rights reserved - FidoNet 1:2240/176                  */
+/*   Copyright 1990-1995 by Cutting Edge Computing.  All rights reserved.    */
+/*                        Created by George Hatchew                          */
 /*                                                                           */
-/*                     Last Updated - January 18, 1994                       */
+/*                      Version 3 - November 30, 1995                        */
 /*                                                                           */
 /*        ---------------------------------------------------------          */
 /*            DISTRIBUTION OF THIS FILE IS LIMITED BY THE TERMS              */
@@ -12,10 +12,10 @@
 /*        ---------------------------------------------------------          */
 /*                                                                           */
 /*     These data structures should be usable with any C compiler that       */
-/*  supports the ANSI standard for the C language (i.e. ANSI C).  They are   */
-/*  NOT guaranteed to be usable with older compilers, which largely relied   */
-/*   on the definition of the language as specified in _The C Programming    */
-/*       Language (1st Edition)_ by Brian Kernighan & Dennis Ritchie.        */
+/*      supports the 1989 ANSI/ISO C language standard.  They are NOT        */
+/*    guaranteed to be usable with older compilers, which largely relied     */
+/*  on the definition of the language as specified in Kernighan & Ritchie's  */
+/*               _The C Programming Language (1st Edition)_.                 */
 /*                                                                           */
 /*****************************************************************************/
 
@@ -23,7 +23,7 @@
 #define __BLUEWAVE_H    /*  being included twice in the same source file    */
 
 
-#define PACKET_LEVEL    2       /* The current mail packet revision level, */
+#define PACKET_LEVEL    3       /* The current mail packet revision level, */
                                 /*   used in the "ver" field of the *.INF  */
                                 /*   file header.                          */
 
@@ -39,15 +39,16 @@
 **
 **      Reader:     *.NET       NetMail reply message information
 **                  *.UPI       Information for all other reply messages
-**                  *.UPL       Reply message information (* NEW *)
-**                                  (designed to replace the NET/UPI combo,
-**                                  which will soon be obsolete)
+**                  *.UPL       Reply message information
+**                                (alternative to *.NET and *.UPI)
 **                  *.REQ       List of files to download from BBS
 **                  *.PDQ       Offline door configuration information
+**                                (packet version 2 and earlier)
+**                  *.OLC       Offline door configuration information
+**                                (packet version 3 and later)
 **
 **      Misc:       *.MSG       Fido-style message header
-**                                  (used *only* in the *.NET structure, and
-**                                  will soon be obsolete)
+**                                  (used *only* in the *.NET structure)
 **                  *.XTI       Extended message packet information
 **                                  (not an official part of the Blue Wave
 **                                  packet specification; is used by the Blue
@@ -95,16 +96,16 @@
 **  they aren't, you're bound to get some *very* interesting results.
 */
 
-#ifdef BIG_ENDIAN
+//#ifdef BIG_ENDIAN
 
-typedef signed char    tCHAR;     /* 8 bit signed values           */
-typedef unsigned char  tBYTE;     /* 8 bit unsigned values         */
-typedef unsigned char  tINT[2];   /* little-endian 16 bit signed   */
-typedef unsigned char  tWORD[2];  /* little-endian 16 bit unsigned */
-typedef unsigned char  tLONG[4];  /* little-endian 32 bit signed   */
-typedef unsigned char  tDWORD[4]; /* little-endian 32 bit unsigned */
+//typedef signed char    tCHAR;     /* 8 bit signed values           */
+//typedef unsigned char  tBYTE;     /* 8 bit unsigned values         */
+//typedef unsigned char  tINT[2];   /* little-endian 16 bit signed   */
+//typedef unsigned char  tWORD[2];  /* little-endian 16 bit unsigned */
+//typedef unsigned char  tLONG[4];  /* little-endian 32 bit signed   */
+//typedef unsigned char  tDWORD[4]; /* little-endian 32 bit unsigned */
 
-#else
+//#else
 
 typedef signed char    tCHAR;     /* 8 bit signed values    */
 typedef unsigned char  tBYTE;     /* 8 bit unsigned values  */
@@ -113,7 +114,7 @@ typedef unsigned short tWORD;     /* 16 bit unsigned values */
 typedef signed long    tLONG;     /* 32 bit signed values   */
 typedef unsigned long  tDWORD;    /* 32 bit unsigned values */
 
-#endif
+//#endif
 
 
 /*****************************************************************************/
@@ -143,6 +144,10 @@ typedef unsigned long  tDWORD;    /* 32 bit unsigned values */
 #define INF_RES1        0x0004      /* RESERVED -- DO NOT USE!               */
 #define INF_GRAPHICS    0x0008      /* Enable ANSI control sequences in door */
 #define INF_NOT_MY_MAIL 0x0010      /* Do not bundle mail from user          */
+#define INF_EXT_INFO    0x0020      /* Download extended info with messages  */
+                                    /*   (* VERSION 3 AND LATER ONLY *)      */
+#define INF_NUMERIC_EXT 0x0040      /* Use numeric extensions on packets     */
+                                    /*   (* VERSION 3 AND LATER ONLY *)      */
 
 /*  Bit-masks for INF_HEADER.NETMAIL_FLAGS field  */
 
@@ -153,6 +158,17 @@ typedef unsigned long  tDWORD;    /* 32 bit unsigned values */
 #define INF_CAN_IMM     0x0400      /* Allow Immediate status      */
 #define INF_CAN_FREQ    0x0800      /* Allow File Request messages */
 #define INF_CAN_DIRECT  0x1000      /* Allow Direct status         */
+
+/*  Bit-masks for INF_HEADER.CTRL_FLAGS field  */
+
+#define INF_NO_CONFIG   0x0001      /* Do not allow offline configuration */
+#define INF_NO_FREQ     0x0002      /* Do not allow file requesting       */
+
+/*  Values for INF_HEADER.FILE_LIST_TYPE field  */
+
+#define INF_FLIST_NONE      0       /* Door does not generate a list file  */
+#define INF_FLIST_TEXT      1       /* Door generates plain text list file */
+#define INF_FLIST_ANSI      2       /* Door generates ANSI list file       */
 
 typedef struct      /*  INF_HEADER  */
 {
@@ -176,10 +192,12 @@ typedef struct      /*  INF_HEADER  */
     tWORD node;
     tWORD point;
     tBYTE sysop[41];            /* Name of SysOp of host BBS                */
-    tBYTE obsolete1[2];         /* OBSOLETE -- DO NOT USE!                  */
+    tWORD ctrl_flags;           /* Flags to control reader capabilities     */
+                                /*   (* VERSION 3 AND LATER ONLY *)         */
     tBYTE systemname[65];       /* Name of host BBS                         */
     tBYTE maxfreqs;             /* Max number of file requests allowed      */
-    tBYTE obsolete2[6];         /* OBSOLETE -- DO NOT USE!                  */
+    tWORD is_QWK;               /* Whether *.INF belongs to a QWK packet    */
+    tBYTE obsolete2[4];         /* OBSOLETE -- DO NOT USE!                  */
     tWORD uflags;               /* Bit-mapped door options/toggles          */
     tBYTE keywords[10][21];     /* User's entire set of door keywords       */
     tBYTE filters[10][21];      /* User's entire set of door filters        */
@@ -219,7 +237,25 @@ typedef struct      /*  INF_HEADER  */
                                 /*   something completely different, the    */
                                 /*   mail doors and readers will still be   */
                                 /*   able to work with the proper files.    */
-    tBYTE reserved[234];        /* RESERVED FOR FUTURE USE                  */
+    tBYTE file_list_type;       /* New file listing type                    */
+                                /* (* VERSION 3 AND LATER ONLY *)           */
+                                /*   Specifies the type of new file list    */
+                                /*   that is generated by the door (see     */
+                                /*   INF_FLIST_xxx, above).  This field is  */
+                                /*   intended for use with offline config.  */
+    tBYTE auto_macro[3];        /* Auto-macro indicator flags               */
+                                /* (* VERSION 3 AND LATER ONLY *)           */
+                                /*   Specifies which macros are auto macros */
+                                /*   (i.e. execute automatically after mail */
+                                /*   is scanned).                           */
+    tINT max_packet_size;       /* Maximum size of uncompressed packet      */
+                                /* (* VERSION 3 AND LATER ONLY *)           */
+                                /*   Specifies, in K, the maximum size of   */
+                                /*   an uncompressed mail packet.  A value  */
+                                /*   of 0 indicates no maximum length.      */
+                                /*   This field is intended for use with    */
+                                /*   offline config.                        */
+    tBYTE reserved[228];        /* RESERVED FOR FUTURE USE                  */
                                 /*   This field MUST be filled with ASCII   */
                                 /*   NUL (0x00) characters in order for     */
                                 /*   future additional features to work     */
@@ -339,19 +375,16 @@ INF_HEADER;
                                 /*   From: field when addressing new mail   */
                                 /*   or replies for the message area.  If   */
                                 /*   OFF, the normal rules apply.           */
-#define INF_ECHO        0x0008  /* On=Network area, Off=Local area          */
-                                /*   The style of network mail depends on   */
-                                /*   the setting of the NETWORK_TYPE field. */
-#define INF_NETMAIL     0x0010  /* On=Private network mail                  */
-                                /*   The style of private mail depends on   */
-                                /*   the setting of the NETWORK_TYPE field. */
-                                /*   (If INF_ECHO is off, this field is     */
-                                /*   ignored.)                              */
+#define INF_ECHO        0x0008  /* On=Network mail, Off=Local mail          */
+#define INF_NETMAIL     0x0010  /* On=E-mail, Off=Conference mail           */
+                                /*   Refer to the chart below (the values   */
+                                /*   for the NETWORK_TYPE field) for info   */
+                                /*   on how these two flags should be set   */
+                                /*   for message areas.                     */
 #define INF_POST        0x0020  /* On=User can post, Off=User CANNOT post   */
 #define INF_NO_PRIVATE  0x0040  /* On=Private messages are NOT allowed      */
 #define INF_NO_PUBLIC   0x0080  /* On=Public messages are NOT allowed       */
 #define INF_NO_TAGLINE  0x0100  /* On=Taglines are not allowed              */
-                                /*   (Not yet implemented in Blue Wave.)    */
 #define INF_NO_HIGHBIT  0x0200  /* On=ASCII 1-127 only, Off=ASCII 1-255     */
                                 /*   If ON, only ASCII values 1 to 127 are  */
                                 /*   allowed in messages.  If OFF, all      */
@@ -363,12 +396,29 @@ INF_HEADER;
 #define INF_NOECHO      0x0400  /* On=User can prevent messages from being  */
                                 /*   sent through the network               */
 #define INF_HASFILE     0x0800  /* On=User can attach files to messages     */
+#define INF_PERSONAL    0x1000  /* On=User is downloading only personal     */
+                                /*   msgs in this message area.  The flag   */
+                                /*   INF_SCANNING also needs to be ON.      */
+                                /*   (* VERSION 3 AND LATER ONLY *)         */
+#define INF_TO_ALL      0x2000  /* On=User is downloading messages to "All" */
+                                /*   and personal messages only in this     */
+                                /*   area.  The flag INF_SCANNING also      */
+                                /*   needs to be ON.  INF_PERSONAL should   */
+                                /*   *not* be set, as this flag implies the */
+                                /*   downloading of personal messages also. */
+                                /*   (* VERSION 3 AND LATER ONLY *)         */
 
 /*  Values for INF_AREA_INFO.NETWORK_TYPE field  */
 
-#define INF_NET_FIDONET     0   /* Set up for FidoNet-style network mail    */
-#define INF_NET_QWKNET      1   /* Set up for QWK packet network mail       */
-#define INF_NET_INTERNET    2   /* Set up for Internet/Usenet mail          */
+#define INF_NET_FIDONET     0   /* FidoNet-style E-mail and conferences     */
+                                /*   Local     = INF_ECHO=off, NETMAIL=off  */
+                                /*   EchoMail  = INF_ECHO=on,  NETMAIL=off  */
+                                /*   GroupMail = INF_ECHO=on,  NETMAIL=off  */
+                                /*   NetMail   = INF_ECHO=on,  NETMAIL=on   */
+#define INF_NET_INTERNET    1   /* Internet E-mail and Usenet newsgroups    */
+                                /*   Local     = INF_ECHO=off, NETMAIL=off  */
+                                /*   Newsgroup = INF_ECHO=on,  NETMAIL=off  */
+                                /*   E-mail    = INF_ECHO=on,  NETMAIL=on   */
 
 typedef struct      /*  INF_AREA_INFO  */
 {
@@ -376,9 +426,7 @@ typedef struct      /*  INF_AREA_INFO  */
     tBYTE echotag[21];      /* Area tag name (*.BRD name for Telegard) */
     tBYTE title[50];        /* Area description/title                  */
     tWORD area_flags;       /* Bit-mapped area options                 */
-    tBYTE network_type;     /* Network mail type (if INF_ECHO set)     */
-                            /*   If INF_ECHO is OFF, then this field   */
-                            /*   can be ignored.                       */
+    tBYTE network_type;     /* Network mail type (see above)           */
 }
 INF_AREA_INFO;
 
@@ -529,22 +577,22 @@ FTI_REC;
 
 /*  Bit-masks for MSG_REC.ATTR field  */
 
-#define BW_MSG_PRIVATE     0x0001  /* Private                */
-#define BW_MSG_CRASH       0x0002  /* Crash mail             */
-#define BW_MSG_RECEIVED    0x0004  /* Received               */
-#define BW_MSG_SENT        0x0008  /* Sent                   */
-#define BW_MSG_FATTACH     0x0010  /* File attached          */
-#define BW_MSG_INTRANSIT   0x0020  /* In-transit             */
-#define BW_MSG_ORPHAN      0x0040  /* Orphaned               */
-#define BW_MSG_KILL        0x0080  /* Kill after sending     */
-#define BW_MSG_LOCAL       0x0100  /* Local message          */
-#define BW_MSG_HOLD        0x0200  /* Hold for pickup        */
-#define BW_MSG_RESERVED    0x0400  /* RESERVED               */
-#define BW_MSG_FREQ        0x0800  /* File request           */
-#define BW_MSG_RREQ        0x1000  /* Return receipt request */
-#define BW_MSG_RECEIPT     0x2000  /* Return receipt message */
-#define BW_MSG_AREQ        0x4000  /* Audit request          */
-#define BW_MSG_FUREQ       0x8000  /* File update request    */
+#define MSG_NET_PRIVATE     0x0001  /* Private                */
+#define MSG_NET_CRASH       0x0002  /* Crash mail             */
+#define MSG_NET_RECEIVED    0x0004  /* Received               */
+#define MSG_NET_SENT        0x0008  /* Sent                   */
+#define MSG_NET_FATTACH     0x0010  /* File attached          */
+#define MSG_NET_INTRANSIT   0x0020  /* In-transit             */
+#define MSG_NET_ORPHAN      0x0040  /* Orphaned               */
+#define MSG_NET_KILL        0x0080  /* Kill after sending     */
+#define MSG_NET_LOCAL       0x0100  /* Local message          */
+#define MSG_NET_HOLD        0x0200  /* Hold for pickup        */
+#define MSG_NET_RESERVED    0x0400  /* RESERVED               */
+#define MSG_NET_FREQ        0x0800  /* File request           */
+#define MSG_NET_RREQ        0x1000  /* Return receipt request */
+#define MSG_NET_RECEIPT     0x2000  /* Return receipt message */
+#define MSG_NET_AREQ        0x4000  /* Audit request          */
+#define MSG_NET_FUREQ       0x8000  /* File update request    */
 
 typedef struct      /*  MSG_REC (will soon be obsolete)  */
 {
@@ -608,9 +656,12 @@ MSG_REC;
 
 /*  Bit-masks for XTI_REC.FLAGS field  */
 
-#define XTI_HAS_READ        0x01    /* Message has been read       */
-#define XTI_HAS_REPLIED     0x02    /* Message has been replied to */
-#define XTI_IS_PERSONAL     0x04    /* Message is personal         */
+#define XTI_HAS_READ        0x01    /* Message has been read            */
+#define XTI_HAS_REPLIED     0x02    /* Message has been replied to      */
+#define XTI_IS_PERSONAL     0x04    /* Message is personal              */
+#define XTI_IS_TAGGED       0x08    /* Message has been 'tagged'        */
+#define XTI_HAS_SAVED       0x10    /* Message has been saved           */
+#define XTI_HAS_PRINTED     0x20    /* Message has been printed         */
 
 /*  Bit-masks for XTI_REC.MARKS field  */
 
@@ -640,12 +691,18 @@ XTI_REC;
 **                  structure plus the fields defined below (which aren't part
 **                  of the standard *.MSG structure yet required by the door).
 **
+**                  NOTE:   Readers should only generate a *.NET file if
+**                          INF_HEADER.USES_UPL_FILE is not set *AND* the
+**                          mail packet format is version 2 or earlier.
+**                          Doors should process *.NET files *ONLY* in cases
+**                          where a *.UPL file is not present.
+**
 **  File format:    NET_REC     { repeated for as many NetMail    }
 **                  NET_REC     { messages as exist in the packet }
 **                  ...
 */
 
-typedef struct      /*  NET_REC (will soon be obsolete)  */
+typedef struct      /*  NET_REC  */
 {
     MSG_REC msg;            /* The Fido-style *.MSG header                */
     tBYTE fname[13];        /* Filename the message text is in            */
@@ -670,13 +727,19 @@ NET_REC;
 **                  version and registration numbers.  Each record includes
 **                  all of the information about the message.
 **
+**                  NOTE:   Readers should only generate a *.UPI file if
+**                          INF_HEADER.USES_UPL_FILE is not set *AND* the
+**                          mail packet format is version 2 or earlier.
+**                          Doors should process *.UPI files *ONLY* in cases
+**                          where a *.UPL file is not present.
+**
 **  File format:    UPI_HEADER      { only included one time!        }
 **                  UPI_REC         { repeated for as many msg bases }
 **                  UPI_REC         { as are available to the user   }
 **                  ...
 */
 
-typedef struct      /*  UPI_HEADER (will soon be obsolete)  */
+typedef struct      /*  UPI_HEADER  */
 {
     tBYTE regnum[9];    /* Reader registration number                   */
     tBYTE vernum[13];   /* Reader version number                        */
@@ -712,7 +775,7 @@ UPI_HEADER;
                                 /*   of the currently supported BBS software */
                                 /*   has support for this feature.           */
 
-typedef struct      /*  UPI_REC (will soon be obsolete)  */
+typedef struct      /*  UPI_REC  */
 {
     tBYTE from[36];     /* Person message is from                     */
     tBYTE to[36];       /* Person message is to                       */
@@ -742,12 +805,11 @@ UPI_REC;
 **                  version and registration numbers.  Each record includes
 **                  all of the information about the message.
 **
-**                  NOTE:   The *.UPL file is only generated by the Blue Wave
-**                          reader version 2.11 and later.  *.UPL is intended
-**                          to eventually replace the *.NET and *.UPI files,
-**                          but door authors should code for the possibility
-**                          of both instances (however, *.UPL should be used
-**                          if present).
+**                  NOTE:   Readers should only generate a *.UPL file if
+**                          INF_HEADER.USES_UPL_FILE is set *AND/OR* the mail
+**                          packet format is version 3 or later.  Doors should
+**                          process *.UPL files in all cases where one is
+**                          present.
 **
 **  File format:    UPL_HEADER      { only included one time!       }
 **                  UPL_REC         { repeated for as many messages }
@@ -790,8 +852,31 @@ typedef struct      /*  UPL_HEADER  */
                             /*   doors programmers that wish to add to the  */
                             /*   tear line the name of the reader that      */
                             /*   created the reply packet.  (Filling it is  */
-                            /*   mandatory but using it is optional.)       */
-    tBYTE pad[36];          /* RESERVED FOR FUTURE USE, and to pad struct   */
+                            /*   mandatory but using it is optional.)  If   */
+                            /*   this field is blank, the tear line to be   */
+                            /*   generated is left to the discretion of the */
+                            /*   door author.                               */
+    tBYTE compress_type;    /* Compression type required for mail packet    */
+                            /*   The Blue Wave reader uses this internally  */
+                            /*   to store the compression type required for */
+                            /*   this particular mail packet.               */
+    tBYTE flags;            /* Reader processing flags                      */
+                            /*   The Blue Wave reader uses this internally  */
+                            /*   to store flags required for later          */
+                            /*   processing.                                */
+                            /*     0x01 = Was a .QWK packet.                */
+                            /*     0x02 = Host requires a *.UPI file        */
+    tBYTE not_registered;   /* Reader is not registered to user             */
+                            /*   If this byte is set to a non-zero value,   */
+                            /*   the Blue Wave doors will assume that the   */
+                            /*   user's reader was not registered, and will */
+                            /*   place "[NR]" at the end of the tear line.  */
+                            /*   Third-party doors may use this flag for    */
+                            /*   the same purpose; its use is optional by   */
+                            /*   mail readers (especially if you don't care */
+                            /*   whether or not "[NR]" shows up on the tear */
+                            /*   line <grin>).                              */
+    tBYTE pad[33];          /* RESERVED FOR FUTURE USE, and to pad struct   */
                             /*   out to a 'nice' 256 bytes                  */
 }
 UPL_HEADER;
@@ -815,12 +900,14 @@ UPL_HEADER;
                                 /*   the user to begin uploading the file    */
                                 /*   after importing the messages.  (Not yet */
                                 /*   implemented in the Blue Wave reader.)   */
-#define UPL_NETMAIL     0x0010  /* Message is NetMail                        */
-                                /*   Indicates that NetMail-specific fields  */
-                                /*   are utilized, and should be set for     */
-                                /*   messages entered in a FidoNet-style     */
-                                /*   NetMail area.                           */
-#define UPL_MRES6       0x0020  /* RESERVED FOR FUTURE USE                   */
+#define UPL_NETMAIL     0x0010  /* Message is network mail                   */
+                                /*   Indicates NetMail/E-mail message.  The  */
+                                /*   NETWORK_TYPE field (see below) will     */
+                                /*   indicate which fields should be used    */
+                                /*   for addressing the message.             */
+#define UPL_IS_REPLY    0x0020  /* Indicates that the message is a reply to  */
+                                /*   an existing message, rather than being  */
+                                /*   a completely new message.               */
 #define UPL_MRES7       0x0040  /* RESERVED FOR FUTURE USE                   */
 #define UPL_MRES8       0x0080  /* RESERVED FOR FUTURE USE                   */
                                 /* All of the other 8 bits of this field are */
@@ -828,7 +915,7 @@ UPL_HEADER;
                                 /*   should provide for plenty of expansion  */
                                 /*   for future development.                 */
 
-/*  Bit-masks for UPL_REC.NET_ATTR field  */
+/*  Bit-masks for UPL_REC.NETMAIL_ATTR field  */
 
 #define UPL_NRES1           0x0001  /* RESERVED FOR FUTURE USE             */
 #define UPL_NETCRASH        0x0002  /* Crash = High priority mail          */
@@ -850,22 +937,39 @@ UPL_HEADER;
 #define UPL_NETURQ          0x8000  /* Update Request = Request updated    */
                                     /*   file(s) listed in Subject field   */
 
-typedef struct
+/*  Values for UPL_REC.NETWORK_TYPE field  */
+
+#define UPL_NET_FIDONET     0   /* FidoNet-style E-mail and conferences     */
+                                /*   UPL_NETMAIL=off - Local, Echo, Group   */
+                                /*   UPL_NETMAIL=on  - NetMail              */
+#define UPL_NET_INTERNET    1   /* Internet E-mail and Usenet newsgroups    */
+                                /*   UPL_NETMAIL=off - Local, Newsgroup     */
+                                /*   UPL_NETMAIL=on  - E-mail               */
+
+typedef struct      /*  UPL_REC  */
 {
     tBYTE from[36];         /* Person message is from                        */
                             /*   NOTE: Doors should validate this field!     */
-    tBYTE to[36];           /* Person message is to                          */
+    tBYTE to[36];           /* Person message is to (non-Internet)           */
+                            /*   For Internet E-mail, the NET_DEST field     */
+                            /*   should be used to store the destination     */
+                            /*   name/address, leaving this field blank.     */
+                            /*   For Usenet newsgroups, this field should be */
+                            /*   left blank, as newsgroups don't use a "To:" */
+                            /*   field.                                      */
     tBYTE subj[72];         /* Subject/Title of message                      */
-    tWORD destzone;         /* Destination zone of message (NetMail only)    */
+    tWORD destzone;         /* Destination address (FidoNet only)            */
                             /*   If the message is not a FidoNet NetMail     */
                             /*   message, this field (and the subsequent     */
                             /*   three fields as well) should be set to      */
                             /*   zero.                                       */
-    tWORD destnet;          /* Destination net of message (NetMail only)     */
-    tWORD destnode;         /* Destination node of message (NetMail only)    */
-    tWORD destpoint;        /* Destination point of message (NetMail only)   */
+    tWORD destnet;
+    tWORD destnode;
+    tWORD destpoint;
     tWORD msg_attr;         /* Bit-mapped message attributes                 */
-    tWORD netmail_attr;     /* Bit-mapped NetMail message attributes         */
+    tWORD netmail_attr;     /* Bit-mapped NetMail attributes (FidoNet only)  */
+                            /*   If the message is not a FidoNet NetMail     */
+                            /*   message, this field should not be used.     */
     tLONG unix_date;        /* Date/time of message                          */
                             /*   This Unix-style date/time value (number     */
                             /*   of seconds since 01/01/70) is converted to  */
@@ -919,15 +1023,22 @@ typedef struct
     tBYTE f_attach[13];     /* If the UPL_HAS_FILE flag is set, this field   */
                             /*   will contain the file name that is attached */
                             /*   to the message.                             */
-    tBYTE user_area[7];     /* User-defined storage.  Doors should ignore    */
+    tBYTE user_area[6];     /* User-defined storage.  Doors should ignore    */
                             /*   this field, and reader authors should feel  */
                             /*   free to utilize this field for their own    */
                             /*   internal use, if necessary.                 */
-    tBYTE net_dest[100];    /* Network destination address                   */
-                            /*   If the message is for a non-FidoNet network */
-                            /*   message area, this field will contain the   */
-                            /*   ASCII representation of the destination     */
-                            /*   address.                                    */
+    tBYTE network_type;     /* Indicates the network type.  This field must  */
+                            /*   hold the same value as the NETWORK_TYPE     */
+                            /*   field in INF_AREA_INFO, allowing doors and  */
+                            /*   readers to properly handle the message.     */
+                            /*   (Values duplicated as UPL_NET_xxx, above.)  */
+                            /*   For FidoNet NetMail and Internet E-mail, it */
+                            /*   also indicates which fields should be used  */
+                            /*   for addressing and status information (as   */
+                            /*   indicated in comments above and below).     */
+    tBYTE net_dest[100];    /* Network destination address (non-FidoNet)     */
+                            /*   Internet E-mail messages should use this    */
+                            /*   field to store the destination address.     */
 }
 UPL_REC;
 
@@ -973,7 +1084,13 @@ REQ_REC;
 **                  areas to enable for scanning the next time a mail packet
 **                  is requested.
 **
-**                  NOTE:   If the AREA_CHANGES flag in PDQ_HEADER.FLAGS is
+**                  NOTE:   Readers should generate a *.PDQ file *ONLY* if
+**                          the mail packet format is version 2 or earlier;
+**                          otherwise, a *.OLC file should be generated.
+**                          Doors should process *.PDQ files *ONLY* in cases
+**                          where a *.OLC file is not present.
+**
+**                          If the AREA_CHANGES flag in PDQ_HEADER.FLAGS is
 **                          set, the door should process the offline
 **                          configuration as well as changes to the list of
 **                          areas the user wants to download.  In the Blue
@@ -1021,4 +1138,25 @@ PDQ_REC;
 
 /*---------------------------------------------------------------------------*/
 
+/*
+**  Name of file:   *.OLC
+**
+**  Description:    The *.OLC file contains the information used for the
+**                  offline configuration feature of the mail door.
+**
+**                  NOTE:   Readers should generate a *.OLC file *ONLY* if
+**                          the mail packet format is version 3 or later;
+**                          otherwise, a *.PDQ file should be generated.
+**                          Doors should process *.OLC files in all cases
+**                          where one is present.
+**
+**  File format:    ASCII text (lines terminated with CRLF)
+**
+**  Comments:       Refer to the Blue Wave Developer's Kit documentation
+**                  for details on the exact format of the *.OLC file.
+*/
+
+/*---------------------------------------------------------------------------*/
+
 #endif      /*  __BLUEWAVE_H  */
+

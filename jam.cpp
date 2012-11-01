@@ -1,7 +1,7 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.01 - Rev. 1
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// Lora BBS Professional Edition - Version 3.00.5
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
@@ -16,14 +16,14 @@ JAM::JAM (void)
 {
    fdHdr = fdJdt = fdJdx = -1;
    pSubfield = NULL;
-   Id = 0L;
+   Current = Id = 0L;
 }
 
 JAM::JAM (PSZ pszName)
 {
    fdHdr = fdJdt = fdJdx = -1;
    pSubfield = NULL;
-   Id = 0L;
+   Current = Id = 0L;
 
    Open (pszName);
 }
@@ -36,6 +36,48 @@ JAM::~JAM (void)
 USHORT JAM::Add (VOID)
 {
    return (Add (Text));
+}
+
+USHORT JAM::Add (class TMsgBase *MsgBase)
+{
+   New ();
+
+   strcpy (From, MsgBase->From);
+   strcpy (To, MsgBase->To);
+   strcpy (Subject, MsgBase->Subject);
+
+   strcpy (FromAddress, MsgBase->FromAddress);
+   strcpy (ToAddress, MsgBase->ToAddress);
+
+   Written.Day = MsgBase->Written.Day;
+   Written.Month = MsgBase->Written.Month;
+   Written.Year = MsgBase->Written.Year;
+   Written.Hour = MsgBase->Written.Hour;
+   Written.Minute = MsgBase->Written.Minute;
+   Written.Second = MsgBase->Written.Second;
+
+   Arrived.Day = MsgBase->Arrived.Day;
+   Arrived.Month = MsgBase->Arrived.Month;
+   Arrived.Year = MsgBase->Arrived.Year;
+   Arrived.Hour = MsgBase->Arrived.Hour;
+   Arrived.Minute = MsgBase->Arrived.Minute;
+   Arrived.Second = MsgBase->Arrived.Second;
+
+   Crash = MsgBase->Crash;
+   Direct = MsgBase->Direct;
+   FileAttach = MsgBase->FileAttach;
+   FileRequest = MsgBase->FileRequest;
+   Hold = MsgBase->Hold;
+   Immediate = MsgBase->Immediate;
+   Intransit = MsgBase->Intransit;
+   KillSent = MsgBase->KillSent;
+   Local = MsgBase->Local;
+   Private = MsgBase->Private;
+   ReceiptRequest = MsgBase->ReceiptRequest;
+   Received = MsgBase->Received;
+   Sent = MsgBase->Sent;
+
+   return (Add (MsgBase->Text));
 }
 
 USHORT JAM::Add (class TCollection &MsgText)
@@ -79,6 +121,20 @@ USHORT JAM::Add (class TCollection &MsgText)
    mktm.tm_isdst = 0;
    jamHdr.DateProcessed = mktime (&mktm);
 
+   jamHdr.Attribute |= (Crash == TRUE) ? MSG_CRASH : 0;
+   jamHdr.Attribute |= (Direct == TRUE) ? MSG_DIRECT : 0;
+   jamHdr.Attribute |= (FileAttach == TRUE) ? MSG_FILEATTACH : 0;
+   jamHdr.Attribute |= (FileRequest == TRUE) ? MSG_FILEREQUEST : 0;
+   jamHdr.Attribute |= (Hold == TRUE) ? MSG_HOLD : 0;
+   jamHdr.Attribute |= (Immediate == TRUE) ? MSG_IMMEDIATE : 0;
+   jamHdr.Attribute |= (Intransit == TRUE) ? MSG_INTRANSIT : 0;
+   jamHdr.Attribute |= (KillSent == TRUE) ? MSG_KILLSENT : 0;
+   jamHdr.Attribute |= (Local == TRUE) ? MSG_LOCAL : 0;
+   jamHdr.Attribute |= (Private == TRUE) ? MSG_PRIVATE : 0;
+   jamHdr.Attribute |= (ReceiptRequest == TRUE) ? MSG_RECEIPTREQ : 0;
+   jamHdr.Attribute |= (Received == TRUE) ? MSG_READ : 0;
+   jamHdr.Attribute |= (Sent == TRUE) ? MSG_SENT : 0;
+
    lseek (fdHdr, 0L, SEEK_END);
 
    jamIdx.UserCRC = 0;
@@ -121,27 +177,6 @@ USHORT JAM::Add (class TCollection &MsgText)
       write (fdHdr, ToAddress, strlen (ToAddress) + 1);
    }
 
-   if ((pszText = (PSZ)MsgText.First ()) != NULL)
-      do {
-         if (pszText[0] == 0x01) {
-            jamHdr.TxtLen += strlen (pszText);
-            jamSubfield.LoID = JAMSFLD_UNKNOWN;
-            jamSubfield.DatLen = strlen (pszText) + 1;
-            jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-            write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-            write (fdHdr, pszText, strlen (pszText) + 1);
-         }
-         else if (!strnicmp (pszText, "SEEN-BY:", 8)) {
-            pszText += 8;
-            jamHdr.TxtLen += strlen (pszText);
-            jamSubfield.LoID = JAMSFLD_SEENBY2D;
-            jamSubfield.DatLen = strlen (pszText) + 1;
-            jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-            write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-            write (fdHdr, pszText, strlen (pszText) + 1);
-         }
-      } while ((pszText = (PSZ)MsgText.Next ()) != NULL);
-
    lseek (fdHdr, 0L, SEEK_SET);
    read (fdHdr, &jamHdrInfo, sizeof (JAMHDRINFO));
    jamHdrInfo.ActiveMsgs++;
@@ -160,12 +195,10 @@ USHORT JAM::Add (class TCollection &MsgText)
 
       if ((pszText = (PSZ)MsgText.First ()) != NULL)
          do {
-            if (pszText[0] != 0x01 && strnicmp (pszText, "SEEN-BY:", 8)) {
-               write (fdJdt, pszText, strlen (pszText));
-               jamHdr.TxtLen += strlen (pszText);
-               write (fdJdt, "\r\n", 2);
-               jamHdr.TxtLen += 2;
-            }
+            write (fdJdt, pszText, strlen (pszText));
+            jamHdr.TxtLen += strlen (pszText);
+            write (fdJdt, "\r\n", 2);
+            jamHdr.TxtLen += 2;
          } while ((pszText = (PSZ)MsgText.Next ()) != NULL);
 
       lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
@@ -219,6 +252,13 @@ USHORT JAM::Delete (ULONG ulMsg)
    return (RetVal);
 }
 
+USHORT JAM::GetHWM (ULONG &ulMsg)
+{
+   ulMsg = 0L;
+
+   return (FALSE);
+}
+
 ULONG JAM::Highest (VOID)
 {
    ULONG RetVal = 0L;
@@ -261,6 +301,29 @@ ULONG JAM::Lowest (VOID)
    Id = RetVal;
 
    return (RetVal);
+}
+
+ULONG JAM::MsgnToUid (ULONG ulMsg)
+{
+   ULONG i = 1L;
+   JAMIDXREC jamIdx;
+
+   if (fdJdx != -1 && fdHdr != -1 && ulMsg > 0L && ulMsg <= jamHdrInfo.ActiveMsgs) {
+      lseek (fdJdx, 0L, SEEK_SET);
+      while (read (fdJdx, &jamIdx, sizeof (jamIdx)) == sizeof (jamIdx)) {
+         lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
+         read (fdHdr, &jamHdr, sizeof (JAMHDR));
+         if (!(jamHdr.Attribute & MSG_DELETED)) {
+            if (i == ulMsg) {
+               ulMsg = jamHdr.MsgNum;
+               break;
+            }
+            i++;
+         }
+      }
+   }
+
+   return (ulMsg);
 }
 
 VOID JAM::New (VOID)
@@ -385,11 +448,11 @@ VOID JAM::Pack (VOID)
    JAMIDXREC jamIdx;
 
    sprintf (File, "%s%s", BaseName, ".$dr");
-   fdnHdr = open (File, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE);
+   fdnHdr = sopen (File, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
    sprintf (File, "%s%s", BaseName, ".$dt");
-   fdnJdt = open (File, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE);
+   fdnJdt = sopen (File, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
    sprintf (File, "%s%s", BaseName, ".$dx");
-   fdnJdx = open (File, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, S_IREAD|S_IWRITE);
+   fdnJdx = sopen (File, O_RDWR|O_BINARY|O_CREAT|O_TRUNC, SH_DENYNO, S_IREAD|S_IWRITE);
 
    if (fdnHdr != -1 && fdnJdt != -1 && fdnJdx != -1) {
       lseek (fdHdr, 0L, SEEK_SET);
@@ -410,9 +473,9 @@ VOID JAM::Pack (VOID)
                write (fdnHdr, &jamHdr, sizeof (JAMHDR));
 
                if (jamHdr.SubfieldLen > 0L) {
-                  if ((Subfield = (CHAR *)malloc (jamHdr.SubfieldLen + 1)) != NULL) {
-                     read (fdHdr, Subfield, jamHdr.SubfieldLen);
-                     write (fdnHdr, Subfield, jamHdr.SubfieldLen);
+                  if ((Subfield = (CHAR *)malloc ((size_t)(jamHdr.SubfieldLen + 1))) != NULL) {
+                     read (fdHdr, Subfield, (size_t)jamHdr.SubfieldLen);
+                     write (fdnHdr, Subfield, (size_t)jamHdr.SubfieldLen);
                      free (Subfield);
                   }
                }
@@ -457,21 +520,18 @@ VOID JAM::Pack (VOID)
       Open (BaseName);
    }
 
-   if (fdnHdr != -1) {
+   if (fdnHdr != -1)
       close (fdnHdr);
-      sprintf (File, "%s%s", BaseName, ".$dr");
-      unlink (File);
-   }
-   if (fdnJdt != -1) {
+   sprintf (File, "%s%s", BaseName, ".$dr");
+   unlink (File);
+   if (fdnJdt != -1)
       close (fdnJdt);
-      sprintf (File, "%s%s", BaseName, ".$dt");
-      unlink (File);
-   }
-   if (fdnJdx != -1) {
+   sprintf (File, "%s%s", BaseName, ".$dt");
+   unlink (File);
+   if (fdnJdx != -1)
       close (fdnJdx);
-      sprintf (File, "%s%s", BaseName, ".$dx");
-      unlink (File);
-   }
+   sprintf (File, "%s%s", BaseName, ".$dx");
+   unlink (File);
 }
 
 USHORT JAM::Previous (ULONG &ulMsg)
@@ -581,32 +641,36 @@ USHORT JAM::ReadHeader (ULONG ulMsg)
    }
 
    if (RetVal == TRUE) {
-      Id = ulMsg;
-      Crash = (jamHdr.Attribute & MSG_CRASH) ? TRUE : FALSE;
-      Direct = (jamHdr.Attribute & MSG_DIRECT) ? TRUE : FALSE;
-      FileAttach = (jamHdr.Attribute & MSG_FILEATTACH) ? TRUE : FALSE;
-      FileRequest = (jamHdr.Attribute & MSG_FILEREQUEST) ? TRUE : FALSE;
-      Hold = (jamHdr.Attribute & MSG_HOLD) ? TRUE : FALSE;
-      Immediate = (jamHdr.Attribute & MSG_IMMEDIATE) ? TRUE : FALSE;
-      Intransit = (jamHdr.Attribute & MSG_INTRANSIT) ? TRUE : FALSE;
-      KillSent = (jamHdr.Attribute & MSG_KILLSENT) ? TRUE : FALSE;
-      Local = (jamHdr.Attribute & MSG_LOCAL) ? TRUE : FALSE;
-      Private = (jamHdr.Attribute & MSG_PRIVATE) ? TRUE : FALSE;
-      ReceiptRequest = (jamHdr.Attribute & MSG_RECEIPTREQ) ? TRUE : FALSE;
-      Received = (jamHdr.Attribute & MSG_READ) ? TRUE : FALSE;
-      Sent = (jamHdr.Attribute & MSG_SENT) ? TRUE : FALSE;
+      Current = Id = ulMsg;
+      Crash = (UCHAR)((jamHdr.Attribute & MSG_CRASH) ? TRUE : FALSE);
+      Direct = (UCHAR)((jamHdr.Attribute & MSG_DIRECT) ? TRUE : FALSE);
+      FileAttach = (UCHAR)((jamHdr.Attribute & MSG_FILEATTACH) ? TRUE : FALSE);
+      FileRequest = (UCHAR)((jamHdr.Attribute & MSG_FILEREQUEST) ? TRUE : FALSE);
+      Hold = (UCHAR)((jamHdr.Attribute & MSG_HOLD) ? TRUE : FALSE);
+      Immediate = (UCHAR)((jamHdr.Attribute & MSG_IMMEDIATE) ? TRUE : FALSE);
+      Intransit = (UCHAR)((jamHdr.Attribute & MSG_INTRANSIT) ? TRUE : FALSE);
+      KillSent = (UCHAR)((jamHdr.Attribute & MSG_KILLSENT) ? TRUE : FALSE);
+      Local = (UCHAR)((jamHdr.Attribute & MSG_LOCAL) ? TRUE : FALSE);
+      Private = (UCHAR)((jamHdr.Attribute & MSG_PRIVATE) ? TRUE : FALSE);
+      ReceiptRequest = (UCHAR)((jamHdr.Attribute & MSG_RECEIPTREQ) ? TRUE : FALSE);
+      Received = (UCHAR)((jamHdr.Attribute & MSG_READ) ? TRUE : FALSE);
+      Sent = (UCHAR)((jamHdr.Attribute & MSG_SENT) ? TRUE : FALSE);
 
       local = localtime ((const time_t *)&jamHdr.DateWritten);
       Written.Day = (UCHAR)local->tm_mday;
       Written.Month = (UCHAR)(local->tm_mon + 1);
+      if (Written.Month < 1 || Written.Month > 12)
+         Written.Month = 1;
       Written.Year = (USHORT)(local->tm_year + 1900);
       Written.Hour = (UCHAR)local->tm_hour;
       Written.Minute = (UCHAR)local->tm_min;
       Written.Second = (UCHAR)local->tm_sec;
 
-      local = localtime ((const time_t *)&jamHdr.DateReceived);
+      local = localtime ((const time_t *)&jamHdr.DateProcessed);
       Arrived.Day = (UCHAR)local->tm_mday;
       Arrived.Month = (UCHAR)(local->tm_mon + 1);
+      if (Arrived.Month < 1 || Arrived.Month > 12)
+         Arrived.Month = 1;
       Arrived.Year = (USHORT)(local->tm_year + 1900);
       Arrived.Hour = (UCHAR)local->tm_hour;
       Arrived.Minute = (UCHAR)local->tm_min;
@@ -618,11 +682,11 @@ USHORT JAM::ReadHeader (ULONG ulMsg)
 
       if (jamHdr.SubfieldLen > 0L) {
          ulSubfieldLen = jamHdr.SubfieldLen;
-         pPos = pSubfield = (UCHAR *)malloc (ulSubfieldLen + 1);
+         pPos = pSubfield = (UCHAR *)malloc ((size_t)(ulSubfieldLen + 1));
          if (pSubfield == NULL)
             return (FALSE);
 
-         read (fdHdr, pSubfield, jamHdr.SubfieldLen);
+         read (fdHdr, pSubfield, (size_t)jamHdr.SubfieldLen);
 
          while (ulSubfieldLen > 0L) {
             jamSubField = (JAMBINSUBFIELD *)pPos;
@@ -660,7 +724,7 @@ USHORT JAM::ReadHeader (ULONG ulMsg)
 
             ulSubfieldLen -= sizeof (JAMBINSUBFIELD) + jamSubField->DatLen;
             if (ulSubfieldLen > 0)
-               pPos += jamSubField->DatLen;
+               pPos += (USHORT)jamSubField->DatLen;
          }
       }
    }
@@ -675,21 +739,108 @@ USHORT JAM::Read (ULONG ulMsg, SHORT nWidth)
 
 USHORT JAM::Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth)
 {
-   USHORT RetVal = FALSE;
+   USHORT RetVal = FALSE, SkipNext;
    SHORT i, nReaded, nCol, nRead;
-   CHAR szBuff[128], szLine[132], szWrp[132], *pLine, *pBuff;
-   ULONG ulTxtLen;
+   CHAR *p;
+   UCHAR *pPos;
+   ULONG ulTxtLen, ulSubfieldLen;
+   JAMIDXREC jamIdx;
+   JAMBINSUBFIELD *jamSubField;
+   class TCollection Bottom;
 
    MsgText.Clear ();
 
    if ((RetVal = ReadHeader (ulMsg)) == TRUE) {
+      lseek (fdJdx, tell (fdJdx) - sizeof (jamIdx), SEEK_SET);
+      read (fdJdx, &jamIdx, sizeof (jamIdx));
+      lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
+      read (fdHdr, &jamHdr, sizeof (JAMHDR));
+
+      if ((p = strchr (FromAddress, '.')) != NULL) {
+         p++;
+         if (atoi (p) != 0) {
+            sprintf (szLine, "\001FMPT %s", p);
+            MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+         }
+      }
+      if ((p = strchr (ToAddress, '.')) != NULL) {
+         p++;
+         if (atoi (p) != 0) {
+            sprintf (szLine, "\001TOPT %s", p);
+            MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+         }
+      }
+
+      if (pSubfield != NULL)
+         free (pSubfield);
+      pSubfield = NULL;
+
+      if (jamHdr.SubfieldLen > 0L) {
+         ulSubfieldLen = jamHdr.SubfieldLen;
+         pPos = pSubfield = (UCHAR *)malloc ((size_t)(ulSubfieldLen + 1));
+         if (pSubfield == NULL)
+            return (FALSE);
+
+         read (fdHdr, pSubfield, (size_t)jamHdr.SubfieldLen);
+
+         while (ulSubfieldLen > 0L) {
+            jamSubField = (JAMBINSUBFIELD *)pPos;
+            pPos += sizeof (JAMBINSUBFIELD);
+
+            switch (jamSubField->LoID) {
+               case JAMSFLD_MSGID:
+                  memcpy (szBuff, pPos, (INT)jamSubField->DatLen);
+                  szBuff[(INT)jamSubField->DatLen] = '\0';
+                  sprintf (szLine, "\001MSGID: %s", szBuff);
+                  MsgText.Add (szLine);
+                  break;
+
+               case JAMSFLD_REPLYID:
+                  memcpy (szBuff, pPos, (INT)jamSubField->DatLen);
+                  szBuff[(INT)jamSubField->DatLen] = '\0';
+                  sprintf (szLine, "\001REPLYID: %s", szBuff);
+                  MsgText.Add (szLine);
+                  break;
+
+               case JAMSFLD_PID:
+                  memcpy (szBuff, pPos, (INT)jamSubField->DatLen);
+                  szBuff[(INT)jamSubField->DatLen] = '\0';
+                  sprintf (szLine, "\001PID: %s", szBuff);
+                  MsgText.Add (szLine);
+                  break;
+
+               case JAMSFLD_SEENBY2D:
+                  memcpy (szBuff, pPos, (INT)jamSubField->DatLen);
+                  szBuff[(INT)jamSubField->DatLen] = '\0';
+                  sprintf (szLine, "SEEN-BY: %s", szBuff);
+                  Bottom.Add (szLine);
+                  break;
+
+               case JAMSFLD_PATH2D:
+                  memcpy (szBuff, pPos, (INT)jamSubField->DatLen);
+                  szBuff[(INT)jamSubField->DatLen] = '\0';
+                  sprintf (szLine, "\001PATH: %s", szBuff);
+                  Bottom.Add (szLine);
+                  break;
+
+               default:
+                  break;
+            }
+
+            ulSubfieldLen -= sizeof (JAMBINSUBFIELD) + jamSubField->DatLen;
+            if (ulSubfieldLen > 0)
+               pPos += (USHORT)jamSubField->DatLen;
+         }
+      }
+
       lseek (fdJdt, jamHdr.TxtOffset, SEEK_SET);
       ulTxtLen = jamHdr.TxtLen;
       pLine = szLine;
       nCol = 0;
+      SkipNext = FALSE;
 
       do {
-         if ((nRead = sizeof (szBuff)) > ulTxtLen)
+         if ((ULONG)(nRead = sizeof (szBuff)) > ulTxtLen)
             nRead = (SHORT)ulTxtLen;
 
          nReaded = (SHORT)read (fdJdt, szBuff, nRead);
@@ -697,7 +848,16 @@ USHORT JAM::Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth)
          for (i = 0, pBuff = szBuff; i < nReaded; i++, pBuff++) {
             if (*pBuff == '\r') {
                *pLine = '\0';
-               MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+               if (pLine > szLine && SkipNext == TRUE) {
+                  pLine--;
+                  while (pLine > szLine && *pLine == ' ')
+                     *pLine-- = '\0';
+                  if (pLine > szLine)
+                     MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+               }
+               else if (SkipNext == FALSE)
+                  MsgText.Add (szLine);
+               SkipNext = FALSE;
                pLine = szLine;
                nCol = 0;
             }
@@ -706,29 +866,67 @@ USHORT JAM::Read (ULONG ulMsg, class TCollection &MsgText, SHORT nWidth)
                nCol++;
                if (nCol >= nWidth) {
                   *pLine = '\0';
-                  while (nCol > 1 && *pLine != ' ') {
-                     nCol--;
-                     pLine--;
+                  if (strchr (szLine, ' ') != NULL) {
+                     while (nCol > 1 && *pLine != ' ') {
+                        nCol--;
+                        pLine--;
+                     }
+                     if (nCol > 0) {
+                        while (*pLine == ' ')
+                           pLine++;
+                        strcpy (szWrp, pLine);
+                     }
+                     *pLine = '\0';
                   }
-                  if (nCol > 0) {
-                     while (*pLine == ' ')
-                        pLine++;
-                     strcpy (szWrp, pLine);
-                  }
-                  *pLine = '\0';
-                  MsgText.Add (szLine, (USHORT)(strlen (szLine) + 1));
+                  else
+                     szWrp[0] = '\0';
+                  MsgText.Add (szLine);
                   strcpy (szLine, szWrp);
                   pLine = strchr (szLine, '\0');
                   nCol = (SHORT)strlen (szLine);
+                  SkipNext = TRUE;
                }
             }
          }
 
          ulTxtLen -= nRead;
       } while (ulTxtLen > 0);
+
+      if ((p = (CHAR *)Bottom.First ()) != NULL)
+         do {
+            MsgText.Add (p);
+         } while ((p = (CHAR *)Bottom.Next ()) != NULL);
    }
 
    return (RetVal);
+}
+
+VOID JAM::SetHWM (ULONG ulMsg)
+{
+   ulMsg = ulMsg;
+}
+
+ULONG JAM::UidToMsgn (ULONG ulMsg)
+{
+   ULONG i = 1L;
+   JAMIDXREC jamIdx;
+
+   if (fdJdx != -1 && fdHdr != -1) {
+      lseek (fdJdx, 0L, SEEK_SET);
+      while (read (fdJdx, &jamIdx, sizeof (jamIdx)) == sizeof (jamIdx)) {
+         lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
+         read (fdHdr, &jamHdr, sizeof (JAMHDR));
+         if (!(jamHdr.Attribute & MSG_DELETED)) {
+            if (jamHdr.MsgNum == ulMsg) {
+               ulMsg = i;
+               break;
+            }
+            i++;
+         }
+      }
+   }
+
+   return (ulMsg);
 }
 
 VOID JAM::UnLock (VOID)
@@ -792,163 +990,6 @@ USHORT JAM::WriteHeader (ULONG ulMsg)
 
       lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
       write (fdHdr, &jamHdr, sizeof (JAMHDR));
-   }
-
-   return (RetVal);
-}
-
-USHORT JAM::Write (ULONG ulMsg)
-{
-   return (Write (ulMsg, Text));
-}
-
-USHORT JAM::Write (ULONG ulMsg, class TCollection &MsgText)
-{
-   USHORT RetVal = FALSE;
-   PSZ pszText, pszSign = HEADERSIGNATURE;
-   JAMIDXREC jamIdx;
-   JAMSUBFIELD jamSubfield;
-   struct tm mktm;
-
-   if (ulMsg == (Highest () + 1L)) {
-      RetVal = TRUE;
-
-      memset (&jamHdr, 0, sizeof (JAMHDR));
-      jamHdr.Signature[0] = pszSign[0];
-      jamHdr.Signature[1] = pszSign[1];
-      jamHdr.Signature[2] = pszSign[2];
-      jamHdr.Signature[3] = pszSign[3];
-      jamHdr.Revision = CURRENTREVLEV;
-      jamHdr.MsgNum = ulMsg;
-
-      mktm.tm_year = Written.Year - 1900;
-      mktm.tm_mon = Written.Month - 1;
-      mktm.tm_mday = Written.Day;
-      mktm.tm_hour = Written.Hour;
-      mktm.tm_min = Written.Minute;
-      mktm.tm_sec = Written.Second;
-      mktm.tm_wday = 0;
-      mktm.tm_yday = 0;
-      mktm.tm_isdst = 0;
-      jamHdr.DateWritten = mktime (&mktm);
-
-      mktm.tm_year = Arrived.Year - 1900;
-      mktm.tm_mon = Arrived.Month - 1;
-      mktm.tm_mday = Arrived.Day;
-      mktm.tm_hour = Arrived.Hour;
-      mktm.tm_min = Arrived.Minute;
-      mktm.tm_sec = Arrived.Second;
-      mktm.tm_wday = 0;
-      mktm.tm_yday = 0;
-      mktm.tm_isdst = 0;
-      jamHdr.DateProcessed = mktime (&mktm);
-
-      lseek (fdHdr, 0L, SEEK_END);
-
-      jamIdx.UserCRC = 0;
-      jamIdx.HdrOffset = tell (fdHdr);
-      lseek (fdJdx, 0L, SEEK_END);
-      write (fdJdx, &jamIdx, sizeof (JAMIDXREC));
-
-      write (fdHdr, &jamHdr, sizeof (JAMHDR));
-
-      jamSubfield.HiID = 0;
-      jamSubfield.LoID = JAMSFLD_SENDERNAME;
-      jamSubfield.DatLen = strlen (From) + 1;
-      jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-      write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-      write (fdHdr, From, strlen (From) + 1);
-      if (To[0]) {
-         jamSubfield.LoID = JAMSFLD_RECVRNAME;
-         jamSubfield.DatLen = strlen (To) + 1;
-         jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-         write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-         write (fdHdr, To, strlen (To) + 1);
-      }
-      jamSubfield.LoID = JAMSFLD_SUBJECT;
-      jamSubfield.DatLen = strlen (Subject) + 1;
-      jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-      write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-      write (fdHdr, Subject, strlen (Subject) + 1);
-      if (FromAddress[0] != '\0') {
-         jamSubfield.LoID = JAMSFLD_OADDRESS;
-         jamSubfield.DatLen = strlen (FromAddress) + 1;
-         jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-         write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-         write (fdHdr, FromAddress, strlen (FromAddress) + 1);
-      }
-      if (ToAddress[0] != '\0') {
-         jamSubfield.LoID = JAMSFLD_DADDRESS;
-         jamSubfield.DatLen = strlen (ToAddress) + 1;
-         jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-         write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-         write (fdHdr, ToAddress, strlen (ToAddress) + 1);
-      }
-
-      if ((pszText = (PSZ)MsgText.First ()) != NULL)
-         do {
-            if (pszText[0] == 0x01) {
-               jamHdr.TxtLen += strlen (pszText);
-               jamSubfield.LoID = JAMSFLD_UNKNOWN;
-               jamSubfield.DatLen = strlen (pszText) + 1;
-               jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-               write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-               write (fdHdr, pszText, strlen (pszText) + 1);
-            }
-            else if (!strnicmp (pszText, "SEEN-BY:", 8)) {
-               pszText += 8;
-               jamHdr.TxtLen += strlen (pszText);
-               jamSubfield.LoID = JAMSFLD_SEENBY2D;
-               jamSubfield.DatLen = strlen (pszText) + 1;
-               jamHdr.SubfieldLen += jamSubfield.DatLen + sizeof (JAMBINSUBFIELD);
-               write (fdHdr, &jamSubfield, sizeof (JAMBINSUBFIELD));
-               write (fdHdr, pszText, strlen (pszText) + 1);
-            }
-         } while ((pszText = (PSZ)MsgText.Next ()) != NULL);
-
-      lseek (fdHdr, 0L, SEEK_SET);
-      read (fdHdr, &jamHdrInfo, sizeof (JAMHDRINFO));
-      jamHdrInfo.ActiveMsgs++;
-      lseek (fdHdr, 0L, SEEK_SET);
-      write (fdHdr, &jamHdrInfo, sizeof (JAMHDRINFO));
-
-      lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
-      write (fdHdr, &jamHdr, sizeof (JAMHDR));
-   }
-   else {
-      Id = 0L;
-      lseek (fdJdx, 0L, SEEK_SET);
-      do {
-         if (read (fdJdx, &jamIdx, sizeof (jamIdx)) == sizeof (jamIdx)) {
-            lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
-            read (fdHdr, &jamHdr, sizeof (JAMHDR));
-            if (!(jamHdr.Attribute & MSG_DELETED) && jamHdr.MsgNum == ulMsg)
-               RetVal = TRUE;
-         }
-      } while (RetVal == FALSE && tell (fdJdx) < filelength (fdJdx));
-   }
-
-   if (RetVal == TRUE) {
-      Id = jamHdr.MsgNum;
-
-      lseek (fdJdt, 0L, SEEK_END);
-      jamHdr.TxtOffset = tell (fdJdt);
-      jamHdr.TxtLen = 0;
-
-      if ((pszText = (PSZ)MsgText.First ()) != NULL)
-         do {
-            if (pszText[0] != 0x01 && strnicmp (pszText, "SEEN-BY:", 8)) {
-               write (fdJdt, pszText, strlen (pszText));
-               jamHdr.TxtLen += strlen (pszText);
-               write (fdJdt, "\r\n", 2);
-               jamHdr.TxtLen += 2;
-            }
-         } while ((pszText = (PSZ)MsgText.Next ()) != NULL);
-
-      lseek (fdHdr, jamIdx.HdrOffset, SEEK_SET);
-      write (fdHdr, &jamHdr, sizeof (JAMHDR));
-
-      WriteHeader (ulMsg);
    }
 
    return (RetVal);

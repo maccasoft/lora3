@@ -157,6 +157,19 @@ extern "C" {
     #define _JAMPROC
     #define _JAMDATA
 
+#elif defined(__LINUX__)
+    typedef long                INT32;      /* 32 bits signed integer     */
+    typedef unsigned long       UINT32;     /* 32 bits unsigned integer   */
+    typedef short int           INT16;      /* 16 bits signed integer     */
+    typedef unsigned short int  UINT16;     /* 16 bits unsigned integer   */
+    typedef char                CHAR8;      /* 8 bits signed integer      */
+    typedef unsigned char       UCHAR8;     /* 8 bits unsigned integer    */
+    typedef int                 FHANDLE;    /* File handle                */
+
+    #define _JAMFAR
+    #define _JAMPROC
+    #define _JAMDATA
+
 #elif defined(__NT__)
     typedef long                INT32;      /* 32 bits signed integer     */
     typedef unsigned long       UINT32;     /* 32 bits unsigned integer   */
@@ -257,4 +270,3 @@ typedef struct JAMtm
 #endif
 
 /* end of file "jamsys.h" */
-

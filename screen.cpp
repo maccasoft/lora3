@@ -1,7 +1,7 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.18
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// LoraBBS Professional Edition - Version 3.00.1
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
 //    05/20/95 - Initial coding.
@@ -12,33 +12,64 @@
 
 TScreen::TScreen (void)
 {
-#if defined(__NT__)
-   EndRun = FALSE;
-   RxBytes = 0;
-#else
-   wh = -1;
+   wh = 0;
    Ansi = FALSE;
    Prec = 0;
    Attr = BLACK|_LGREY;
-#endif
+   RxBytes = 0;
+   RxPosition = 0;
 }
 
 TScreen::~TScreen (void)
 {
-#if defined(__DOS__) || defined(__OS2__)
    if (wh != -1) {
       wactiv (wh);
       wclose ();
+      wclose ();
    }
+
    hidecur ();
-#endif
 }
 
-SHORT TScreen::BytesReady (VOID)
+USHORT TScreen::BytesReady (VOID)
 {
-   SHORT RetVal = FALSE;
+   int c;
+   USHORT RetVal = FALSE;
 
-   if (kbhit ())
+   while (kbhit ()) {
+      c = (USHORT)getxch ();
+      if (c == 0x4800) {
+         memcpy (&RxBuffer[RxBytes], "\x1B[A", 3);
+         RxBytes += 3;
+      }
+      else if (c == 0x5000) {
+         memcpy (&RxBuffer[RxBytes], "\x1B[B", 3);
+         RxBytes += 3;
+      }
+      else if (c == 0x4D00) {
+         memcpy (&RxBuffer[RxBytes], "\x1B[C", 3);
+         RxBytes += 3;
+      }
+      else if (c == 0x4B00) {
+         memcpy (&RxBuffer[RxBytes], "\x1B[D", 3);
+         RxBytes += 3;
+      }
+      else if (c == 0x4700) {
+         memcpy (&RxBuffer[RxBytes], "\x1B[H", 3);
+         RxBytes += 3;
+      }
+      else if (c == 0x4F00) {
+         memcpy (&RxBuffer[RxBytes], "\x1B[K", 3);
+         RxBytes += 3;
+      }
+      else if (c == 0x5300) {
+         memcpy (&RxBuffer[RxBytes], "\x7F", 1);
+         RxBytes += 1;
+      }
+      else
+         RxBuffer[RxBytes++] = (UCHAR)c;
+   }
+   if (RxBytes > 0)
       RetVal = TRUE;
 
    return (RetVal);
@@ -46,11 +77,7 @@ SHORT TScreen::BytesReady (VOID)
 
 VOID TScreen::BufferByte (UCHAR byte)
 {
-#if defined(__NT__)
-   TxBuffer[TxBytes++] = byte;
-   if (TxBytes >= TSIZE)
-      UnbufferBytes ();
-#else
+   short x, y;
    USHORT i;
 
    if (byte == '[' && Prec == ESC) {
@@ -70,7 +97,7 @@ VOID TScreen::BufferByte (UCHAR byte)
 
                   switch (Params[i]) {
                      case 0:
-                        Attr = 0;
+                        Attr = 7;
                         break;
                      case 1:
                         Attr |= 0x08;
@@ -133,7 +160,38 @@ VOID TScreen::BufferByte (UCHAR byte)
                }
                wtextattr (Attr);
             }
-            else if (byte == 'f')
+            else if (byte == 'A') {
+               wreadcur (&y, &x);
+               if (Params[0] == 0)
+                  Params[0] = 1;
+               wgotoxy ((SHORT)(y - Params[0]), x);
+            }
+            else if (byte == 'B') {
+               wreadcur (&y, &x);
+               if (Params[0] == 0)
+                  Params[0] = 1;
+               wgotoxy ((SHORT)(y + Params[0]), x);
+            }
+            else if (byte == 'C') {
+               wreadcur (&y, &x);
+               if (Params[0] == 0)
+                  Params[0] = 1;
+               wgotoxy (y, (SHORT)(x + Params[0]));
+            }
+            else if (byte == 'D') {
+               wreadcur (&y, &x);
+               if (Params[0] == 0)
+                  Params[0] = 1;
+               wgotoxy (y, (SHORT)(x - Params[0]));
+            }
+            else if (byte == 'n') {
+               if (Params[0] == 6) {
+                  memcpy (RxBuffer, "\x1B[0;0h", 6);
+                  RxBytes = 6;
+                  RxPosition = 0;
+               }
+            }
+            else if (byte == 'f' || byte == 'H')
                wgotoxy ((SHORT)(Params[0] - 1), (SHORT)(Params[1] - 1));
             else if (byte == 'J' && Params[0] == 2)
                wclear ();
@@ -149,6 +207,8 @@ VOID TScreen::BufferByte (UCHAR byte)
             Params[Count] *= 10;
             Params[Count] += (USHORT)(byte - '0');
          }
+         else
+            Ansi = FALSE;
       }
       else if (byte == CTRLL)
          wclear ();
@@ -157,100 +217,124 @@ VOID TScreen::BufferByte (UCHAR byte)
    }
 
    Prec = byte;
-#endif
 }
 
 VOID TScreen::BufferBytes (UCHAR *bytes, USHORT len)
 {
-#if defined(__NT__)
-   while (len > 0 && EndRun == FALSE) {
-      TxBuffer[TxBytes++] = *bytes++;
-      if (TxBytes >= TSIZE)
-         UnbufferBytes ();
-      len--;
-   }
-#else
    while (len-- > 0)
       BufferByte (*bytes++);
-#endif
 }
 
-SHORT TScreen::Carrier (VOID)
+USHORT TScreen::Carrier (VOID)
 {
    return (TRUE);
 }
 
 VOID TScreen::ClearOutbound (VOID)
 {
-#if defined(__NT__)
    TxBytes = 0;
-#endif
 }
 
 VOID TScreen::ClearInbound (VOID)
 {
-#if defined(__NT__)
    RxBytes = 0;
-#endif
 }
 
-SHORT TScreen::Initialize (VOID)
+USHORT TScreen::Initialize (VOID)
 {
-#if defined(__NT__)
-   return (TRUE);
-#else
-   SHORT RetVal = FALSE;
+   USHORT RetVal = FALSE;
 
+   RxBytes = 0;
+   RxPosition = 0;
+
+#if defined(__OS2__) || defined(__NT__)
+   videoinit ();
+#endif
    if ((wh = wopen (0, 0, (short)(24 - 1), 79, 5, LGREY|_BLACK, LGREY|_BLACK)) != -1) {
+      wopen (24, 0, 24, 79, 5, WHITE|_BLUE, WHITE|_BLUE);
+      wactiv (wh);
       showcur ();
       RetVal = TRUE;
    }
+   videoupdate ();
 
    return (RetVal);
-#endif
 }
 
 UCHAR TScreen::ReadByte (VOID)
 {
-   return ((UCHAR)getch ());
+   UCHAR c;
+
+   if (RxBytes == 0)
+      return ((UCHAR)getxch ());
+   else {
+      c = RxBuffer[RxPosition++];
+      if (--RxBytes == 0)
+         RxPosition = 0;
+      return (c);
+   }
 }
 
 USHORT TScreen::ReadBytes (UCHAR *bytes, USHORT len)
 {
-   bytes = bytes;
-   len = len;
+   USHORT Max = 0;
+   USHORT c;
 
-   return (0);
+   if ((Max = len) > RxBytes)
+      Max = RxBytes;
+   if (Max > 0)
+      memcpy (bytes, &RxBuffer[RxPosition], Max);
+   RxPosition += Max;
+   if ((RxBytes -= Max) == 0)
+      RxPosition = 0;
+   while (kbhit ()) {
+      c = (USHORT)getxch ();
+      if (c == 0x4800) {
+         memcpy (&bytes[Max], "\x1B[A", 3);
+         Max += 3;
+      }
+      else if (c == 0x5000) {
+         memcpy (&bytes[Max], "\x1B[B", 3);
+         Max += 3;
+      }
+      else if (c == 0x4D00) {
+         memcpy (&bytes[Max], "\x1B[C", 3);
+         Max += 3;
+      }
+      else if (c == 0x4B00) {
+         memcpy (&bytes[Max], "\x1B[D", 3);
+         Max += 3;
+      }
+      else if (c == 0x4700) {
+         memcpy (&bytes[Max], "\x1B[H", 3);
+         Max += 3;
+      }
+      else if (c == 0x4F00) {
+         memcpy (&bytes[Max], "\x1B[K", 3);
+         Max += 3;
+      }
+      else
+         bytes[Max++] = (UCHAR)c;
+   }
+
+   return (Max);
 }
 
 VOID TScreen::SendByte (UCHAR byte)
 {
-#if defined(__NT__)
-   fwrite (&byte, 1, 1, stdout);
-   fflush (stdout);
-#else
    BufferByte (byte);
-#endif
+   videoupdate ();
 }
 
 VOID TScreen::SendBytes (UCHAR *bytes, USHORT len)
 {
-#if defined(__NT__)
-   fwrite (bytes, len, 1, stdout);
-   fflush (stdout);
-#else
-   while (len-- > 0)
-      BufferByte (*bytes++);
-#endif
+   BufferBytes (bytes, len);
+   videoupdate ();
 }
 
 VOID TScreen::UnbufferBytes (VOID)
 {
-#if defined(__NT__)
-   fwrite (TxBuffer, TxBytes, 1, stdout);
-   fflush (stdout);
-   TxBytes = 0;
-#endif
+   videoupdate ();
 }
 
 

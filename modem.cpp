@@ -1,674 +1,272 @@
 
 // ----------------------------------------------------------------------
-// Lora BBS Professional Edition - Version 0.16
-// Copyright (c) 1995 by Marco Maccaferri. All rights reserved.
+// LoraBBS Professional Edition - Version 3.00.1
+// Copyright (c) 1996 by Marco Maccaferri. All rights reserved.
 //
 // History:
-//    05/20/95 - Initial coding.
+//    03/10/95 - Initial coding.
 // ----------------------------------------------------------------------
 
 #include "_ldefs.h"
-#include <bios.h>
-#include "combase.h"
-#include "mailer.h"
-#include "nodes.h"
-#include "menu.h"
-#include "schedule.h"
-#include "version.h"
+#include "msgbase.h"
+#include "lorawin.h"
 
-class TModemStatus
+TModem::TModem (void)
 {
-public:
-   TModemStatus (void);
-   ~TModemStatus (void);
-
-   USHORT Oh;
-   class  TCom *Com;
-
-   VOID   Idle (VOID);
-
-private:
-   short  whStatus;
-};
-
-TModemStatus::TModemStatus (void)
-{
-   short wh;
-   CHAR Temp[128];
-
-   Oh = FALSE;
-   wh = whandle ();
-
-   if ((whStatus = wopen (24, 0, 24, 79, 5, LGREY|_BLUE, LGREY|_BLUE)) != 0) {
-      sprintf (Temp, " %-8s ³ %-6s ³ RI CD OH RD SD TR MR RS CS ³", "", "");
-      wprints (0, 0, WHITE|_BLUE, Temp);
-   }
-
-   if (wh != 0)
-      wactiv (wh);
-}
-
-TModemStatus::~TModemStatus (void)
-{
-   short wh;
-
-   if (whStatus != 0) {
-      wh = whandle ();
-      wactiv (whStatus);
-      wclose ();
-      if (whStatus != wh)
-         wactiv (wh);
-   }
-}
-
-VOID TModemStatus::Idle (VOID)
-{
-   CHAR Temp[32];
-
-   if (whStatus != 0) {
-      sprintf (Temp, " %-8s ³ %-6s", Com->Device, Com->Speed);
-      prints (24, 0, WHITE|_BLUE, Temp);
-
-      prints (24, 21, (Com->Ri == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "RI");
-      prints (24, 24, (Com->Dcd == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "CD");
-      prints (24, 27, (Oh == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "OH");
-      prints (24, 30, (Com->Rxd == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "RD");
-      prints (24, 33, (Com->Txd == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "SD");
-      prints (24, 36, (Com->Dtr == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "TR");
-      prints (24, 39, (Com->Dsr == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "MR");
-      prints (24, 42, (Com->Rts == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "RS");
-      prints (24, 45, (Com->Cts == TRUE) ? WHITE|_BLUE : BLACK|_BLUE, "CS");
-   }
-}
-
-// ----------------------------------------------------------------------
-
-class TModemSystem
-{
-public:
-   TModemSystem (void);
-   ~TModemSystem (void);
-
-   VOID   Idle (VOID);
-   VOID   Mode (PSZ pszMode);
-
-private:
-   short   whStatus;
-   ULONG   Change, LastTime;
-};
-
-TModemSystem::TModemSystem (void)
-{
-   if ((whStatus = wopen (1, 46, 12, 79, 1, LGREEN|_BLACK, LGREY|_BLACK)) != 0) {
-      prints (1, 48, LGREEN|_BLACK, "SYSTEM");
-      wrjusts (3, 15, LCYAN|_BLACK, "System mode:");
-      wrjusts (4, 15, LCYAN|_BLACK, "Elapsed time:");
-      wrjusts (5, 15, LCYAN|_BLACK, "Next action:");
-      wrjusts (6, 15, LCYAN|_BLACK, "Event tag:");
-      wrjusts (7, 15, LCYAN|_BLACK, "Scheduled for:");
-      wrjusts (8, 15, LCYAN|_BLACK, "Time remaining:");
-
-      Mode ("Initializing");
-   }
-
-   Change = time (NULL);
-   LastTime = 0L;
-}
-
-TModemSystem::~TModemSystem (void)
-{
-   short wh;
-
-   if (whStatus != 0) {
-      wh = whandle ();
-      wactiv (whStatus);
-      wclose ();
-      if (whStatus != wh)
-         wactiv (wh);
-   }
-}
-
-PSZ Months[] = {
-   "January", "February", "March", "April", "May", "June",
-   "July", "August", "September", "October", "November", "December"
-};
-
-PSZ WeekDays[] = {
-   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-};
-
-VOID TModemSystem::Idle (VOID)
-{
-   short wh;
-   CHAR Temp[48];
-   ULONG t;
-   struct tm *tp;
-
-   if (whStatus != 0) {
-      wh = whandle ();
-      wactiv (whStatus);
-
-      t = time (NULL);
-      if (LastTime != t) {
-         tp = localtime ((time_t *)&t);
-         sprintf (Temp, "%s %d %s %d", WeekDays[tp->tm_wday], tp->tm_mday, Months[tp->tm_mon], tp->tm_year + 1900);
-         wprints (0, (short)(16 - strlen (Temp) / 2), YELLOW|_BLACK, Temp);
-         sprintf (Temp, "%02d:%02d:%02d", tp->tm_hour % 24, tp->tm_min % 60, tp->tm_sec % 60);
-         wprints (1, (short)(16 - strlen (Temp) / 2), YELLOW|_BLACK, Temp);
-         LastTime = t;
-
-         t = LastTime - Change;
-         if (t < 3600L)
-            sprintf (Temp, "%02ld:%02ld", t / 60L, t % 60L);
-         else
-            sprintf (Temp, "%ld:%02ld:%02ld", t / 3600L, (t % 3600L) / 60L, ((t % 3600L) % 60L) % 60L);
-         wprints (4, 17, YELLOW|_BLACK, Temp);
-      }
-
-      wactiv (wh);
-   }
-}
-
-VOID TModemSystem::Mode (PSZ pszMode)
-{
-   short wh;
-   CHAR Temp[24];
-
-   if (whStatus != 0) {
-      wh = whandle ();
-      wactiv (whStatus);
-
-      sprintf (Temp, "%-16.16s", pszMode);
-      wprints (3, 17, YELLOW|_BLACK, Temp);
-      Change = time (NULL);
-
-      wactiv (wh);
-   }
-}
-
-// ----------------------------------------------------------------------
-
-class TModem : public TBbs
-{
-public:
-   TModem (USHORT usChannel);
-   ~TModem (void);
-
-   LONG   CheckResponse (VOID);
-   VOID   Pause (LONG lHund);
-   VOID   ReleaseTimeSlice (VOID);
-   VOID   Run (VOID);
-   VOID   RunBBS (USHORT isLocal);
-   VOID   SendCommand (PSZ pszCmd);
-
-private:
-   USHORT Channel, Position;
-   CHAR   Response[128];
-   ULONG  Time;
-#if defined(__OS2__)
-   HEV    hEvent;
-#endif
-   struct tm *tp;
-   class  TModemSystem *System;
-   class  TModemStatus *MdmStat;
-   class  TSerial *Serial;
-   class  TScreen *Screen;
-};
-
-#define AT_NO_RESPONSE   0L
-#define AT_BUSY         -1L
-#define AT_ERROR        -2L
-#define AT_NO_ANSWER    -3L
-#define AT_NO_CARRIER   -4L
-#define AT_NO_DIALTONE  -5L
-#define AT_OK           -6L
-#define AT_RING         -7L
-#define AT_RINGING      -8L
-#define AT_VOICE        -9L
-
-#define AT_FHNG         -10
-#define AT_FCON         -11
-#define AT_FPOLL        -12
-#define AT_FVO          -13
-#define AT_FDIS         -14
-#define AT_FNSF         -15
-#define AT_FCSI         -16
-#define AT_FPTS         -17
-#define AT_FDCS         -18
-#define AT_FNSS         -19
-#define AT_FTSI         -20
-#define AT_FET          -21
-
-TModem::TModem (USHORT usChannel) : TBbs ()
-{
-   Log = NULL;
    Serial = NULL;
-   Screen = NULL;
+   Log = NULL;
    Position = 0;
-   Channel = usChannel;
+   strcpy (Ring, "RING");
+
+#if defined(__LINUX__)
+   strcpy (NodelistPath, "./nodes");
+#else
+   strcpy (NodelistPath, ".\\nodes");
+#endif
+   strcpy (DialCmd, "ATDT%s");
+   Terminal = FALSE;
+#if defined(__DOS__) || defined(__LINUX__)
+   if (Daemon == FALSE) {
+      if ((window = wopen (2, 49, 11, 78, 5, CYAN|_BLACK, CYAN|_BLACK)) != 0)
+         wprintf ("\n\n\n\n\n\n\n\n\n\n\n\n");
+      videoupdate ();
+   }
+#endif
 }
 
 TModem::~TModem (void)
 {
-   if (Cfg != NULL)
-      delete Cfg;
+   if (Serial != NULL) {
+      Serial->SetDTR (FALSE);
+      Serial->SetRTS (FALSE);
+      delete Serial;
+   }
+#if defined(__DOS__) || defined(__LINUX__)
+   if (Daemon == FALSE) {
+      if (window != 0) {
+         wactiv (window);
+         wclose ();
+      }
+      videoupdate ();
+   }
+#endif
 }
 
-LONG TModem::CheckResponse (VOID)
+USHORT TModem::GetResponse (VOID)
 {
-   USHORT doCheck = FALSE;
+   USHORT RetVal = NO_RESPONSE, IsUpper;
    CHAR c, *p;
-   LONG RetVal = AT_NO_RESPONSE;
 
-//   if (MdmStat != NULL) {
-//      Com->Carrier ();
-//      MdmStat->Idle ();
-//   }
-//   if (System != NULL)
-//      System->Idle ();
-
-   while (doCheck == FALSE && Com->BytesReady () == TRUE) {
-      c = (CHAR)Com->ReadByte ();
-      if (Snoop != NULL)
-         Snoop->SendByte (c);
-
-      if (c == '\r') {
+   while (Serial->BytesReady () == TRUE && RetVal == NO_RESPONSE) {
+      c = (CHAR)Serial->ReadByte ();
+      if (Terminal == TRUE)
+         Serial->SendByte (c);
+      if (c == '\r' || Position >= sizeof (Response) - 1) {
          Response[Position] = '\0';
-         doCheck = TRUE;
+         if (Position > 0) {
+            if (!stricmp (Response, "OK"))
+               RetVal = OK;
+            else if (!stricmp (Response, "ERROR"))
+               RetVal = ERROR;
+            else if (!stricmp (Response, Ring))
+               RetVal = RING;
+            else if (!stricmp (Response, "FAX") || !stricmp (Response, "+FCON"))
+               RetVal = FAX;
+            else if (!strnicmp (Response, "CONNECT", 7)) {
+               if ((Speed = atol (&Response[7])) == 0L)
+                  Speed = 300L;
+               RetVal = CONNECT;
+            }
+            else if (!stricmp (Response, "NO CARRIER") || !stricmp (Response, "NO ANSWER") || !stricmp (Response, "BUSY"))
+               RetVal = NO_CARRIER;
+
+            if (Terminal == TRUE) {
+               if (!strnicmp (Response, "ATD", 3) || !stricmp (Response, "ATA")) {
+#if defined(__OS2__) || defined(__NT__)
+                  if (hwndWindow != NULL) {
+#elif defined(__DOS__) || defined(__LINUX__)
+                  if (window != 0 && Daemon == FALSE) {
+                     wactiv (window);
+#endif
+#if defined(__OS2__)
+                     WinSendMsg (hwndWindow, WM_USER, MPFROMSHORT (WMU_ADDMODEMITEM), MPFROMP (Response));
+#elif defined(__NT__)
+                     SendMessage (hwndWindow, WM_USER, (WPARAM)WMU_ADDMODEMITEM, (LPARAM)Response);
+#elif defined(__DOS__) || defined(__LINUX__)
+                     wprintf ("\n%.28s", Response);
+                     videoupdate ();
+#endif
+                  }
+
+                  Pause (10);
+                  Serial->SendBytes ((UCHAR *)"\r\n", 2);
+                  sprintf (Response, "CONNECT %lu", Serial->Speed);
+                  Serial->SendBytes ((UCHAR *)Response, (USHORT)strlen (Response));
+                  Serial->SendBytes ((UCHAR *)"\r\n", 2);
+                  Serial->SetDTR (TRUE);
+                  Speed = Serial->Speed;
+                  RetVal = CONNECT;
+               }
+               else if (!strnicmp (Response, "AT", 2)) {
+//                  Serial->SendBytes ((UCHAR *)Response, (USHORT)strlen (Response));
+                  Serial->SendBytes ((UCHAR *)"\r\n", 2);
+                  Serial->SendBytes ((UCHAR *)"OK\r\n", 4);
+               }
+            }
+
+#if defined(__OS2__) || defined(__NT__)
+            if (hwndWindow != NULL) {
+#elif defined(__DOS__) || defined(__LINUX__)
+            if (window != 0 && Daemon == FALSE) {
+               wactiv (window);
+#endif
+#if defined(__OS2__)
+               WinSendMsg (hwndWindow, WM_USER, MPFROMSHORT (WMU_ADDMODEMITEM), MPFROMP (Response));
+#elif defined(__NT__)
+               SendMessage (hwndWindow, WM_USER, (WPARAM)WMU_ADDMODEMITEM, (LPARAM)Response);
+#elif defined(__DOS__) || defined(__LINUX__)
+               wprintf ("\n%.28s", Response);
+               videoupdate ();
+#endif
+            }
+
+            if (Log != NULL && RetVal != NO_RESPONSE && RetVal != OK && RetVal != ERROR) {
+               p = Response;
+               IsUpper = TRUE;
+               while (*p != '\0') {
+                  if (IsUpper == TRUE) {
+                     *p = (CHAR)toupper (*p);
+                     IsUpper = FALSE;
+                  }
+                  else if (*p == ' ' || *p == '/')
+                     IsUpper = TRUE;
+                  else if (IsUpper == FALSE) {
+                     *p = (CHAR)tolower (*p);
+                     IsUpper = FALSE;
+                  }
+                  p++;
+               }
+               Log->Write ("+%s", Response);
+            }
+         }
          Position = 0;
       }
-      else if (c != '\n' && Position < sizeof (Response)) {
+      else if (c >= ' ')
          Response[Position++] = c;
-         if (Position == sizeof (Response))
-            Response[Position - 1] = '\0';
-      }
    }
 
-   if (doCheck == TRUE) {
-      if (Response[0] == '+' && Response[1] == 'F') {
-         if (!strncmp (Response, "+FHS:", 5))
-            RetVal = AT_FHNG;
-         if (!strncmp (Response, "+FCO:", 5))
-            RetVal = AT_FCON;
-         if (!strncmp (Response, "+FPO", 4))
-            RetVal = AT_FPOLL;
-         if (!strncmp (Response, "+FVO", 4))
-            RetVal = AT_FVO;
-         if (!strncmp (Response, "+FIS:", 5))
-            RetVal = AT_FDIS;
-         if (!strncmp (Response, "+FNF:", 5))
-            RetVal = AT_FNSF;
-         if (!strncmp (Response, "+FCI:", 5))
-            RetVal = AT_FCSI;
-         if (!strncmp (Response, "+FPS:", 5))
-            RetVal = AT_FPTS;
-         if (!strncmp (Response, "+FCS:", 5))
-            RetVal = AT_FDCS;
-         if (!strncmp (Response, "+FNS:", 5))
-            RetVal = AT_FNSS;
-         if (!strncmp (Response, "+FTI:", 5))
-            RetVal = AT_FTSI;
-         if (!strncmp (Response, "+FET:", 5))
-            RetVal = AT_FET;
-      }
-      else {
-         if (!stricmp (Response, "OK"))
-            RetVal = AT_OK;
-         if (!stricmp (Response, "BUSY"))
-            RetVal = AT_BUSY;
-         if (!stricmp (Response, "ERROR"))
-            RetVal = AT_ERROR;
-         if (!stricmp (Response, "NO ANSWER"))
-            RetVal = AT_NO_ANSWER;
-         if (!stricmp (Response, "NO CARRIER"))
-            RetVal = AT_NO_CARRIER;
-         if (!stricmp (Response, "NO DIALTONE"))
-            RetVal = AT_NO_DIALTONE;
-         if (!stricmp (Response, "RING"))
-            RetVal = AT_RING;
-         if (!stricmp (Response, "RINGING"))
-            RetVal = AT_RINGING;
-         if (!stricmp (Response, "VOICE"))
-            RetVal = AT_VOICE;
-         if (!stricmp (Response, "CONNECT FAX"))
-            RetVal = AT_FCON;
+   if (RetVal == CONNECT && LockSpeed == FALSE)
+      Serial->SetParameters (Speed, 8, 'N', 1);
 
-         if (!strnicmp (Response, "CONNECT", 7) || !strnicmp (Response, "CARRIER", 7)) {
-            if (Response[7] == ' ')
-               RetVal = atol (&Response[8]);
-            else
-               RetVal = 300L;
-         }
-      }
+   return (RetVal);
+}
+
+USHORT TModem::Initialize (VOID)
+{
+   USHORT RetVal = FALSE;
+
+   if (Serial != NULL) {
+      delete Serial;
+      Serial = NULL;
    }
+   if (Serial == NULL)
+      Serial = new TSerial;
 
-   if (Log != NULL && RetVal != AT_NO_RESPONSE && RetVal != AT_OK) {
-      strlwr (Response);
-      Response[0] = (CHAR)toupper (Response[0]);
-      p = Response;
-      while ((p = strchr (p, '/')) != NULL) {
-         p++;
-         *p = (CHAR)toupper (*p);
+   if (Serial != NULL) {
+#if defined(__OS2__) || defined(__NT__) || defined(__LINUX__)
+      strcpy (Serial->Device, Device);
+#else
+      Serial->Com = (USHORT)atoi (&Device[3]);
+#endif
+      Serial->Speed = Speed;
+      if (Serial->Initialize () == TRUE) {
+         Serial->SetDTR (FALSE);
+         Serial->SetRTS (TRUE);
+         RetVal = TRUE;
       }
-      p = Response;
-      while ((p = strchr (p, ' ')) != NULL) {
-         p++;
-         *p = (CHAR)toupper (*p);
-      }
-      Log->Write (Log->ModemResponse, Response);
    }
 
    return (RetVal);
 }
 
-VOID TModem::RunBBS (USHORT isLocal)
+VOID TModem::Poll (PSZ pszNode)
 {
-   CHAR Temp[64];
-   ULONG CallLen;
+   FILE *fp;
+   CHAR Number[64], Temp[128], Traslated[128], *p;
+   class TAddress Addr;
+   class TNodes *Nodes;
 
-   Hangup = FALSE;
-   Ansi = TRUE;
-   Lang = new TLanguage;
-   User = new TUser (Cfg->UserFile);
-   Limits = new TLimits (Cfg->SystemPath);
+   strcpy (DialCmd, Cfg->Dial);
+   strcpy (Number, pszNode);
 
-   if (System != NULL)
-      System->Mode ("Connected");
-
-   LastActivity = StartCall = time (NULL);
-   if ((Screen = new TScreen) != NULL) {
-      if (Screen->Initialize () == TRUE) {
-         Log->Display = FALSE;
-         if (isLocal == TRUE)
-            Com = Screen;
-         else
-            Snoop = Screen;
-      }
-   }
-
-   DisplayBanner ();
-   ReadFile ((Cfg->Logo[0] == '\0') ? "LOGO" : Cfg->Logo);
-
-   do {
-      Printf (Lang->EnterName);
-      GetString (Temp, 35, INP_FIELD|INP_FANCY);
-   } while (AbortSession () == FALSE && LoginUser (Temp) == FALSE);
-
-   if (AbortSession () == FALSE) {
-      if (VerifyAccount () == TRUE) {
-         class TMenu *Menu = new TMenu (this);
-
-         if (Menu != NULL) {
-            Menu->Run ((Cfg->FirstMenu[0] == '\0') ? "TOP" : Cfg->FirstMenu);
-            delete Menu;
+   if (strchr (pszNode, '/') != NULL || strchr (pszNode, ':') != NULL) {
+      if ((Nodes = new TNodes (NodelistPath)) != NULL) {
+         Addr.Parse (pszNode);
+         if (Nodes->Read (Addr) == TRUE) {
+            if (Log != NULL)
+               Log->Write ("*Processing %s - %s", Nodes->Address, Nodes->SystemName);
+            strcpy (Number, Nodes->Phone);
+            if (Nodes->DialCmd[0] != '\0')
+               strcpy (DialCmd, Nodes->DialCmd);
          }
-      }
-
-      CallLen = (time (NULL) - StartCall) / 60L;
-
-      User->LastCall = time (NULL);
-      User->TodayTime += CallLen;
-      User->WeekTime += CallLen;
-      User->MonthTime += CallLen;
-      User->YearTime += CallLen;
-      if (User->Update () == FALSE && Log != NULL)
-         Log->Write ("!Unable to update user");
-
-      if (Log != NULL)
-         Log->Write (Log->UserOffline, User->Name, User->TotalCalls, CallLen);
-   }
-
-   if (Screen != NULL) {
-      delete Screen;
-      Screen = NULL;
-      Snoop = NULL;
-      Com = Serial;
-      Log->Display = TRUE;
-      Log->Update ();
-   }
-
-   delete Limits;
-   Limits = NULL;
-   delete User;
-   User = NULL;
-   delete Lang;
-   Lang = NULL;
-
-   Pause (200);
-}
-
-VOID TModem::Pause (LONG lHund)
-{
-   LONG Endtime;
-
-   Endtime = TimerSet (lHund);
-   while (!TimeUp (Endtime))
-      ReleaseTimeSlice ();
-}
-
-#define STAT_INITIALIZE    1
-#define STAT_INITWAITOK    2
-#define STAT_WAITFORCALL   3
-#define STAT_ANSWERING     4
-
-VOID TModem::Run (VOID)
-{
-#if defined(__DOS__)
-   USHORT Port;
-#endif
-   USHORT InitStr, State;
-   CHAR Temp[64];
-   LONG Response, TimeOut;
-
-   Time = 0L;
-   hidecur ();
-   clrscrn ();
-
-   if (Cfg == NULL) {
-      if ((Cfg = new TConfig (".\\")) != NULL)
-         Cfg->Read (Channel);
-   }
-
-   if ((System = new TModemSystem) != NULL)
-      System->Idle ();
-
-   if (wopen (13, 0, 23, 79, 1, LCYAN|_BLACK, LGREY|_BLACK) != 0) {
-      prints (13, 2, LCYAN|_BLACK, "OUTBOUND");
-      wprints (0, 1, YELLOW|_BLACK, "Destination        Try/Con/Bad/Online  Priorities/Pkt types  Status");
-   }
-
-   if ((Log = new TLog) != NULL) {
-      sprintf (Temp, "%sCH%d.LOG", Cfg->LogPath, Cfg->Channel);
-      if (Log->Open (Temp) == TRUE) {
-//         Log->Display = FALSE;
-      	Log->Level = Cfg->LogLevel;
-      	Log->Write (Log->Begin, VERSION, Cfg->Channel);
+         delete Nodes;
       }
    }
 
-#if defined(__DOS__)
-   sprintf (Temp, "%s/No key", STD_COMPLETE);
-#else
-   sprintf (Temp, "%s/No key", PRO_COMPLETE);
-#endif
-   prints (0, (short)(79 - strlen (Temp)), WHITE|_BLACK, Temp);
+   if (Number[0] == '+')
+      strcpy (Number, &Number[1]);
 
-   Log->Write ("+Message-base sharing is enabled");
-
-   Log->Write ("!WARNING: No license key found");
-   Log->Write ("!The software WILL NOT function");
-   Log->Write ("!completely without a license key!");
-
-   if ((Serial = new TSerial) != NULL) {
-#if defined(__OS2__) || defined(__NT__)
-      if (Serial->Initialize (Cfg->Device, Cfg->Speed, 8, 0, 0) == TRUE) {
-#else
-      if (!strnicmp (Cfg->Device, "COM", 3))
-         Port = (USHORT)atoi (&Cfg->Device[3]);
-      else
-         Port = (USHORT)atoi (Cfg->Device);
-
-      if (Serial->Initialize (Port, Cfg->Speed, 8, 'N', 1) == TRUE) {
-#endif
-         Serial->SetDTR (TRUE);
-         Serial->SetRTS (TRUE);
-
-         Com = Serial;
-         strcpy (Com->Device, Cfg->Device);
-         sprintf (Com->Speed, "%lu", Cfg->Speed);
-
-         if ((MdmStat = new TModemStatus) != NULL) {
-            MdmStat->Com = Com;
-            Com->Carrier ();
-            MdmStat->Idle ();
-         }
-
-#if defined(__OS2__)
-         DosCreateEventSem (NULL, &hEvent, 0L, FALSE);
-#endif
-
-         EndRun = FALSE;
-         State = STAT_INITIALIZE;
-
-         while (EndRun == FALSE) {
-            if (_bios_keybrd (_KEYBRD_READY)) {
-               switch (_bios_keybrd (_KEYBRD_READ)) {
-                  case 0x2500:      // Alt-K = Local connection
-                     CarrierSpeed = Cfg->Speed;
-                     Log->Write (Log->ModemResponse, "Connect Local");
-                     RunBBS (TRUE);
-                     State = STAT_INITIALIZE;
-                     if (System != NULL)
-                        System->Mode ("Initializing");
+   sprintf (Temp, "%scost.cfg", NodelistPath);
+   if ((fp = _fsopen (Temp, "rt", SH_DENYNO)) != NULL) {
+      while (fgets (Temp, sizeof (Temp) - 1, fp) != NULL) {
+         if ((p = strchr (Temp, '\n')) != NULL)
+            *p = '\0';
+         if ((p = strchr (Temp, '\r')) != NULL)
+            *p = '\0';
+         if ((p = strtok (Temp, " ")) != NULL) {
+            if (!strcmp (p, "Prefix")) {
+               if ((p = strtok (NULL, " ")) != NULL) {
+                  if (!strncmp (Number, p, strlen (p)) || !strcmp (p, "-")) {
+                     if (!strcmp (p, "-"))
+                        p = "";
+                     strcpy (Traslated, &Number[strlen (p)]);
+                     if ((p = strtok (NULL, " ")) != NULL) {
+                        if (!strcmp (p, "/"))
+                           p = "";
+                        strcpy (Number, p);
+                        strcat (Number, Traslated);
+                     }
                      break;
-
-                  case 0x2D00:      // Alt-X = Exit
-                     EndRun = TRUE;
-                     if (System != NULL)
-                        System->Mode ("Shutdown");
-                     break;
+                  }
                }
             }
-
-            switch (State) {
-               case STAT_INITIALIZE:
-                  InitStr = 0;
-                  while (InitStr < 3 && Cfg->Initialize[InitStr][0] == '\0')
-                     InitStr++;
-
-                  if (InitStr < 3) {
-                     SendCommand (Cfg->Initialize[InitStr]);
-                     TimeOut = TimerSet (1500);
-                     State = STAT_INITWAITOK;
-                  }
-                  else {
-                     State = STAT_WAITFORCALL;
-                     if (System != NULL)
-                        System->Mode ("Idle");
-                  }
-                  break;
-
-               case STAT_INITWAITOK:
-                  if ((Response = CheckResponse ()) == AT_OK) {
-                     InitStr++;
-                     while (InitStr < 3 && Cfg->Initialize[InitStr][0] == '\0')
-                        InitStr++;
-                     if (InitStr < 3)
-                        SendCommand (Cfg->Initialize[InitStr]);
-                     else {
-                        State = STAT_WAITFORCALL;
-                        if (System != NULL)
-                           System->Mode ("Idle");
-                     }
-                  }
-                  else if (TimeUp (TimeOut)) {
-                     if (Log != NULL)
-                        Log->Write ("!ERROR: Unable to inizialize modem");
-                     SendCommand (Cfg->Initialize[InitStr]);
-                  }
-                  break;
-
-               case STAT_WAITFORCALL:
-                  if ((Response = CheckResponse ()) == AT_RING) {
-                     SendCommand (Cfg->Answer);
-                     Com->ClearInbound ();
-                     TimeOut = TimerSet (4500);
-                     State = STAT_ANSWERING;
-                     if (System != NULL)
-                        System->Mode ("Answering");
-                  }
-                  break;
-
-               case STAT_ANSWERING:
-                  if (TimeUp (TimeOut))
-                     State = STAT_INITIALIZE;
-
-                  if ((Response = CheckResponse ()) > 0L) {
-                     CarrierSpeed = Response;
-                     RunBBS (FALSE);
-                     State = STAT_INITIALIZE;
-                     if (System != NULL)
-                        System->Mode ("Initializing");
-                  }
-                  break;
-            }
-
-            ReleaseTimeSlice ();
          }
-
-         if (Log != NULL)
-            Log->Write (Log->End);
-
-         Pause (200);
-#if defined(__OS2__)
-         DosCloseEventSem (hEvent);
-#endif
       }
-
-      delete Serial;
+      fclose (fp);
    }
 
-   if (System != NULL)
-      delete System;
+   if (Log != NULL)
+      Log->Write (":Dialing %s", Number);
 
-   if (MdmStat != NULL)
-      delete MdmStat;
-
-   if (Log != NULL) {
-      Log->Write (Log->End);
-      delete Log;
+   if (Terminal == TRUE)
+      SendCommand ("RING");
+   else {
+      sprintf (Temp, DialCmd, Number);
+      SendCommand (Temp);
    }
-
-   showcur ();
-}
-
-VOID TModem::ReleaseTimeSlice (VOID)
-{
-#if defined(__OS2__)
-   DosWaitEventSem (hEvent, 10L);
-#endif
-   if (MdmStat != NULL) {
-      Com->Carrier ();
-      MdmStat->Idle ();
-   }
-   if (System != NULL && Screen == NULL)
-      System->Idle ();
 }
 
 VOID TModem::SendCommand (PSZ pszCmd)
 {
+   if (Terminal == FALSE) {
+      Serial->SetDTR (TRUE);
+      Pause (10);
+   }
+
    while (*pszCmd) {
       switch (*pszCmd) {
          case '|':
             Serial->SendByte ((char)13);
-            if (Snoop != NULL)
-               Snoop->SendByte ((char)13);
-//            if (MdmStat != NULL) {
-//               Com->Carrier ();
-//               MdmStat->Idle ();
-//            }
-//            if (System != NULL)
-//               System->Idle ();
             Pause (10);
             break;
 
@@ -692,96 +290,98 @@ VOID TModem::SendCommand (PSZ pszCmd)
 
          default:
             Serial->SendByte (*pszCmd);
-            if (Snoop != NULL)
-               Snoop->SendByte (*pszCmd);
             break;
       }
       pszCmd++;
    }
 
    Serial->SendByte ((char)13);
-   if (Snoop != NULL)
-      Snoop->SendByte ((char)13);
-
    Pause (10);
 }
 
-// ----------------------------------------------------------------------
-
-void main (int argc, char *argv[])
+/*
+USHORT TModem::ReceiveFax (PSZ path)
 {
-   USHORT i, Quit, DoLocal, Port, Task;
-   PSZ LogFile, CfgPath;
-   ULONG Speed;
-   class TConfig *Cfg;
-   class TModem *Modem;
+   int i, j;
 
-   Quit = DoLocal = FALSE;
-   LogFile = NULL;
-   CfgPath = "";
-   Port = 0;
-   Speed = 0L;
-   Task = 0xFFFFU;
-
-   for (i = 1; i < argc; i++) {
-      if (!stricmp (argv[i], "?") || !stricmp (argv[i], "-?") || !strnicmp (argv[i], "-h", 2)) {
-#if defined(__OS2__)
-         cprintf ("\r\nLoraBBS Standard Edition for OS/2 - Version %s\r\n", VERSION);
-#elif defined(__NT__)
-         cprintf ("\r\nLoraBBS Standard Edition for Windows/NT - Version %s\r\n", VERSION);
-#else
-         cprintf ("\r\nLoraBBS Standard Edition for DOS - Version %s\r\n", VERSION);
-#endif
-         cprintf ("Copyright (c) 1995 by Marco Maccaferri. All rights reserved.\r\n\r\n");
-         cprintf ("Usage:\r\n        BBS [switches] [TERM|IMPORT|EXPORT|PACK]\r\n\r\n");
-         cprintf ("Where [switches] are:\r\n\r\n");
-         cprintf ("   -c<path>  = Sets the path where to find the configuration files\r\n");
-         cprintf ("   -l        = Run in local connection mode\r\n");
-         cprintf ("   -n<num>   = Sets the task number\r\n");
-         cprintf ("   -p<port>  = Overrides the COM port number\r\n");
-         cprintf ("   -r<file>  = Sets the name of the log file\r\n");
-         cprintf ("   -s<speed> = Overrides the DTE<>DCE speed\r\n");
-         Quit = TRUE;
-      }
-      else if (!strnicmp (argv[i], "-c", 2))
-         CfgPath = &argv[i][2];
-      else if (!stricmp (argv[i], "-l")) {
-         DoLocal = TRUE;
-         if (Task == 0xFFFFU)
-            Task = 0;
-      }
-      else if (!strnicmp (argv[i], "-n", 2))
-         Task = (USHORT)atoi (&argv[i][2]);
-      else if (!strnicmp (argv[i], "-p", 2))
-         Port = (USHORT)atoi (&argv[i][2]);
-      else if (!strnicmp (argv[i], "-r", 2))
-         LogFile = &argv[i][2];
-      else if (!strnicmp (argv[i], "-s", 2))
-         Speed = atol (&argv[i][2]);
-   }
-
-   if (Task == 0xFFFFU)
-      Task = 1;
-
-   if (Quit == FALSE) {
-      if ((Cfg = new TConfig (CfgPath)) != NULL) {
-         if (Cfg->Read (Task) == TRUE) {
-            if (Port != 0)
-               sprintf (Cfg->Device, "COM%d", Port);
-            if (Speed != 0L)
-               Cfg->Speed = Speed;
-
-           if ((Modem = new TModem (Task)) != NULL) {
-               Modem->Cfg = Cfg;
-               Modem->Run ();
-               delete Modem;
-            }
-
-            wcloseall ();
-            cclrscrn (LGREY|_BLACK);
-         }
-      }
+   for (i = 0; i < 256; i++)
+      j = (((i & 0x01) << 7) |
+           ((i & 0x02) << 5) |
+           ((i & 0x04) << 3) |
+           ((i & 0x08) << 1) |
+           ((i & 0x10) >> 1) |
+           ((i & 0x20) >> 3) |
+           ((i & 0x40) >> 5) |
+           ((i & 0x80) >> 7));
+      swaptable[i] = (unsigned char)j;
    }
 }
 
+#define ETX    0x03
+#define DLE    0x10
+#define DC2    0x12
 
+USHORT TModem::ReadG3Stream (VOID)
+{
+   USHORT RetVal = FALSE, c, faxsize = 0;
+   CHAR e_input_buf[11];
+   UCHAR *secbuf, *p;
+   ULONG ltimer = 0L;
+
+   Serial->ClearInbound ();
+
+   if ((secbuf = (UCHAR *)malloc (1024)) != NULL) {
+      p = secbuf;
+      Serial->SendByte (DC2);
+
+      while (Serial->Carrier () == TRUE) {
+         if (Serial->BytesReady () == TRUE) {
+            c = Serial->ReadByte ();
+            if (c == DLE) {
+               while (Serial->BytesReady () == FALSE)
+                  ;
+               if ((c = Serial->ReadByte ()) == ETX)
+                  break;
+            }
+
+            *p++ = swaptable[(unsigned char)c];
+            faxsize++;
+
+            if ((faxsize % 1024) == 0) {
+               if (fax_fp != NULL)
+                  fwrite (secbuf, 1, 1024, fax_fp);
+               p = secbuf;
+            }
+         }
+#if defined(__OS2__)
+         DosSleep (1L);
+#elif defined(__NT__)
+         Sleep (1L);
+#endif
+      }
+
+      if ((faxsize % 1024) != 0)
+         fwrite (secbuf, 1, faxsize % 1024, fp);
+
+      free (secbuf);
+
+      c = 0;
+      post_page_code = -1;
+      RetVal = TRUE;
+
+      do {
+         switch (GetResponse ()) {
+            case NO_CARRIER:
+            case ERROR:
+            case FHNG:
+            case FHS:
+               RetVal = FALSE;
+               break;
+            case
+         }
+      } while (post_page_code == -1);
+   }
+
+   return (RetVal);
+}
+*/
