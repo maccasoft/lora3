@@ -1,0 +1,102 @@
+
+IDW_MAIN MENU
+BEGIN
+    POPUP "#"
+	BEGIN
+        MENUITEM "Add &Modem...", 101
+        MENUITEM "Add &Null-Modem...", 102
+        MENUITEM "Add &Telnet...", 103
+		MENUITEM SEPARATOR
+        MENUITEM "&Delete selected", 104
+	END
+
+    POPUP "&Edit"
+	BEGIN
+        MENUITEM "&File areas", 105
+        MENUITEM "M&essage areas", 106
+        MENUITEM "F&orums", 107
+        MENUITEM "&Users", 108
+        MENUITEM "&Limit classes", 1001
+	END
+
+    POPUP "&Mailer"
+	BEGIN
+        MENUITEM "&Rescan Outbound", 109
+		MENUITEM SEPARATOR
+        MENUITEM "&Initialize Modem", 110
+        MENUITEM "&Answer Call", 111
+        MENUITEM "Toggle &DTR", 112
+		MENUITEM SEPARATOR
+        MENUITEM "&Clear Calls", 113
+		MENUITEM SEPARATOR
+        MENUITEM "Inactive &No-Answer", 114
+        MENUITEM "Inactive &Busy", 115
+		MENUITEM SEPARATOR
+        POPUP "&Controls"
+		BEGIN
+            MENUITEM "&No BBS", 116
+            MENUITEM "No I&ncoming", 117
+            MENUITEM "No &Outgoing", 118
+			MENUITEM SEPARATOR
+            MENUITEM "&Send Freqs.", 119
+            MENUITEM "R&eceive Freqs.", 120
+			MENUITEM SEPARATOR
+            MENUITEM "FTS-000&1 only", 121
+            MENUITEM "No E&MSI", 122
+            MENUITEM "No &Janus", 123
+		END
+
+	END
+
+    POPUP "&Windows"
+	BEGIN
+        MENUITEM "Recent &Events", 124
+        MENUITEM "&Outbound", 125
+        MENUITEM "&Transfer", 126
+        MENUITEM "&User's Output", 127
+        MENUITEM "Toggle &Display", 128
+		MENUITEM SEPARATOR
+        MENUITEM "&Save status", 129
+	END
+
+    POPUP "&Log"
+	BEGIN
+        MENUITEM "&View log", 130
+		MENUITEM SEPARATOR
+        MENUITEM "&Kill log", 131
+	END
+
+    POPUP "&Config"
+	BEGIN
+        MENUITEM "General &Settings", 132
+        MENUITEM "&Mailer Settings", 133
+        MENUITEM "E&vents", 134
+        MENUITEM "Mailer &Addresses", 135
+        MENUITEM "&Logon Strings", 136
+        MENUITEM "&Dial Strings", 137
+        POPUP "&BBS"
+		BEGIN
+            MENUITEM "&General Settings", 138
+            MENUITEM "&Misc. Paths / Files", 139
+            MENUITEM "&Languages", 140
+            MENUITEM "BBS &Action Flags", 141
+            MENUITEM "&New User Defaults", 142
+            MENUITEM "&Internet Options", 143
+		END
+
+		MENUITEM SEPARATOR
+		MENUITEM "Register LoraBBS", 999
+	END
+
+    POPUP "&Help"
+	BEGIN
+        MENUITEM "Help &index...", 144
+        MENUITEM "&General help...", 145
+        MENUITEM "&Using help...", 146
+        MENUITEM "&Keys help...", 147
+		MENUITEM SEPARATOR
+        MENUITEM "&Product information...", 148
+	END
+
+END
+
